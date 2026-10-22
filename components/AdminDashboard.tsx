@@ -7,7 +7,8 @@ import {
   UserPlus, Check, Eye, ChevronRight, X, AlertCircle, Clock, Send, FileSpreadsheet,
   Settings, HelpCircle, Bell, LogOut, LayoutGrid, Mic, Play, Copy, ExternalLink,
   ChevronDown, Sun, Moon, Database, Laptop, Layers,
-  CheckCircle2, Info, BellRing, Receipt, Printer, Radio, MessageSquare
+  CheckCircle2, Info, BellRing, Receipt, Printer, Radio, MessageSquare,
+  Minimize2, Maximize2
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -204,8 +205,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
   // Dashboard Overview Transaction Ledger state
   const [dashboardTxFilter, setDashboardTxFilter] = useState<'all' | 'completed' | 'refunded' | 'trial'>('all');
   const [dashboardTxSearch, setDashboardTxSearch] = useState('');
-  const [dashboardTxLimit, setDashboardTxLimit] = useState<number>(10);
+  const [dashboardTxLimit, setDashboardTxLimit] = useState<number>(5);
   const [copiedTxId, setCopiedTxId] = useState<string | null>(null);
+  const [isCompact, setIsCompact] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('connectup_admin_compact') !== 'false';
+    } catch {
+      return true;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('connectup_admin_compact', isCompact.toString());
+    } catch {}
+  }, [isCompact]);
 
   // Admin profile state
   const [adminProfileState, setAdminProfileState] = useState({
@@ -1410,32 +1424,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
       <div className="flex-1 flex overflow-hidden">
         
         {/* EXECUTIVE ENTERPRISE SIDEBAR */}
-        <aside className="w-64 bg-white border-r border-zinc-200 hidden md:flex flex-col justify-between shrink-0 select-none">
+        <aside className={`${isCompact ? 'w-56' : 'w-64'} bg-white dark:bg-[#0B0B0E] border-r border-zinc-200 dark:border-zinc-800 hidden md:flex flex-col justify-between shrink-0 select-none transition-all duration-200`}>
           
           <div className="flex flex-col">
             {/* Workspace Header */}
-            <div className="p-5 border-b border-zinc-200 dark:border-zinc-800">
+            <div className="px-4 py-3.5 border-b border-zinc-200 dark:border-zinc-800">
               <div className="flex flex-col">
-                <div className="flex items-center gap-2 select-none blur-[3px]">
-                  <ConnectUpIcon className="w-6 h-6" />
-                  <span className="font-display font-black text-xl tracking-tight text-zinc-900 dark:text-white">
+                <div className="flex items-center gap-2 select-none">
+                  <ConnectUpIcon className="w-5 h-5" />
+                  <span className="font-display font-black text-lg tracking-tight text-zinc-900 dark:text-white">
                     Connect<span className="text-amber-400">Up</span>
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5 text-[10px] text-zinc-500 font-mono mt-1.5">
+                <div className="flex items-center gap-1.5 text-[9px] text-zinc-500 font-mono mt-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>ADMIN</span>
+                  <span>ADMIN WORKSPACE</span>
                 </div>
               </div>
             </div>
 
             {/* Navigation Groups */}
-            <div className="p-3 space-y-6">
+            <div className="p-2.5 space-y-4">
               <div>
-                <div className="px-3 pb-2 text-[10px] font-mono uppercase tracking-wider text-zinc-400">
+                <div className="px-2.5 pb-1 text-[9px] font-mono uppercase tracking-wider text-zinc-400">
                   Management
                 </div>
-                <nav className="space-y-1">
+                <nav className="space-y-0.5">
                   {[
                     { id: 'dashboards', label: 'Overview', icon: LayoutGrid, count: null },
                     { id: 'users', label: 'Users', icon: Users, count: users.length },
@@ -1450,21 +1464,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                       <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id as any)}
-                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                           isActive 
                             ? 'bg-[#FACC15] text-zinc-950 font-bold shadow-xs' 
-                            : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100'
+                            : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/60'
                         }`}
                       >
-                        <div className="flex items-center gap-2.5">
-                          <Icon size={16} className={isActive ? 'text-zinc-950' : 'text-zinc-400'} />
-                          <span>{tab.label}</span>
+                        <div className="flex items-center gap-2">
+                          <Icon size={15} className={isActive ? 'text-zinc-950' : 'text-zinc-400'} />
+                          <span className="truncate">{tab.label}</span>
                         </div>
                         {tab.count !== null && tab.count > 0 && (
-                          <span className={`text-[10px] font-mono tabular-nums px-1.5 py-0.5 rounded ${
+                          <span className={`text-[9px] font-mono tabular-nums px-1.5 py-0.2 rounded ${
                             isActive
                               ? 'bg-zinc-950 text-white font-bold'
-                              : 'text-zinc-500 bg-zinc-100'
+                              : 'text-zinc-500 bg-zinc-100 dark:bg-zinc-800'
                           }`}>
                             {tab.count}
                           </span>
@@ -1476,10 +1490,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
               </div>
 
               <div>
-                <div className="px-3 pb-2 text-[10px] font-mono uppercase tracking-wider text-zinc-400">
+                <div className="px-2.5 pb-1 text-[9px] font-mono uppercase tracking-wider text-zinc-400">
                   System
                 </div>
-                <nav className="space-y-1">
+                <nav className="space-y-0.5">
                   {[
                     { id: 'logs', label: 'Audit Logs', icon: Clock },
                     { id: 'settings', label: 'Settings', icon: Settings }
@@ -1490,14 +1504,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                       <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id as any)}
-                        className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                        className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                           isActive 
                             ? 'bg-[#FACC15] text-zinc-950 font-bold shadow-xs' 
-                            : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100'
+                            : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/60'
                         }`}
                       >
-                        <Icon size={16} className={isActive ? 'text-zinc-950' : 'text-zinc-400'} />
-                        <span>{tab.label}</span>
+                        <Icon size={15} className={isActive ? 'text-zinc-950' : 'text-zinc-400'} />
+                        <span className="truncate">{tab.label}</span>
                       </button>
                     );
                   })}
@@ -1507,19 +1521,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
           </div>
 
           {/* Sidebar Footer with Admin Profile & Return to App */}
-          <div className="p-3 border-t border-zinc-150 dark:border-zinc-800/60 space-y-2">
-            <div className="flex items-center justify-between p-2 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/60 dark:border-zinc-800/50">
-              <div className="flex items-center gap-2.5 min-w-0">
+          <div className="p-2.5 border-t border-zinc-150 dark:border-zinc-800/60 space-y-1.5">
+            <div className="flex items-center justify-between p-1.5 rounded-lg bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/60 dark:border-zinc-800/50">
+              <div className="flex items-center gap-2 min-w-0">
                 <img 
                   src={adminProfileState.avatarUrl || userProfile?.avatarUrl || "https://api.dicebear.com/7.x/initials/svg?seed=Admin"} 
                   alt="Admin" 
-                  className="w-8 h-8 rounded-lg object-cover bg-zinc-200 dark:bg-zinc-800"
+                  className="w-7 h-7 rounded-md object-cover bg-zinc-200 dark:bg-zinc-800"
                 />
                 <div className="min-w-0">
-                  <div className="text-xs font-bold text-zinc-950 dark:text-white truncate">
+                  <div className="text-[11px] font-bold text-zinc-950 dark:text-white truncate leading-tight">
                     {adminProfileState.fullName || userProfile?.name || 'Admin'}
                   </div>
-                  <div className="text-[10px] text-zinc-400 truncate font-mono">
+                  <div className="text-[9px] text-zinc-400 truncate font-mono leading-tight">
                     {adminProfileState.email || userProfile?.email || 'admin@connectup.com'}
                   </div>
                 </div>
@@ -1528,9 +1542,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
 
             <button
               onClick={() => onNavigateHome && onNavigateHome()}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-lg transition-colors cursor-pointer"
+              className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-lg transition-colors cursor-pointer"
             >
-              <LogOut size={14} />
+              <LogOut size={13} />
               <span>Back to App</span>
             </button>
           </div>
@@ -1540,10 +1554,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
         <div className="flex-1 flex flex-col min-w-0 overflow-y-auto custom-scrollbar scroll-smooth overscroll-contain">
           
           {/* SAAS TOP BAR CONTRACT */}
-          <header className="sticky top-0 z-30 bg-white/80 dark:bg-[#09090B]/80 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-800/80 w-full max-w-[1600px] mx-auto px-6 py-3 flex items-center justify-between gap-4">
+          <header className="sticky top-0 z-30 bg-white/95 dark:bg-[#09090B]/95 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-800/80 w-full shrink-0">
+            <div className={`w-full ${isCompact ? 'max-w-[1140px]' : 'max-w-[1240px]'} mx-auto px-3.5 sm:px-4 py-1.5 flex items-center justify-between gap-3 transition-all duration-200`}>
             
             {/* Zone 1: Contextual Breadcrumb */}
-            <div className="flex items-center gap-2 text-xs">
+            <div className="flex items-center gap-1.5 text-xs">
               <span className="text-zinc-400 font-medium">Admin</span>
               <span className="text-zinc-300 dark:text-zinc-700">/</span>
               <span className="text-zinc-950 dark:text-zinc-100 font-semibold capitalize">
@@ -1552,9 +1567,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
             </div>
 
             {/* Zone 2: Search with hotkey decoration */}
-            <div className="flex-1 max-w-md hidden sm:block">
+            <div className="flex-1 max-w-sm hidden sm:block">
               <div className="relative flex items-center">
-                <Search size={14} className="absolute left-3 text-zinc-400" />
+                <Search size={13} className="absolute left-2.5 text-zinc-400" />
                 <input
                   type="text"
                   placeholder="Search users by name or email..."
@@ -1563,23 +1578,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                     setUserSearch(e.target.value);
                     if (activeTab !== 'users' && e.target.value) setActiveTab('users');
                   }}
-                  className="w-full h-8 pl-8 pr-12 text-xs bg-zinc-100 dark:bg-zinc-900 border border-transparent focus:border-zinc-300 dark:focus:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none transition-all"
+                  className="w-full h-7.5 pl-7.5 pr-10 text-xs bg-zinc-100 dark:bg-zinc-900 border border-transparent focus:border-zinc-300 dark:focus:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none transition-all"
                 />
-                <span className="absolute right-2 px-1.5 py-0.5 text-[9px] font-mono text-zinc-400 bg-zinc-200/60 dark:bg-zinc-800 rounded pointer-events-none">
+                <span className="absolute right-2 px-1 py-0.2 text-[9px] font-mono text-zinc-400 bg-zinc-200/60 dark:bg-zinc-800 rounded pointer-events-none">
                   ⌘K
                 </span>
               </div>
             </div>
 
             {/* Zone 3: Primary Actions & Notification Center */}
-            <div className="flex items-center gap-2.5 relative">
+            <div className="flex items-center gap-2 relative">
+              {/* Density Toggle */}
+              <button
+                onClick={() => setIsCompact(prev => !prev)}
+                title={isCompact ? "Current: Compact view. Click for normal view" : "Current: Normal view. Click for compact view"}
+                className={`h-7.5 px-2 rounded-lg border text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
+                  isCompact 
+                    ? 'border-amber-400/80 bg-amber-400/10 text-amber-700 dark:text-amber-400 shadow-xs' 
+                    : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50'
+                }`}
+              >
+                {isCompact ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
+                <span className="hidden sm:inline font-mono text-[10px]">{isCompact ? 'Compact' : 'Normal'}</span>
+              </button>
+
               <button
                 onClick={refreshAllData}
                 disabled={isRefreshing}
                 title="Refresh data"
-                className="w-8 h-8 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
+                className="w-7.5 h-7.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
               >
-                <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+                <RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''} />
               </button>
 
               {/* SaaS Notification Center Bell */}
@@ -1587,7 +1616,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                 <button
                   onClick={() => setIsNotificationsOpen(prev => !prev)}
                   title="Notifications"
-                  className={`relative w-8 h-8 rounded-lg border transition-all flex items-center justify-center cursor-pointer ${
+                  className={`relative w-7.5 h-7.5 rounded-lg border transition-all flex items-center justify-center cursor-pointer ${
                     isNotificationsOpen 
                       ? 'border-amber-400 bg-amber-400/15 text-amber-500 shadow-xs' 
                       : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300'
@@ -1753,6 +1782,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                 <span className="hidden sm:inline">Add User</span>
               </button>
             </div>
+            </div>
           </header>
 
           {/* MOBILE TABS NAVIGATION BAR (md:hidden) */}
@@ -1804,40 +1834,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
           </div>
 
           {/* TAB CONTENT VIEWPORT */}
-          <main className="flex-1 p-6 md:p-8 pb-24 space-y-8 max-w-[1600px] w-full mx-auto">
+          <main className="flex-1 p-3.5 sm:p-5 pb-16 space-y-4 max-w-[1240px] w-full mx-auto">
             
             {/* TAB 1: OVERVIEW & BENTO METRICS */}
             {activeTab === 'dashboards' && (
-              <div className="space-y-6">
+              <div className="space-y-4">
                 
                 {/* Executive KPI Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   
                   {/* Metric 1: Total Users */}
-                  <div className="p-5 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
+                  <div className="p-3.5 sm:p-4 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
                     <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 mb-1">
                       <span>Total Users</span>
-                      <Users size={15} className="text-zinc-400" />
+                      <Users size={14} className="text-zinc-400" />
                     </div>
-                    <div className="text-2xl font-bold font-mono tabular-nums text-zinc-950 dark:text-white">
+                    <div className="text-lg sm:text-xl font-bold font-mono tabular-nums text-zinc-950 dark:text-white">
                       {users.length}
                     </div>
-                    <div className="mt-2 text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
+                    <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
                       <span className="text-emerald-600 dark:text-emerald-400 font-semibold font-mono tabular-nums">+14%</span>
                       <span>vs last month</span>
                     </div>
                   </div>
 
                   {/* Metric 2: MRR */}
-                  <div className="p-5 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
+                  <div className="p-3.5 sm:p-4 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
                     <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 mb-1">
                       <span>Monthly Revenue (MRR)</span>
-                      <CreditCard size={15} className="text-zinc-400" />
+                      <CreditCard size={14} className="text-zinc-400" />
                     </div>
-                    <div className="text-2xl font-bold font-mono tabular-nums text-zinc-950 dark:text-white">
+                    <div className="text-lg sm:text-xl font-bold font-mono tabular-nums text-zinc-950 dark:text-white">
                       ${subMetrics.mrr.toLocaleString()}
                     </div>
-                    <div className="mt-2 text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
+                    <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
                       <span className="font-mono tabular-nums text-zinc-700 dark:text-zinc-300 font-medium">ARR ~${subMetrics.arr.toLocaleString()}</span>
                       <span>·</span>
                       <span className="font-mono tabular-nums text-amber-600 dark:text-amber-400 font-semibold">{proSubscribersCount} Pro</span>
@@ -1845,15 +1875,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                   </div>
 
                   {/* Metric 3: Deal Engine Velocity */}
-                  <div className="p-5 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
+                  <div className="p-3.5 sm:p-4 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
                     <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 mb-1">
                       <span>Total Swipes</span>
-                      <TrendingUp size={15} className="text-zinc-400" />
+                      <TrendingUp size={14} className="text-zinc-400" />
                     </div>
-                    <div className="text-2xl font-bold font-mono tabular-nums text-zinc-950 dark:text-white">
+                    <div className="text-lg sm:text-xl font-bold font-mono tabular-nums text-zinc-950 dark:text-white">
                       {swipesCount}
                     </div>
-                    <div className="mt-2 text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
+                    <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
                       <span className="font-mono tabular-nums text-zinc-700 dark:text-zinc-300 font-medium">{startupsCount} Startups</span>
                       <span>·</span>
                       <span className="font-mono tabular-nums">{pitchesCount} Pitches</span>
@@ -1861,15 +1891,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                   </div>
 
                   {/* Metric 4: Moderation Health */}
-                  <div className="p-5 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
+                  <div className="p-3.5 sm:p-4 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
                     <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 mb-1">
                       <span>Pending Reports</span>
-                      <ShieldCheck size={15} className="text-zinc-400" />
+                      <ShieldCheck size={14} className="text-zinc-400" />
                     </div>
-                    <div className="text-2xl font-bold font-mono tabular-nums text-zinc-950 dark:text-white">
+                    <div className="text-lg sm:text-xl font-bold font-mono tabular-nums text-zinc-950 dark:text-white">
                       {reports.filter(r => r.status === 'pending').length === 0 ? 'All clear' : `${reports.filter(r => r.status === 'pending').length} Pending`}
                     </div>
-                    <div className="mt-2 text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
+                    <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                       <span>{reports.length} total reports</span>
                     </div>
@@ -1878,19 +1908,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                 </div>
 
                 {/* Primary Activity Chart & Location Breakdown */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
                   
                   {/* Chart View (2 cols) */}
-                  <div className="p-6 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs lg:col-span-2 flex flex-col justify-between">
-                    <div className="flex items-center justify-between mb-4">
+                  <div className="p-3.5 sm:p-4 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs lg:col-span-2 flex flex-col justify-between">
+                    <div className="flex items-center justify-between mb-2">
                       <div>
-                        <h2 className="text-sm font-bold text-zinc-950 dark:text-white">Platform Activity</h2>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400">New users and actions over time</p>
+                        <h2 className="text-xs sm:text-sm font-bold text-zinc-950 dark:text-white">Platform Activity</h2>
+                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">New users and actions over time</p>
                       </div>
                       <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg">
                         <button
                           onClick={() => setChartType('area')}
-                          className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                          className={`px-2 py-0.5 text-xs font-medium rounded-md transition-colors ${
                             chartType === 'area'
                               ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-xs'
                               : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
@@ -1900,7 +1930,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                         </button>
                         <button
                           onClick={() => setChartType('bar')}
-                          className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                          className={`px-2 py-0.5 text-xs font-medium rounded-md transition-colors ${
                             chartType === 'bar'
                               ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-xs'
                               : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
@@ -1911,7 +1941,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                       </div>
                     </div>
 
-                    <div className="h-64 w-full min-w-0 mt-4">
+                    <div className="h-44 w-full min-w-0 mt-1">
                       <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                         {chartType === 'area' ? (
                           <AreaChart data={activityStats} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -1957,7 +1987,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                       </ResponsiveContainer>
                     </div>
 
-                    <div className="flex items-center gap-6 mt-4 pt-4 border-t border-zinc-150 dark:border-zinc-800/60 text-xs text-zinc-500 dark:text-zinc-400">
+                    <div className="flex items-center gap-6 mt-3 pt-3 border-t border-zinc-150 dark:border-zinc-800/60 text-xs text-zinc-500 dark:text-zinc-400">
                       <div className="flex items-center gap-2">
                         <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
                         <span>Actions</span>
@@ -1970,12 +2000,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                   </div>
 
                   {/* Demographic & Geographic Breakdown */}
-                  <div className="p-6 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs flex flex-col justify-between">
+                  <div className="p-4 sm:p-5 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs flex flex-col justify-between">
                     <div>
                       <h2 className="text-sm font-bold text-zinc-950 dark:text-white">User Breakdown</h2>
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-6">Distribution of founders, investors, and admins</p>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">Distribution of founders, investors, and admins</p>
 
-                      <div className="space-y-4">
+                      <div className="space-y-3">
                         <div>
                           <div className="flex justify-between text-xs mb-1 font-medium">
                             <span className="text-zinc-600 dark:text-zinc-400">Founders</span>
@@ -1983,7 +2013,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                               {foundersCount} ({Math.round((foundersCount / (users.length || 1)) * 100)}%)
                             </span>
                           </div>
-                          <div className="w-full h-2 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                          <div className="w-full h-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
                             <div 
                               className="h-full bg-amber-400 rounded-full"
                               style={{ width: `${Math.round((foundersCount / (users.length || 1)) * 100)}%` }}
@@ -1998,7 +2028,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                               {investorsCount} ({Math.round((investorsCount / (users.length || 1)) * 100)}%)
                             </span>
                           </div>
-                          <div className="w-full h-2 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                          <div className="w-full h-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
                             <div 
                               className="h-full bg-emerald-500 rounded-full"
                               style={{ width: `${Math.round((investorsCount / (users.length || 1)) * 100)}%` }}
@@ -2013,7 +2043,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                               {adminsCount} ({Math.round((adminsCount / (users.length || 1)) * 100)}%)
                             </span>
                           </div>
-                          <div className="w-full h-2 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                          <div className="w-full h-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
                             <div 
                               className="h-full bg-zinc-400 rounded-full"
                               style={{ width: `${Math.round((adminsCount / (users.length || 1)) * 100)}%` }}
@@ -2023,9 +2053,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                       </div>
                     </div>
 
-                    <div className="pt-6 border-t border-zinc-150 dark:border-zinc-800/60">
-                      <div className="text-[11px] font-mono uppercase text-zinc-400 mb-3">Top Locations</div>
-                      <div className="space-y-2">
+                    <div className="pt-4 border-t border-zinc-150 dark:border-zinc-800/60">
+                      <div className="text-[10px] font-mono uppercase text-zinc-400 mb-2">Top Locations</div>
+                      <div className="space-y-1.5">
                         {locationStats.map((loc, idx) => (
                           <div key={idx} className="flex items-center justify-between text-xs">
                             <span className="text-zinc-600 dark:text-zinc-400 truncate max-w-[140px]">{loc.name}</span>
@@ -2039,305 +2069,159 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
 
                 </div>
 
-                {/* EXECUTIVE TRANSACTION HISTORY & REVENUE LEDGER */}
-                <div className="bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs overflow-hidden mb-12">
+                {/* DUAL WIDGETS: RECENT TRANSACTIONS & RECENT AUDIT ACTIVITY */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 mb-4">
                   
-                  {/* Card Header & Controls */}
-                  <div className="p-5 border-b border-zinc-150 dark:border-zinc-800/80 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0 border border-amber-500/20">
-                        <Receipt size={17} />
-                      </div>
-                      <div>
+                  {/* WIDGET 1: RECENT TRANSACTIONS */}
+                  <div className="bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs overflow-hidden flex flex-col justify-between">
+                    <div>
+                      {/* Header */}
+                      <div className="px-3.5 py-2.5 border-b border-zinc-150 dark:border-zinc-800/80 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <h2 className="text-sm font-bold text-zinc-950 dark:text-white">Transaction History</h2>
-                          <span className="text-[11px] font-mono text-zinc-400">
-                            {subscriptions.length} {subscriptions.length === 1 ? 'record' : 'records'}
+                          <div className="w-5 h-5 rounded bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0 border border-amber-500/20">
+                            <Receipt size={12} />
+                          </div>
+                          <span className="text-xs font-bold text-zinc-950 dark:text-white">Recent Transactions</span>
+                          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500">
+                            {subscriptions.length}
                           </span>
                         </div>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400">Recent customer settlements, subscription charges, and pro membership receipts</p>
-                      </div>
-                    </div>
-
-                    {/* Filter and Action Controls */}
-                    <div className="flex flex-wrap items-center gap-2">
-                      {/* Search Input */}
-                      <div className="relative min-w-[200px] sm:w-60">
-                        <Search size={13} className="absolute left-3 top-2.5 text-zinc-400" />
-                        <input
-                          type="text"
-                          placeholder="Search transactions..."
-                          value={dashboardTxSearch}
-                          onChange={(e) => setDashboardTxSearch(e.target.value)}
-                          className="w-full h-8 pl-8 pr-3 text-xs bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-amber-400 transition-colors"
-                        />
+                        <button
+                          onClick={() => setActiveTab('subscriptions')}
+                          className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>Full Ledger</span>
+                          <ChevronRight size={11} />
+                        </button>
                       </div>
 
-                      {/* Status Tabs */}
-                      <div className="flex items-center p-0.5 bg-zinc-100 dark:bg-zinc-800/80 rounded-lg">
-                        {(['all', 'completed', 'refunded', 'trial'] as const).map(tab => (
-                          <button
-                            key={tab}
-                            onClick={() => setDashboardTxFilter(tab)}
-                            className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer capitalize ${
-                              dashboardTxFilter === tab
-                                ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-xs font-semibold'
-                                : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
-                            }`}
-                          >
-                            {tab === 'trial' ? 'Trials' : tab}
-                          </button>
-                        ))}
+                      {/* Financial Ticker Strip */}
+                      <div className="px-3.5 py-1.5 bg-zinc-50/70 dark:bg-zinc-900/40 border-b border-zinc-150 dark:border-zinc-800/80 flex items-center justify-between text-[11px] text-zinc-500">
+                        <div>
+                          <span className="text-zinc-400">Total: </span>
+                          <span className="font-mono font-bold text-zinc-900 dark:text-white">
+                            {formatCurrency(subMetrics.totalRevenue, subMetrics.primaryCurrency)}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-zinc-400">MRR: </span>
+                          <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                            {formatCurrency(subMetrics.mrr, subMetrics.primaryCurrency)}
+                          </span>
+                        </div>
+                        <div className="font-mono text-[10px] text-amber-500 font-semibold">
+                          {proSubscribersCount} Pro Members
+                        </div>
                       </div>
 
-                      {/* Export CSV Button */}
-                      <button
-                        onClick={() => exportTransactionsCSV(dashboardTransactions, 'dashboard_transactions')}
-                        title="Download transactions CSV"
-                        className="h-8 px-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
-                      >
-                        <Download size={13} />
-                        <span className="hidden sm:inline">Export CSV</span>
-                      </button>
-
-                      {/* Grant Pro Access Trigger */}
-                      <button
-                        onClick={() => setIsGrantSubModalOpen(true)}
-                        title="Grant Pro membership manually"
-                        className="h-8 px-2.5 rounded-lg bg-[#FACC15] hover:bg-amber-400 text-zinc-950 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-                      >
-                        <Plus size={13} strokeWidth={2.5} />
-                        <span className="hidden sm:inline">Grant Pro</span>
-                      </button>
-
-                      {/* View In Billing Tab Shortcut */}
-                      <button
-                        onClick={() => setActiveTab('subscriptions')}
-                        className="h-8 px-2.5 rounded-lg bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 text-xs font-semibold flex items-center gap-1 hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
-                      >
-                        <span>Full Ledger</span>
-                        <ArrowUpRight size={13} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Financial Settlement Ticker */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 border-b border-zinc-150 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-900/30 text-xs">
-                    <div className="p-3.5 border-r border-zinc-150 dark:border-zinc-800/60">
-                      <span className="text-[10px] text-zinc-400 font-mono uppercase block">Total Settled</span>
-                      <span className="text-base font-bold font-mono tabular-nums text-zinc-950 dark:text-white">
-                        {formatCurrency(subMetrics.totalRevenue, subMetrics.primaryCurrency)}
-                      </span>
-                    </div>
-                    <div className="p-3.5 border-r border-zinc-150 dark:border-zinc-800/60">
-                      <span className="text-[10px] text-zinc-400 font-mono uppercase block">Monthly Recurring (MRR)</span>
-                      <span className="text-base font-bold font-mono tabular-nums text-emerald-600 dark:text-emerald-400">
-                        {formatCurrency(subMetrics.mrr, subMetrics.primaryCurrency)}
-                      </span>
-                    </div>
-                    <div className="p-3.5 border-r border-zinc-150 dark:border-zinc-800/60">
-                      <span className="text-[10px] text-zinc-400 font-mono uppercase block">Total Transactions</span>
-                      <span className="text-base font-bold font-mono tabular-nums text-zinc-950 dark:text-white">
-                        {subscriptions.length}
-                      </span>
-                    </div>
-                    <div className="p-3.5">
-                      <span className="text-[10px] text-zinc-400 font-mono uppercase block">Active Pro Members</span>
-                      <span className="text-base font-bold font-mono tabular-nums text-amber-500">
-                        {proSubscribersCount}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Transactions Table */}
-                  <div className="overflow-x-auto max-h-[580px] overflow-y-auto custom-scrollbar scroll-smooth overscroll-contain">
-                    <table className="w-full text-left text-xs whitespace-nowrap">
-                      <thead className="sticky top-0 z-20 bg-white dark:bg-[#121215] shadow-xs">
-                        <tr className="border-b border-zinc-200 dark:border-zinc-800 text-[11px] font-mono uppercase tracking-wider text-zinc-400 bg-zinc-50/95 dark:bg-zinc-900/95 backdrop-blur-md">
-                          <th className="py-3 px-4 font-medium">Tx Reference</th>
-                          <th className="py-3 px-4 font-medium">Customer</th>
-                          <th className="py-3 px-4 font-medium">Plan & Interval</th>
-                          <th className="py-3 px-4 font-medium">Amount</th>
-                          <th className="py-3 px-4 font-medium">Gateway</th>
-                          <th className="py-3 px-4 font-medium">Status</th>
-                          <th className="py-3 px-4 font-medium">Settled At</th>
-                          <th className="py-3 px-4 font-medium text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60 font-medium">
-                        {displayedDashboardTx.length === 0 ? (
-                          <tr>
-                            <td colSpan={8} className="py-12 text-center text-zinc-400 font-medium">
-                              {isFetchingSubscriptions ? (
-                                <div className="flex items-center justify-center gap-2">
-                                  <RefreshCw size={14} className="animate-spin text-amber-500" />
-                                  <span>Loading transaction history...</span>
-                                </div>
-                              ) : (
-                                <div className="space-y-1.5 py-4">
-                                  <Receipt size={24} className="mx-auto text-zinc-300 dark:text-zinc-700" />
-                                  <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">No transaction records found</p>
-                                  <p className="text-[11px] text-zinc-400">Transactions and memberships will show up here automatically.</p>
-                                </div>
-                              )}
-                            </td>
-                          </tr>
+                      {/* Compact Transaction List */}
+                      <div className="divide-y divide-zinc-100 dark:divide-zinc-800/60 max-h-[220px] overflow-y-auto custom-scrollbar">
+                        {subscriptions.length === 0 ? (
+                          <div className="p-6 text-center text-zinc-400 text-xs">
+                            No transactions recorded yet
+                          </div>
                         ) : (
-                          displayedDashboardTx.map((s) => (
-                            <tr key={s.id} className="hover:bg-zinc-50/60 dark:hover:bg-zinc-800/30 transition-colors">
-                              <td className="py-3 px-4">
-                                <div className="flex items-center gap-1.5 font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
-                                  <span>{s.id.length > 14 ? `${s.id.substring(0, 12)}...` : s.id}</span>
-                                  <button
-                                    onClick={() => handleCopyText(s.id, 'Transaction ID')}
-                                    title="Copy Transaction ID"
-                                    className="p-1 hover:text-zinc-950 dark:hover:text-white transition-colors cursor-pointer"
-                                  >
-                                    {copiedTxId === s.id ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
-                                  </button>
+                          subscriptions.slice(0, 5).map(s => (
+                            <div key={s.id} className="px-3.5 py-1.5 flex items-center justify-between gap-2.5 hover:bg-zinc-50/60 dark:hover:bg-zinc-800/30 transition-colors text-xs">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-5 h-5 rounded bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center font-bold text-[9px] uppercase text-zinc-700 dark:text-zinc-300 shrink-0 border border-zinc-200/60 dark:border-zinc-700/60">
+                                  {s.userName ? s.userName.charAt(0) : 'U'}
                                 </div>
-                              </td>
-                              <td className="py-3 px-4">
-                                <div 
-                                  onClick={() => {
-                                    const u = users.find(user => user.id === s.userId);
-                                    if (u) {
-                                      handleViewProfile(u);
-                                    } else {
-                                      handleViewProfile({
-                                        id: s.userId,
-                                        name: s.userName,
-                                        email: s.userEmail,
-                                        role: 'FOUNDER',
-                                        plan: s.plan,
-                                        billingCycle: s.billingCycle,
-                                        status: 'active',
-                                        avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(s.userName)}`,
-                                        location: 'Remote',
-                                        joinedDate: s.createdAt,
-                                        lastActive: 'Recently'
-                                      });
-                                    }
-                                  }}
-                                  className="flex items-center gap-2.5 cursor-pointer group"
-                                  title="View Customer Dossier"
-                                >
-                                  <div className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center font-bold text-xs uppercase text-zinc-700 dark:text-zinc-300 overflow-hidden shrink-0 border border-zinc-200/60 dark:border-zinc-700/60">
-                                    {s.userName ? s.userName.charAt(0) : 'U'}
+                                <div className="min-w-0">
+                                  <div className="font-semibold text-zinc-950 dark:text-white truncate text-xs leading-tight">
+                                    {s.userName}
                                   </div>
-                                  <div className="min-w-0">
-                                    <div className="font-semibold text-zinc-950 dark:text-white group-hover:text-amber-500 transition-colors truncate">
-                                      {s.userName}
-                                    </div>
-                                    <div className="font-mono text-[11px] text-zinc-400 truncate">
-                                      {s.userEmail}
-                                    </div>
+                                  <div className="text-[10px] text-zinc-400 truncate leading-tight">
+                                    {s.plan?.toUpperCase()} · {s.billingCycle} · {s.createdAt}
                                   </div>
                                 </div>
-                              </td>
-                              <td className="py-3 px-4">
-                                <div className="text-xs text-zinc-800 dark:text-zinc-200">
-                                  <span className="font-bold text-amber-500 uppercase text-[10px] tracking-wide mr-1.5 font-mono">PRO</span>
-                                  <span className="capitalize text-zinc-500 dark:text-zinc-400">{s.billingCycle}</span>
-                                </div>
-                              </td>
-                              <td className="py-3 px-4 font-mono tabular-nums font-bold text-zinc-950 dark:text-white">
-                                {formatCurrency(s.amount, s.currency)} <span className="text-[10px] font-normal text-zinc-400">{s.currency || 'USD'}</span>
-                              </td>
-                              <td className="py-3 px-4 font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
-                                {s.provider || 'Paystack'}
-                              </td>
-                              <td className="py-3 px-4">
-                                <span className="inline-flex items-center gap-1.5 text-xs">
-                                  <span className={`w-1.5 h-1.5 rounded-full ${
-                                    s.status === 'completed' ? 'bg-emerald-500' :
-                                    s.status === 'refunded' ? 'bg-amber-500' :
-                                    'bg-zinc-400'
-                                  }`} />
-                                  <span className={`capitalize font-medium ${
-                                    s.status === 'completed' ? 'text-emerald-600 dark:text-emerald-400' :
-                                    s.status === 'refunded' ? 'text-amber-600 dark:text-amber-400' :
-                                    'text-zinc-500'
+                              </div>
+
+                              <div className="flex items-center gap-2 shrink-0">
+                                <div className="text-right">
+                                  <div className="font-mono font-bold text-xs text-zinc-950 dark:text-white tabular-nums leading-tight">
+                                    {formatCurrency(s.amount, s.currency)}
+                                  </div>
+                                  <span className={`text-[9px] font-semibold uppercase px-1 py-0.2 rounded ${
+                                    s.status === 'completed' ? 'bg-emerald-500/10 text-emerald-600' :
+                                    s.status === 'refunded' ? 'bg-amber-500/10 text-amber-600' :
+                                    'bg-zinc-100 text-zinc-500'
                                   }`}>
                                     {s.status || 'completed'}
                                   </span>
-                                </span>
-                              </td>
-                              <td className="py-3 px-4 font-mono tabular-nums text-zinc-500 dark:text-zinc-400 text-[11px]">
-                                {s.createdAt}
-                              </td>
-                              <td className="py-3 px-4 text-right">
-                                <div className="flex items-center justify-end gap-1.5">
-                                  <button
-                                    onClick={() => setSelectedTransactionDetail(s)}
-                                    title="View Full Transaction Receipt & Dossier"
-                                    className="p-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 hover:text-zinc-950 dark:hover:text-white transition-colors cursor-pointer"
-                                  >
-                                    <Receipt size={14} />
-                                  </button>
-                                  {s.status === 'completed' && (
-                                    <button
-                                      onClick={async () => {
-                                        if (!confirm(`Confirm refund for transaction ${s.id}?`)) return;
-                                        try {
-                                          await adminApiCall(`/api/admin/subscriptions/${s.id}/refund`, {
-                                            method: 'POST',
-                                            body: JSON.stringify({ userId: s.userId })
-                                          });
-                                          setSubscriptions(prev => prev.map(item => item.id === s.id ? { ...item, status: 'refunded' } : item));
-                                          await recordLog('SUBSCRIPTION_REFUND', `Refunded transaction ${s.id.substring(0, 10)} for ${s.userName} (${s.userEmail})`);
-                                          showToast("Transaction refunded and seat adjusted");
-                                          fetchSubscriptions();
-                                          fetchUsers();
-                                        } catch (e: any) {
-                                          showToast(`Failed to process refund: ${e.message || 'Server error'}`);
-                                        }
-                                      }}
-                                      className="px-2 py-1 text-[11px] font-medium text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 rounded border border-amber-500/30 transition-colors cursor-pointer"
-                                    >
-                                      Refund
-                                    </button>
-                                  )}
                                 </div>
-                              </td>
-                            </tr>
+
+                                <button
+                                  onClick={() => setSelectedTransactionDetail(s)}
+                                  title="View Receipt"
+                                  className="p-1 rounded text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
+                                >
+                                  <Receipt size={12} />
+                                </button>
+                              </div>
+                            </div>
                           ))
                         )}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Card Footer */}
-                  <div className="p-3.5 border-t border-zinc-150 dark:border-zinc-800/80 bg-zinc-50/30 dark:bg-zinc-900/20 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-zinc-500">
-                    <div className="flex items-center gap-3">
-                      <span>
-                        Showing {Math.min(displayedDashboardTx.length, dashboardTransactions.length)} of {subscriptions.length} total recorded transactions
-                      </span>
-                      <div className="flex items-center gap-1.5 text-[11px]">
-                        <span className="text-zinc-400">Rows:</span>
-                        {[5, 10, 25, 0].map((limit) => (
-                          <button
-                            key={limit}
-                            onClick={() => setDashboardTxLimit(limit)}
-                            className={`px-2 py-0.5 rounded cursor-pointer transition-colors ${
-                              dashboardTxLimit === limit
-                                ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 font-bold'
-                                : 'hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-500'
-                            }`}
-                          >
-                            {limit === 0 ? 'All' : limit}
-                          </button>
-                        ))}
                       </div>
                     </div>
-                    <button
-                      onClick={() => setActiveTab('subscriptions')}
-                      className="font-semibold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
-                    >
-                      <span>Open Full Ledger in Transaction History</span>
-                      <ChevronRight size={13} />
-                    </button>
                   </div>
+
+                  {/* WIDGET 2: RECENT AUDIT & SYSTEM LOGS */}
+                  <div className="bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs overflow-hidden flex flex-col justify-between">
+                    <div>
+                      {/* Header */}
+                      <div className="px-3.5 py-2.5 border-b border-zinc-150 dark:border-zinc-800/80 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-5 h-5 rounded bg-zinc-500/10 text-zinc-500 flex items-center justify-center shrink-0 border border-zinc-500/20">
+                            <Activity size={12} />
+                          </div>
+                          <span className="text-xs font-bold text-zinc-950 dark:text-white">Recent System Activity</span>
+                          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500">
+                            {auditLogs.length}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => setActiveTab('logs')}
+                          className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>All Logs</span>
+                          <ChevronRight size={11} />
+                        </button>
+                      </div>
+
+                      {/* Activity List */}
+                      <div className="divide-y divide-zinc-100 dark:divide-zinc-800/60 max-h-[260px] overflow-y-auto custom-scrollbar">
+                        {auditLogs.length === 0 ? (
+                          <div className="p-6 text-center text-zinc-400 text-xs">
+                            No recent logs recorded
+                          </div>
+                        ) : (
+                          auditLogs.slice(0, 5).map(log => (
+                            <div key={log.id} className="px-3.5 py-2 flex items-start justify-between gap-2.5 hover:bg-zinc-50/60 dark:hover:bg-zinc-800/30 transition-colors text-xs">
+                              <div className="space-y-0.5 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className={`px-1.5 py-0.2 text-[9px] font-bold font-mono rounded ${
+                                    log.action.includes('USER') ? 'bg-purple-500/10 text-purple-600' :
+                                    log.action.includes('SUBSCRIPTION') ? 'bg-emerald-500/10 text-emerald-600' :
+                                    'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
+                                  }`}>
+                                    {log.action}
+                                  </span>
+                                  <span className="text-[10px] text-zinc-400 font-mono">
+                                    {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                </div>
+                                <p className="text-zinc-700 dark:text-zinc-300 text-[11px] truncate leading-tight">
+                                  {log.details}
+                                </p>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
                 </div>
 
               </div>
@@ -2395,42 +2279,42 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
 
                 {/* Users Table */}
                 <div className="bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl overflow-hidden shadow-xs">
-                  <div className="overflow-x-auto max-h-[560px] overflow-y-auto custom-scrollbar scroll-smooth overscroll-contain">
+                  <div className="overflow-x-auto max-h-[480px] overflow-y-auto custom-scrollbar scroll-smooth overscroll-contain">
                     <table className="w-full text-left text-xs whitespace-nowrap">
                       <thead className="sticky top-0 z-20 bg-white dark:bg-[#121215] shadow-xs">
-                        <tr className="border-b border-zinc-200 dark:border-zinc-800 text-[11px] font-mono uppercase tracking-wider text-zinc-400 bg-zinc-50/95 dark:bg-zinc-900/95 backdrop-blur-md">
-                          <th className="py-3 px-4 font-medium">User</th>
-                          <th className="py-3 px-4 font-medium">Role</th>
-                          <th className="py-3 px-4 font-medium">Plan</th>
-                          <th className="py-3 px-4 font-medium">Location</th>
-                          <th className="py-3 px-4 font-medium">Joined</th>
-                          <th className="py-3 px-4 font-medium text-right">Actions</th>
+                        <tr className="border-b border-zinc-200 dark:border-zinc-800 text-[10px] sm:text-[11px] font-mono uppercase tracking-wider text-zinc-400 bg-zinc-50/95 dark:bg-zinc-900/95 backdrop-blur-md">
+                          <th className="py-2.5 px-3.5 font-medium">User</th>
+                          <th className="py-2.5 px-3.5 font-medium">Role</th>
+                          <th className="py-2.5 px-3.5 font-medium">Plan</th>
+                          <th className="py-2.5 px-3.5 font-medium">Location</th>
+                          <th className="py-2.5 px-3.5 font-medium">Joined</th>
+                          <th className="py-2.5 px-3.5 font-medium text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60 font-medium">
                         {filteredUsers.map(u => (
                           <tr key={u.id} className="hover:bg-zinc-50/60 dark:hover:bg-zinc-800/30 transition-colors">
-                            <td className="py-3 px-4">
-                              <div className="flex items-center gap-3">
+                            <td className="py-2 px-3.5">
+                              <div className="flex items-center gap-2.5">
                                 <img
                                   src={u.avatarUrl}
                                   alt={u.name}
-                                  className="w-8 h-8 rounded-full object-cover bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700"
+                                  className="w-7 h-7 rounded-full object-cover bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shrink-0"
                                 />
                                 <div>
-                                  <div className="font-semibold text-zinc-950 dark:text-white flex items-center gap-1.5">
+                                  <div className="font-semibold text-zinc-950 dark:text-white flex items-center gap-1.5 leading-tight">
                                     <span>{u.name}</span>
                                     {u.plan === 'pro' && (
                                       <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400 font-bold">PRO</span>
                                     )}
                                   </div>
-                                  <div className="font-mono text-[11px] text-zinc-400">{u.email}</div>
+                                  <div className="font-mono text-[11px] text-zinc-400 leading-tight">{u.email}</div>
                                 </div>
                               </div>
                             </td>
 
-                            <td className="py-3 px-4">
-                              <span className={`text-[11px] font-mono px-2 py-0.5 rounded ${
+                            <td className="py-2 px-3.5">
+                              <span className={`text-[10px] sm:text-[11px] font-mono px-2 py-0.5 rounded ${
                                 u.role === 'FOUNDER' ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20' :
                                 u.role === 'INVESTOR' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20' :
                                 'bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/20'
@@ -2439,7 +2323,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                               </span>
                             </td>
 
-                            <td className="py-3 px-4">
+                            <td className="py-2 px-3.5">
                               <div className="flex items-center gap-1.5">
                                 <span className={`w-1.5 h-1.5 rounded-full ${u.plan === 'pro' ? 'bg-amber-400' : 'bg-zinc-400'}`} />
                                 <span className="capitalize">{u.plan}</span>
@@ -2449,22 +2333,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                               </div>
                             </td>
 
-                            <td className="py-3 px-4 text-zinc-500 dark:text-zinc-400">
+                            <td className="py-2 px-3.5 text-zinc-500 dark:text-zinc-400">
                               {u.location}
                             </td>
 
-                            <td className="py-3 px-4 font-mono tabular-nums text-zinc-500 dark:text-zinc-400">
+                            <td className="py-2 px-3.5 font-mono tabular-nums text-zinc-500 dark:text-zinc-400 text-[11px]">
                               {u.joinedDate}
                             </td>
 
-                            <td className="py-3 px-4 text-right">
+                            <td className="py-2 px-3.5 text-right">
                               <div className="flex items-center justify-end gap-1.5">
                                 <button
                                   onClick={() => handleViewProfile(u)}
                                   title="View User"
-                                  className="p-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 hover:text-zinc-950 dark:hover:text-white transition-colors cursor-pointer"
+                                  className="p-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 hover:text-zinc-950 dark:hover:text-white transition-colors cursor-pointer"
                                 >
-                                  <Eye size={15} />
+                                  <Eye size={14} />
                                 </button>
                                 
                                 <button
@@ -2600,18 +2484,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
 
                 {/* Subscriptions Table */}
                 <div className="bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl overflow-hidden shadow-xs">
-                  <div className="overflow-x-auto max-h-[560px] overflow-y-auto custom-scrollbar scroll-smooth overscroll-contain">
+                  <div className="overflow-x-auto max-h-[480px] overflow-y-auto custom-scrollbar scroll-smooth overscroll-contain">
                     <table className="w-full text-left text-xs whitespace-nowrap">
                       <thead className="sticky top-0 z-20 bg-white dark:bg-[#121215] shadow-xs">
-                        <tr className="border-b border-zinc-200 dark:border-zinc-800 text-[11px] font-mono uppercase tracking-wider text-zinc-400 bg-zinc-50/95 dark:bg-zinc-900/95 backdrop-blur-md">
-                          <th className="py-3 px-4 font-medium">Transaction ID</th>
-                          <th className="py-3 px-4 font-medium">Customer</th>
-                          <th className="py-3 px-4 font-medium">Plan & Interval</th>
-                          <th className="py-3 px-4 font-medium">Amount</th>
-                          <th className="py-3 px-4 font-medium">Gateway</th>
-                          <th className="py-3 px-4 font-medium">Status</th>
-                          <th className="py-3 px-4 font-medium">Settled At</th>
-                          <th className="py-3 px-4 font-medium text-right">Actions</th>
+                        <tr className="border-b border-zinc-200 dark:border-zinc-800 text-[10px] sm:text-[11px] font-mono uppercase tracking-wider text-zinc-400 bg-zinc-50/95 dark:bg-zinc-900/95 backdrop-blur-md">
+                          <th className="py-2.5 px-3.5 font-medium">Transaction ID</th>
+                          <th className="py-2.5 px-3.5 font-medium">Customer</th>
+                          <th className="py-2.5 px-3.5 font-medium">Plan & Interval</th>
+                          <th className="py-2.5 px-3.5 font-medium">Amount</th>
+                          <th className="py-2.5 px-3.5 font-medium">Gateway</th>
+                          <th className="py-2.5 px-3.5 font-medium">Status</th>
+                          <th className="py-2.5 px-3.5 font-medium">Settled At</th>
+                          <th className="py-2.5 px-3.5 font-medium text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60 font-medium">
@@ -2627,7 +2511,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                         ) : (
                           filteredSubscriptions.map(s => (
                             <tr key={s.id} className="hover:bg-zinc-50/60 dark:hover:bg-zinc-800/30 transition-colors">
-                              <td className="py-3 px-4 font-mono text-[11px] text-zinc-400">
+                              <td className="py-2 px-3.5 font-mono text-[11px] text-zinc-400">
                                 <div className="flex items-center gap-1.5">
                                   <span>{s.id.length > 14 ? `${s.id.substring(0, 12)}...` : s.id}</span>
                                   <button
@@ -2639,7 +2523,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                                   </button>
                                 </div>
                               </td>
-                              <td className="py-3 px-4">
+                              <td className="py-2 px-3.5">
                                 <div 
                                   onClick={() => {
                                     const u = users.find(user => user.id === s.userId);
@@ -2661,38 +2545,38 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                                       });
                                     }
                                   }}
-                                  className="flex items-center gap-2.5 cursor-pointer group"
+                                  className="flex items-center gap-2 cursor-pointer group"
                                   title="View Customer Dossier"
                                 >
-                                  <div className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center font-bold text-xs uppercase text-zinc-700 dark:text-zinc-300 overflow-hidden shrink-0 border border-zinc-200/60 dark:border-zinc-700/60">
+                                  <div className="w-6 h-6 rounded-md bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center font-bold text-[11px] uppercase text-zinc-700 dark:text-zinc-300 overflow-hidden shrink-0 border border-zinc-200/60 dark:border-zinc-700/60">
                                     {s.userName ? s.userName.charAt(0) : 'U'}
                                   </div>
                                   <div>
-                                    <div className="font-semibold text-zinc-950 dark:text-white group-hover:text-amber-500 transition-colors">{s.userName}</div>
-                                    <div className="font-mono text-[11px] text-zinc-400">{s.userEmail}</div>
+                                    <div className="font-semibold text-zinc-950 dark:text-white group-hover:text-amber-500 transition-colors leading-tight">{s.userName}</div>
+                                    <div className="font-mono text-[10px] text-zinc-400 leading-tight">{s.userEmail}</div>
                                   </div>
                                 </div>
                               </td>
-                              <td className="py-3 px-4">
+                              <td className="py-2 px-3.5">
                                 <div className="text-xs text-zinc-800 dark:text-zinc-200">
                                   <span className="font-bold text-amber-500 uppercase text-[10px] tracking-wide mr-1.5 font-mono">{s.plan}</span>
-                                  <span className="capitalize text-zinc-500 dark:text-zinc-400">{s.billingCycle}</span>
+                                  <span className="capitalize text-zinc-500 dark:text-zinc-400 text-[11px]">{s.billingCycle}</span>
                                 </div>
                               </td>
-                              <td className="py-3 px-4 font-mono tabular-nums font-bold text-zinc-950 dark:text-white">
+                              <td className="py-2 px-3.5 font-mono tabular-nums font-bold text-zinc-950 dark:text-white">
                                 {formatCurrency(s.amount, s.currency)} <span className="text-[10px] font-normal text-zinc-400 font-sans">{s.currency || 'USD'}</span>
                               </td>
-                              <td className="py-3 px-4 font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
+                              <td className="py-2 px-3.5 font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
                                 {s.provider || 'Paystack'}
                               </td>
-                              <td className="py-3 px-4">
+                              <td className="py-2 px-3.5">
                                 <span className="inline-flex items-center gap-1.5 text-xs">
                                   <span className={`w-1.5 h-1.5 rounded-full ${
                                     s.status === 'completed' ? 'bg-emerald-500' :
                                     s.status === 'refunded' ? 'bg-amber-500' :
                                     'bg-zinc-400'
                                   }`} />
-                                  <span className={`capitalize font-medium ${
+                                  <span className={`capitalize font-medium text-[11px] ${
                                     s.status === 'completed' ? 'text-emerald-600 dark:text-emerald-400' :
                                     s.status === 'refunded' ? 'text-amber-600 dark:text-amber-400' :
                                     'text-zinc-500'
@@ -2701,15 +2585,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                                   </span>
                                 </span>
                               </td>
-                              <td className="py-3 px-4 font-mono tabular-nums text-zinc-500 dark:text-zinc-400 text-[11px]">
+                              <td className="py-2 px-3.5 font-mono tabular-nums text-zinc-500 dark:text-zinc-400 text-[11px]">
                                 {s.createdAt}
                               </td>
-                              <td className="py-3 px-4 text-right">
+                              <td className="py-2 px-3.5 text-right">
                                 <div className="flex items-center justify-end gap-1.5">
                                   <button
                                     onClick={() => setSelectedTransactionDetail(s)}
                                     title="View Full Transaction Receipt & Dossier"
-                                    className="p-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 hover:text-zinc-950 dark:hover:text-white transition-colors cursor-pointer"
+                                    className="p-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 hover:text-zinc-950 dark:hover:text-white transition-colors cursor-pointer"
                                   >
                                     <Receipt size={14} />
                                   </button>
@@ -3203,7 +3087,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                   </div>
                 </div>
 
-                <div className="bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl overflow-hidden shadow-xs divide-y divide-zinc-100 dark:divide-zinc-800/60 font-mono text-xs max-h-[600px] overflow-y-auto custom-scrollbar scroll-smooth overscroll-contain">
+                <div className="bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl overflow-hidden shadow-xs divide-y divide-zinc-100 dark:divide-zinc-800/60 font-mono text-xs max-h-[480px] overflow-y-auto custom-scrollbar scroll-smooth overscroll-contain">
                   {isFetchingLogs && filteredAuditLogs.length === 0 ? (
                     <div className="p-8 text-center text-zinc-400 font-sans flex items-center justify-center gap-2">
                       <RefreshCw size={15} className="animate-spin text-amber-500" />
@@ -3211,8 +3095,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                     </div>
                   ) : (
                     filteredAuditLogs.map(log => (
-                      <div key={log.id} className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
-                        <div className="flex items-center gap-3">
+                      <div key={log.id} className="py-2.5 px-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
+                        <div className="flex items-center gap-2.5">
                           <span className={`px-2 py-0.5 text-[10px] font-bold rounded ${
                             log.action === 'USER_DELETION' ? 'bg-rose-500/10 text-rose-600' :
                             log.action.includes('ROLE') || log.action.includes('USER') ? 'bg-purple-500/10 text-purple-600' :
@@ -3794,6 +3678,112 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                   className="flex-1 h-9 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer text-xs"
                 >
                   Resolve Infraction
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL: TRANSACTION RECEIPT & AUDIT DOSSIER */}
+      <AnimatePresence>
+        {selectedTransactionDetail && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div 
+              className="absolute inset-0 bg-black/60 backdrop-blur-xs" 
+              onClick={() => setSelectedTransactionDetail(null)} 
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-md bg-white dark:bg-[#121215] border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-2xl z-10 space-y-5"
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between pb-4 border-b border-zinc-150 dark:border-zinc-800">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 shrink-0">
+                    <Receipt size={18} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-zinc-950 dark:text-white">Transaction Receipt</h3>
+                    <p className="font-mono text-[11px] text-zinc-400">Ref: {selectedTransactionDetail.id.substring(0, 16)}...</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setSelectedTransactionDetail(null)} 
+                  className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Amount Banner */}
+              <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block mb-0.5">Amount Settled</span>
+                  <div className="text-2xl font-bold font-mono tabular-nums text-zinc-950 dark:text-white">
+                    {formatCurrency(selectedTransactionDetail.amount, selectedTransactionDetail.currency)}
+                    <span className="text-xs font-normal text-zinc-400 ml-1.5 font-sans">{selectedTransactionDetail.currency || 'USD'}</span>
+                  </div>
+                </div>
+                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold capitalize flex items-center gap-1.5 ${
+                  selectedTransactionDetail.status === 'completed'
+                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                    : selectedTransactionDetail.status === 'refunded'
+                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                    : 'bg-zinc-100 text-zinc-500'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${
+                    selectedTransactionDetail.status === 'completed' ? 'bg-emerald-500' :
+                    selectedTransactionDetail.status === 'refunded' ? 'bg-amber-500' : 'bg-zinc-400'
+                  }`} />
+                  {selectedTransactionDetail.status || 'completed'}
+                </span>
+              </div>
+
+              {/* Transaction Metadata Grid */}
+              <div className="space-y-2.5 text-xs">
+                <div className="flex items-center justify-between py-1.5 border-b border-zinc-100 dark:border-zinc-800/60">
+                  <span className="text-zinc-500 dark:text-zinc-400">Customer</span>
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">{selectedTransactionDetail.userName}</span>
+                </div>
+                <div className="flex items-center justify-between py-1.5 border-b border-zinc-100 dark:border-zinc-800/60">
+                  <span className="text-zinc-500 dark:text-zinc-400">Email</span>
+                  <span className="font-mono text-zinc-700 dark:text-zinc-300">{selectedTransactionDetail.userEmail}</span>
+                </div>
+                <div className="flex items-center justify-between py-1.5 border-b border-zinc-100 dark:border-zinc-800/60">
+                  <span className="text-zinc-500 dark:text-zinc-400">Plan & Cadence</span>
+                  <span className="font-semibold text-amber-500 uppercase font-mono text-[11px]">
+                    {selectedTransactionDetail.plan} · {selectedTransactionDetail.billingCycle}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-1.5 border-b border-zinc-100 dark:border-zinc-800/60">
+                  <span className="text-zinc-500 dark:text-zinc-400">Payment Gateway</span>
+                  <span className="font-mono text-zinc-700 dark:text-zinc-300">{selectedTransactionDetail.provider || 'Paystack'}</span>
+                </div>
+                <div className="flex items-center justify-between py-1.5">
+                  <span className="text-zinc-500 dark:text-zinc-400">Settled Timestamp</span>
+                  <span className="font-mono text-[11px] text-zinc-700 dark:text-zinc-300">{selectedTransactionDetail.createdAt}</span>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="pt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleCopyText(selectedTransactionDetail.id, 'Transaction ID')}
+                  className="flex-1 h-9 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-semibold cursor-pointer text-xs flex items-center justify-center gap-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                >
+                  <Copy size={13} />
+                  <span>Copy ID</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedTransactionDetail(null)}
+                  className="flex-1 h-9 rounded-xl bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 font-semibold cursor-pointer text-xs hover:opacity-90 transition-opacity"
+                >
+                  Done
                 </button>
               </div>
             </motion.div>

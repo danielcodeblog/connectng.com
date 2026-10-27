@@ -5,7 +5,7 @@ import {
   ArrowRight, Globe, MapPin, BadgeCheck, Trash2, LogOut,
   AlertCircle, Briefcase, KeyRound, Sparkles, UserMinus, Mail,
   PauseCircle, PlayCircle, AlertTriangle, RefreshCw, X, ShieldAlert, CheckCircle2,
-  MessageCircle
+  MessageCircle, Sun, Moon
 } from 'lucide-react';
 import { ContactPage } from './ContactPage';
 import { motion, AnimatePresence } from 'motion/react';
@@ -45,6 +45,9 @@ interface SettingsViewProps {
   isDeactivated?: boolean;
   onDeactivateAccount?: (reason?: string) => Promise<boolean> | void;
   onReactivateAccount?: () => Promise<boolean> | void;
+  theme?: 'light' | 'dark';
+  onToggleTheme?: () => void;
+  onSetTheme?: (t: 'light' | 'dark') => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -68,7 +71,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   initialTab = 'profile',
   isDeactivated = false,
   onDeactivateAccount,
-  onReactivateAccount
+  onReactivateAccount,
+  theme,
+  onToggleTheme,
+  onSetTheme
 }) => {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [localProfile, setLocalProfile] = useState(userProfile);
@@ -171,6 +177,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const tabs: SettingsTabItem[] = [
     { id: 'profile', label: 'My Profile', description: 'Public identity & credentials' },
+    { id: 'appearance', label: 'Appearance', description: 'Light & dark mode theme', badge: theme ? theme.toUpperCase() : undefined },
     { id: 'subscription', label: 'Subscription', description: 'Plans, billing & perks', badge: isPro ? 'PRO' : undefined },
     { id: 'password', label: 'Security', description: 'Password & account protection' },
     { id: 'notifications', label: 'Notifications', description: 'Alerts & message sounds' },
@@ -181,6 +188,86 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const renderTabContent = () => {
     switch (activeTab) {
+      case 'appearance':
+        return (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-3 duration-300">
+            <div className="border-b border-zinc-100 dark:border-zinc-800 pb-5">
+              <div className="flex items-center gap-2 text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider mb-1">
+                <Sun size={14} />
+                <span>Interface Theme</span>
+              </div>
+              <h3 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tight">Appearance Settings</h3>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                Customize how ConnectUp looks on your display. Switch between light and dark themes anytime.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {/* Light Mode Card */}
+              <div 
+                onClick={() => {
+                  onSetTheme?.('light');
+                }}
+                className={`p-6 rounded-3xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
+                  theme === 'light' 
+                    ? 'border-amber-400 bg-amber-50/30 dark:bg-zinc-900 shadow-lg' 
+                    : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 hover:border-zinc-300'
+                }`}
+              >
+                <div className="space-y-4">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center">
+                    <Sun size={24} />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-bold text-zinc-900 dark:text-white">Light Theme</h4>
+                    <p className="text-xs text-zinc-500 mt-1">Clean, crisp interface optimized for bright daylight and high readability.</p>
+                  </div>
+                </div>
+                <div className="pt-6 mt-6 border-t border-zinc-200/60 dark:border-zinc-800 flex items-center justify-between">
+                  <span 
+                    className="text-xs font-bold text-zinc-700 dark:text-zinc-300 cursor-pointer"
+                    onClick={() => onSetTheme?.('light')}
+                  >
+                    {theme === 'light' ? 'Select Light' : 'Select Light'}
+                  </span>
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center border ${theme === 'light' ? 'bg-amber-400 border-amber-500 text-black' : 'border-zinc-300'}`}>
+                    {theme === 'light' && <Check size={12} strokeWidth={3} />}
+                  </div>
+                </div>
+              </div>
+
+              {/* Dark Mode Card */}
+              <div 
+                onClick={() => {
+                  onSetTheme?.('dark');
+                }}
+                className={`p-6 rounded-3xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
+                  theme === 'dark' 
+                    ? 'border-amber-400 bg-zinc-900 shadow-lg' 
+                    : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 hover:border-zinc-300'
+                }`}
+              >
+                <div className="space-y-4">
+                  <div className="w-12 h-12 rounded-2xl bg-zinc-800 text-amber-400 flex items-center justify-center">
+                    <Moon size={24} />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-bold text-zinc-900 dark:text-white">Dark Theme</h4>
+                    <p className="text-xs text-zinc-500 mt-1">Sleek obsidian canvas designed to reduce eye strain in low-light environments.</p>
+                  </div>
+                </div>
+                <div className="pt-6 mt-6 border-t border-zinc-200/60 dark:border-zinc-800 flex items-center justify-between">
+                  <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                    {theme === 'dark' ? 'Currently Active' : 'Select Dark'}
+                  </span>
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center border ${theme === 'dark' ? 'bg-amber-400 border-amber-500 text-black' : 'border-zinc-300'}`}>
+                    {theme === 'dark' && <Check size={12} strokeWidth={3} />}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
       case 'subscription':
         return (
           <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -1203,32 +1290,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     <div className="w-full min-h-screen bg-[#FFFCF9] dark:bg-[#0D0D0F] flex flex-col p-4 sm:p-6 lg:p-8 pb-32 md:pb-16 transition-colors duration-500 overflow-y-auto">
       <div className="max-w-[1400px] mx-auto w-full space-y-6">
         {/* Header */}
-        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
-          <div className="space-y-1">
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl sm:text-4xl font-black text-zinc-900 dark:text-white tracking-tight">
-                Settings
-              </h1>
-              {isPro ? (
-                <div className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-amber-400 to-yellow-400 text-zinc-950 rounded-full text-[11px] font-black uppercase tracking-wider shadow-xs">
-                  <BadgeCheck size={14} className="fill-zinc-950 text-amber-400" />
-                  Pro Member
-                </div>
-              ) : (
-                <div className="px-3 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-full text-[11px] font-bold uppercase tracking-wider">
-                  Free Member
-                </div>
-              )}
-            </div>
+        <header className="flex flex-row items-center justify-between gap-3 pt-1 sm:pt-2">
+          <div>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-zinc-900 dark:text-white tracking-tight">
+              Settings
+            </h1>
           </div>
           
           <button 
             onClick={onLogout}
-            className="self-start sm:self-auto inline-flex items-center gap-2 px-4 py-2.5 bg-red-50 hover:bg-red-100/80 text-red-600 dark:bg-red-950/30 dark:hover:bg-red-900/40 dark:text-red-400 rounded-xl font-bold text-xs transition-all shadow-xs active:scale-95 cursor-pointer"
+            className="inline-flex items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-red-50 hover:bg-red-100/80 text-red-600 dark:bg-red-950/30 dark:hover:bg-red-900/40 dark:text-red-400 rounded-xl font-bold text-xs transition-all shadow-xs active:scale-95 cursor-pointer shrink-0"
             title="Sign Out"
           >
-            <LogOut size={16} />
-            <span>Sign Out</span>
+            <LogOut size={15} className="shrink-0" />
+            <span className="hidden xs:inline sm:inline">Sign Out</span>
+            <span className="inline xs:hidden sm:hidden">Logout</span>
           </button>
         </header>
 
@@ -1255,8 +1331,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <p className="font-extrabold text-sm text-zinc-900 dark:text-white truncate">
                       {localProfile?.name || userProfile?.name || 'Founder'}
                     </p>
-                    {isPro && (
-                      <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" title="Pro Member" />
+                    {isPro ? (
+                      <span title="Pro Member">
+                        <BadgeCheck size={16} className="text-amber-500 fill-amber-400/20 shrink-0" />
+                      </span>
+                    ) : (
+                      <span title="Free Member">
+                        <BadgeCheck size={16} className="text-zinc-400/60 shrink-0" />
+                      </span>
                     )}
                   </div>
                   <p className="text-xs text-zinc-400 dark:text-zinc-500 truncate mt-0.5 font-medium">

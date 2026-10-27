@@ -84,7 +84,7 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({
     onNavigate(page);
   };
 
-  const navPages: NavPage[] = ['home', 'about', 'why', 'founders', 'pricing', 'blog', 'contact'];
+  const navPages: NavPage[] = ['home', 'about', 'blog', 'contact'];
 
   return (
     <>

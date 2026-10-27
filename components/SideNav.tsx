@@ -5,7 +5,7 @@ import {
   UserGroupIcon, 
   Settings02Icon,
 } from 'hugeicons-react';
-import { Feather, Plus, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Feather, Plus, ChevronLeft, ChevronRight, X, Sun, Moon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface SideNavProps {
@@ -13,9 +13,11 @@ interface SideNavProps {
   onViewChange: (view: any) => void;
   onPostClick?: () => void;
   userProfile?: any;
+  theme?: 'light' | 'dark';
+  onToggleTheme?: () => void;
 }
 
-export const SideNav: React.FC<SideNavProps> = ({ currentView, onViewChange, onPostClick, userProfile }) => {
+export const SideNav: React.FC<SideNavProps> = ({ currentView, onViewChange, onPostClick, userProfile, theme, onToggleTheme }) => {
   const [isExpanded, setIsExpanded] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('connectup_sidenav_expanded');
@@ -163,6 +165,27 @@ export const SideNav: React.FC<SideNavProps> = ({ currentView, onViewChange, onP
                   <span className="block font-bold tracking-tight">
                     New Post
                   </span>
+                )}
+              </button>
+            </div>
+          )}
+
+          {/* Theme Toggle Button */}
+          {onToggleTheme && (
+            <div className="pt-2">
+              <button
+                onClick={onToggleTheme}
+                className={`w-full flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} py-2.5 px-3 rounded-2xl font-bold text-sm transition-all duration-200 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 cursor-pointer border border-zinc-200/60 dark:border-zinc-800`}
+                title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
+              >
+                <div className="flex items-center gap-2.5">
+                  {theme === 'dark' ? <Sun size={18} className="text-amber-400 shrink-0" /> : <Moon size={18} className="text-indigo-600 shrink-0" />}
+                  {!isCollapsed && <span className="text-xs font-bold">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>}
+                </div>
+                {!isCollapsed && (
+                  <div className={`w-8 h-4 rounded-full p-0.5 transition-colors ${theme === 'dark' ? 'bg-amber-400' : 'bg-zinc-300 dark:bg-zinc-700'}`}>
+                    <div className={`w-3 h-3 rounded-full bg-white transition-transform ${theme === 'dark' ? 'translate-x-4' : 'translate-x-0'}`} />
+                  </div>
                 )}
               </button>
             </div>

@@ -22,7 +22,7 @@ export function NavHeader({
 
   return (
     <ul
-      className="relative mx-auto hidden lg:flex w-fit"
+      className="relative mx-auto hidden lg:flex items-center gap-1 w-fit p-1"
       onMouseLeave={() => setPosition((pv) => ({ ...pv, opacity: 0 }))}
     >
       {pages.map((page) => (
@@ -70,15 +70,20 @@ const Tab = ({
         });
       }}
       onClick={onClick}
-      className={`relative z-10 block cursor-pointer px-3 py-1.5 text-sm capitalize transition-colors md:px-5 md:py-2 md:text-sm font-semibold ${
+      className={`relative z-10 flex items-center gap-1.5 cursor-pointer px-4 py-1.5 text-xs uppercase tracking-wider font-bold transition-colors select-none ${
         isActive 
-          ? "text-[#FFBF00] font-bold" 
+          ? lightMode 
+            ? "text-zinc-950 font-extrabold" 
+            : "text-[#FFBF00] font-extrabold"
           : lightMode 
-            ? "text-zinc-700 hover:text-[#FFBF00]" 
-            : "text-white hover:text-[#FFBF00]"
+            ? "text-zinc-500 hover:text-zinc-950" 
+            : "text-zinc-400 hover:text-white"
       }`}
     >
-      {children}
+      <span>{children}</span>
+      {isActive && (
+        <span className={`w-1 h-1 rounded-full ${lightMode ? 'bg-zinc-950' : 'bg-[#FFBF00] shadow-[0_0_8px_#FFBF00]'}`} />
+      )}
     </li>
   );
 };
@@ -87,7 +92,12 @@ const Cursor = ({ position, lightMode }: { position: any; lightMode?: boolean })
   return (
     <motion.li
       animate={position}
-      className={`absolute z-0 h-9 md:h-9 rounded-full ${lightMode ? "bg-zinc-200/60" : "bg-white/10"}`}
+      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+      className={`absolute z-0 h-7 rounded-full pointer-events-none ${
+        lightMode 
+          ? "bg-zinc-100 border border-zinc-200/80 shadow-xs" 
+          : "bg-white/10 border border-white/10 shadow-xs backdrop-blur-md"
+      }`}
     />
   );
 };

@@ -1312,7 +1312,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
   };
 
   return (
-    <div className="h-screen w-full bg-zinc-50 dark:bg-[#09090B] text-zinc-900 dark:text-zinc-100 flex flex-col font-sans transition-colors duration-300 overflow-hidden">
+    <div className="h-screen w-full bg-[#f4f7fc] dark:bg-[#09090b] text-zinc-900 dark:text-zinc-100 flex flex-col font-sans transition-colors duration-300 overflow-hidden">
       
       {/* SaaS-Grade Floating Toast Notification */}
       <AnimatePresence>
@@ -1555,7 +1555,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
           
           {/* SAAS TOP BAR CONTRACT */}
           <header className="sticky top-0 z-30 bg-white/95 dark:bg-[#09090B]/95 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-800/80 w-full shrink-0">
-            <div className={`w-full ${isCompact ? 'max-w-[1100px]' : 'max-w-[1240px]'} mx-auto px-3.5 sm:px-4 py-1.5 flex items-center justify-between gap-3 transition-all duration-200`}>
+            <div className={`w-full ${isCompact ? 'max-w-[960px]' : 'max-w-5xl'} mx-auto px-3.5 sm:px-4 py-1.5 flex items-center justify-between gap-3 transition-all duration-200`}>
             
             {/* Zone 1: Contextual Breadcrumb */}
             <div className="flex items-center gap-1.5 text-xs shrink-0">
@@ -1566,21 +1566,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
               </span>
             </div>
 
-            {/* Zone 2: Compact Search Bar */}
-            <div className="w-36 sm:w-44 focus-within:w-56 transition-all duration-200 hidden sm:block">
+            {/* Zone 2: Search with hotkey decoration */}
+            <div className="flex-1 max-w-[260px] hidden sm:block">
               <div className="relative flex items-center">
-                <Search size={12} className="absolute left-2 text-zinc-400 pointer-events-none" />
+                <Search size={13} className="absolute left-2.5 text-zinc-400" />
                 <input
                   type="text"
-                  placeholder="Search..."
+                  placeholder="Search users..."
                   value={userSearch}
                   onChange={(e) => {
                     setUserSearch(e.target.value);
                     if (activeTab !== 'users' && e.target.value) setActiveTab('users');
                   }}
-                  className="w-full h-7 pl-6.5 pr-8 text-xs bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 focus:border-amber-400 focus:bg-white dark:focus:bg-zinc-950 rounded-md text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none transition-all"
+                  className="w-full h-7.5 pl-7.5 pr-9 text-xs bg-zinc-100 dark:bg-zinc-900 border border-transparent focus:border-zinc-300 dark:focus:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none transition-all"
                 />
-                <span className="absolute right-1.5 px-1 py-0.2 text-[8px] font-mono text-zinc-400 bg-zinc-200/60 dark:bg-zinc-800 rounded pointer-events-none">
+                <span className="absolute right-1.5 px-1 py-0.2 text-[9px] font-mono text-zinc-400 bg-zinc-200/60 dark:bg-zinc-800 rounded pointer-events-none">
                   ⌘K
                 </span>
               </div>
@@ -1834,7 +1834,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
           </div>
 
           {/* TAB CONTENT VIEWPORT */}
-          <main className={`flex-1 p-3 sm:p-4 pb-16 space-y-3.5 ${isCompact ? 'max-w-[1100px]' : 'max-w-[1240px]'} w-full mx-auto transition-all duration-200`}>
+          <main className={`flex-1 p-3 sm:p-4 pb-16 space-y-3.5 ${isCompact ? 'max-w-[960px]' : 'max-w-5xl'} w-full mx-auto transition-all duration-200`}>
             
             {/* TAB 1: OVERVIEW & BENTO METRICS */}
             {activeTab === 'dashboards' && (

@@ -165,6 +165,10 @@ const App = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
   }, []);
 
+  const handleSetTheme = useCallback((newTheme: 'light' | 'dark') => {
+    setTheme(newTheme);
+  }, []);
+
   const [role, setRole] = useState<UserRole>(() => {
     const pathname = window.location.pathname.toLowerCase();
     if (pathname === '/founders' || pathname === '/founder') return UserRole.FOUNDER;
@@ -1453,6 +1457,9 @@ const App = () => {
           onUpdateProfile={handleSaveProfile}
           onAvatarChange={handleAvatarChange}
           onUpdatePassword={handleUpdatePassword}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          onSetTheme={handleSetTheme}
           passwordState={{
             new: newPassword,
             setNew: setNewPassword,
@@ -1619,6 +1626,8 @@ const App = () => {
             onViewChange={setCurrentView} 
             userProfile={userProfile}
             onPostClick={() => handleOpenCreatePost()}
+            theme={theme}
+            onToggleTheme={toggleTheme}
           />
         </>
       )}

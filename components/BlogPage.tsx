@@ -432,42 +432,63 @@ export const BlogPage: React.FC<BlogPageProps> = ({
                   
                   {/* Metadata Header */}
                   <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-900 text-[10px] font-black uppercase tracking-wider border border-amber-200">
+                    <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+                      <span className="text-amber-700 font-bold uppercase tracking-wider">
                         {selectedPost.badge}
                       </span>
-                      <span className="text-xs font-mono text-zinc-500 uppercase">
+                      <span className="text-zinc-300">·</span>
+                      <span className="text-zinc-500 uppercase">
                         {selectedPost.date}
                       </span>
+                      <span className="text-zinc-300">·</span>
+                      <span className="text-zinc-500">
+                        {selectedPost.readTime}
+                      </span>
+                      {selectedPost.views && (
+                        <>
+                          <span className="text-zinc-300">·</span>
+                          <span className="text-zinc-400">
+                            {selectedPost.views} views
+                          </span>
+                        </>
+                      )}
                     </div>
 
                     <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl font-black text-zinc-950 tracking-tight leading-tight">
                       {selectedPost.title}
                     </h1>
+
+                    {/* Editorial Lead-In */}
+                    <p className="text-base sm:text-lg text-zinc-600 font-medium leading-relaxed border-l-2 border-amber-400 pl-4 py-1 italic">
+                      {selectedPost.excerpt}
+                    </p>
                   </div>
 
                   {/* Hero Cover Image */}
-                  <div className="w-full h-[360px] sm:h-[480px] rounded-2xl overflow-hidden shadow-md border border-zinc-200 relative">
+                  <div className="w-full h-[360px] sm:h-[480px] rounded-2xl overflow-hidden shadow-md border border-zinc-200 relative group">
                     <img 
                       src={selectedPost.image} 
                       alt={selectedPost.title} 
                       className="w-full h-full object-cover"
                       referrerPolicy="no-referrer"
                     />
+                    <div className="absolute bottom-3 left-3 px-3 py-1 rounded bg-zinc-950/75 backdrop-blur-md text-white font-mono text-[10px] uppercase tracking-wider">
+                      {selectedPost.company}
+                    </div>
                   </div>
 
                   {/* Executive Takeaways */}
                   {selectedPost.takeaways && selectedPost.takeaways.length > 0 && (
-                    <div className="p-6 rounded-2xl bg-amber-50/80 border border-amber-200/80 space-y-3">
-                      <div className="flex items-center gap-2 text-amber-800 font-bold text-xs uppercase tracking-wider">
+                    <div className="p-6 rounded-2xl bg-amber-50/70 border-l-4 border-l-amber-500 border border-amber-200/60 space-y-3">
+                      <div className="flex items-center gap-2 text-amber-800 font-bold text-xs uppercase tracking-wider font-mono">
                         <Award className="w-4 h-4 text-amber-600" />
                         <span>Key Executive Takeaways</span>
                       </div>
                       <ul className="space-y-2 text-sm text-zinc-700">
                         {selectedPost.takeaways.map((item, idx) => (
                           <li key={idx} className="flex items-start gap-2">
-                            <span className="text-amber-600 font-bold">•</span>
-                            <span>{item}</span>
+                            <span className="text-amber-600 font-bold mt-0.5">•</span>
+                            <span className="leading-relaxed">{item}</span>
                           </li>
                         ))}
                       </ul>
@@ -506,8 +527,11 @@ export const BlogPage: React.FC<BlogPageProps> = ({
               {/* TOP HEADER SECTION */}
               <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-8 border-b border-zinc-200">
                 <div>
+                  <p className="text-[11px] font-mono uppercase tracking-widest text-amber-700 font-bold mb-2">
+                    ConnectUp Venture Intelligence &middot; Editorial Dispatches
+                  </p>
                   <h1 className="font-serif text-3xl sm:text-5xl font-black text-zinc-950 tracking-tight">
-                    Insights & Perspectives
+                    Insights &amp; Perspectives
                   </h1>
                   <p className="text-zinc-500 text-sm sm:text-base mt-2 font-normal">
                     Curated dispatch notes, deeptech venture analysis, and syndicate strategies.
@@ -517,7 +541,7 @@ export const BlogPage: React.FC<BlogPageProps> = ({
 
               {/* FEATURED HERO CARDS (2-COLUMN GRID FROM INSP IMAGE) */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {featuredList.slice(0, 2).map((post, index) => (
+                {featuredList.slice(0, 2).map((post) => (
                   <div 
                     key={post.id}
                     onClick={() => setSelectedPost(post)}
@@ -530,10 +554,10 @@ export const BlogPage: React.FC<BlogPageProps> = ({
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                         referrerPolicy="no-referrer"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
                       
-                      {/* Top badge */}
-                      <span className="absolute top-4 left-4 px-3.5 py-1.5 rounded-full bg-white/95 backdrop-blur-md text-zinc-900 text-[10px] font-black uppercase tracking-wider border border-zinc-200 shadow-xs">
+                      {/* Top Unboxed Badge */}
+                      <span className="absolute top-4 left-4 px-2.5 py-1 rounded-md bg-zinc-950/85 backdrop-blur-md text-amber-300 text-[10px] font-mono font-bold uppercase tracking-wider border border-white/10 shadow-xs">
                         {post.category}
                       </span>
 
@@ -552,8 +576,10 @@ export const BlogPage: React.FC<BlogPageProps> = ({
                       {/* Overlay Title */}
                       <div className="absolute bottom-6 left-6 right-6 space-y-2">
                         <div className="flex items-center gap-2 text-xs font-mono text-white/80">
+                          <span className="text-amber-300 font-bold">{post.company}</span>
+                          <span>&middot;</span>
                           <span>{post.date}</span>
-                          <span>•</span>
+                          <span>&middot;</span>
                           <span>{post.readTime}</span>
                         </div>
                         <h3 className="font-serif text-xl sm:text-2xl font-bold text-white group-hover:text-amber-300 transition-colors leading-snug line-clamp-2">
@@ -567,16 +593,16 @@ export const BlogPage: React.FC<BlogPageProps> = ({
 
               {/* SEARCH & CATEGORY FILTER BAR */}
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pt-6">
-                {/* Category Pills */}
-                <div className="flex flex-wrap items-center gap-2">
+                {/* Segmented Category Filter */}
+                <div className="flex flex-wrap items-center gap-1.5 p-1 bg-zinc-100 rounded-xl border border-zinc-200">
                   {categories.map((cat) => (
                     <button
                       key={cat}
                       onClick={() => setSelectedCategory(cat)}
-                      className={`px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                         selectedCategory === cat
-                          ? 'bg-zinc-950 text-white shadow-md'
-                          : 'bg-white text-zinc-700 hover:bg-zinc-100 border border-zinc-200'
+                          ? 'bg-zinc-950 text-white shadow-xs font-bold'
+                          : 'text-zinc-600 hover:text-zinc-950 hover:bg-white/60'
                       }`}
                     >
                       {cat}
@@ -591,8 +617,8 @@ export const BlogPage: React.FC<BlogPageProps> = ({
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search articles & portfolio news..."
-                    className="w-full pl-10 pr-4 py-2.5 rounded-full bg-white border border-zinc-200 text-zinc-900 placeholder-zinc-400 text-xs focus:outline-none focus:border-zinc-400 shadow-xs"
+                    placeholder="Search articles &amp; portfolio news..."
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-zinc-200 text-zinc-900 placeholder-zinc-400 text-xs focus:outline-none focus:border-zinc-400 shadow-xs"
                   />
                 </div>
               </div>
@@ -616,12 +642,16 @@ export const BlogPage: React.FC<BlogPageProps> = ({
                         <div 
                           key={post.id}
                           onClick={() => setSelectedPost(post)}
-                          className="group cursor-pointer rounded-2xl bg-white border border-zinc-200 hover:border-zinc-300 transition-all duration-300 p-6 flex flex-col justify-between shadow-xs hover:shadow-md relative overflow-hidden"
+                          className="group cursor-pointer rounded-2xl bg-white border border-zinc-200 hover:border-amber-400/80 transition-all duration-300 p-6 flex flex-col justify-between shadow-xs hover:shadow-md relative overflow-hidden"
                         >
-                          <div className="space-y-4">
+                          <div className="space-y-3.5">
                             {/* Metadata & Bookmark */}
                             <div className="flex items-center justify-between text-xs font-mono text-zinc-500">
-                              <span>{post.date} | {post.author}</span>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-amber-700 font-bold uppercase tracking-wider text-[11px]">{post.category}</span>
+                                <span className="text-zinc-300">&middot;</span>
+                                <span className="text-[11px]">{post.date}</span>
+                              </div>
                               <button
                                 onClick={(e) => toggleBookmark(post.id, e)}
                                 className={`p-1.5 rounded-full border transition-all cursor-pointer ${
@@ -634,6 +664,11 @@ export const BlogPage: React.FC<BlogPageProps> = ({
                               </button>
                             </div>
 
+                            {/* Company Monospace Kicker */}
+                            <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 font-semibold">
+                              {post.company}
+                            </p>
+
                             {/* Title */}
                             <h3 className="font-serif text-lg font-bold text-zinc-950 group-hover:text-amber-600 transition-colors line-clamp-2 leading-snug">
                               {post.title}
@@ -645,8 +680,8 @@ export const BlogPage: React.FC<BlogPageProps> = ({
                             </p>
                           </div>
 
-                          {/* Bottom Row: Thumbnail + Read More (Exact Inspiration Layout) */}
-                          <div className="pt-6 mt-6 border-t border-zinc-100 flex items-center justify-between">
+                          {/* Bottom Row: Thumbnail + Read More */}
+                          <div className="pt-5 mt-5 border-t border-zinc-100 flex items-center justify-between">
                             <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-zinc-200 shadow-2xs">
                               <img 
                                 src={post.image} 
@@ -655,9 +690,12 @@ export const BlogPage: React.FC<BlogPageProps> = ({
                                 referrerPolicy="no-referrer"
                               />
                             </div>
-                            <span className="flex items-center gap-1.5 font-bold text-xs text-zinc-950 group-hover:text-amber-600 transition-colors">
-                              Read More <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                            </span>
+                            <div className="text-right">
+                              <div className="text-[10px] font-mono text-zinc-400">{post.readTime}</div>
+                              <span className="flex items-center gap-1 font-bold text-xs text-zinc-950 group-hover:text-amber-600 transition-colors mt-0.5">
+                                Read dispatch <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                              </span>
+                            </div>
                           </div>
                         </div>
                       );

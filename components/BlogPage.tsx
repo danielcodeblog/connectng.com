@@ -411,19 +411,7 @@ export const BlogPage: React.FC<BlogPageProps> = ({
                       </div>
                     </div>
 
-                    <div className="pt-4 border-t border-zinc-200">
-                      <button
-                        onClick={(e) => toggleBookmark(selectedPost.id, e)}
-                        className={`w-full py-2.5 px-4 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs ${
-                          bookmarkedIds.includes(selectedPost.id)
-                            ? 'bg-amber-400 text-black border-amber-400'
-                            : 'bg-white text-zinc-800 border-zinc-200 hover:bg-zinc-50'
-                        }`}
-                      >
-                        <Bookmark className="w-3.5 h-3.5 fill-current" />
-                        <span>{bookmarkedIds.includes(selectedPost.id) ? 'Saved to Bookmarks' : 'Bookmark Story'}</span>
-                      </button>
-                    </div>
+
                   </div>
                 </div>
 
@@ -561,18 +549,6 @@ export const BlogPage: React.FC<BlogPageProps> = ({
                         {post.category}
                       </span>
 
-                      {/* Bookmark button */}
-                      <button
-                        onClick={(e) => toggleBookmark(post.id, e)}
-                        className={`absolute top-4 right-4 p-2.5 rounded-full backdrop-blur-md border transition-all cursor-pointer ${
-                          bookmarkedIds.includes(post.id)
-                            ? 'bg-amber-400 text-black border-amber-400 shadow-md'
-                            : 'bg-white/80 text-zinc-800 hover:bg-white border-zinc-200 shadow-xs'
-                        }`}
-                      >
-                        <Bookmark className="w-3.5 h-3.5 fill-current" />
-                      </button>
-
                       {/* Overlay Title */}
                       <div className="absolute bottom-6 left-6 right-6 space-y-2">
                         <div className="flex items-center gap-2 text-xs font-mono text-white/80">
@@ -637,7 +613,6 @@ export const BlogPage: React.FC<BlogPageProps> = ({
                 {filteredPosts.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {filteredPosts.map((post) => {
-                      const isBookmarked = bookmarkedIds.includes(post.id);
                       return (
                         <div 
                           key={post.id}
@@ -652,17 +627,7 @@ export const BlogPage: React.FC<BlogPageProps> = ({
                                 <span className="text-zinc-300">&middot;</span>
                                 <span className="text-[11px]">{post.date}</span>
                               </div>
-                              <button
-                                onClick={(e) => toggleBookmark(post.id, e)}
-                                className={`p-1.5 rounded-full border transition-all cursor-pointer ${
-                                  isBookmarked 
-                                    ? 'bg-amber-400 text-black border-amber-400' 
-                                    : 'bg-zinc-50 text-zinc-600 hover:text-zinc-950 border-zinc-200'
-                                }`}
-                              >
-                                <Bookmark className="w-3.5 h-3.5 fill-current" />
-                              </button>
-                            </div>
+                              </div>
 
                             {/* Company Monospace Kicker */}
                             <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 font-semibold">

@@ -299,21 +299,7 @@ export function Pricing({
                 )}
                 
                 <div className="mt-2 mb-8 w-full">
-                  <button
-                    onClick={() => {
-                      if (onPlanSelect) {
-                        onPlanSelect(plan);
-                      }
-                    }}
-                    className={cn(
-                      "w-full py-3.5 rounded-full font-bold text-xs uppercase tracking-[0.15em] transition-all duration-300 cursor-pointer text-center block hover:scale-[1.02] active:scale-[0.98]",
-                      plan.isPopular
-                        ? "bg-zinc-950 text-white hover:bg-zinc-900"
-                        : "bg-white text-zinc-950 hover:bg-zinc-200"
-                    )}
-                  >
-                    {plan.buttonText}
-                  </button>
+
                 </div>
 
                 <ul className={cn("space-y-4 flex-1 mb-4 w-full", plan.isPopular ? "max-w-xs mx-auto text-left" : "")}>

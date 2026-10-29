@@ -179,7 +179,7 @@ export const FounderSlider = ({
                 <h3 className="text-3xl md:text-4xl font-bold mt-2 text-zinc-950 font-serif">
                   {activeFounder.name}
                 </h3>
-                <blockquote className="mt-6 text-2xl md:text-3xl lg:text-4xl font-medium leading-tight text-[#FFBF00] font-serif">
+                <blockquote className="mt-6 text-2xl md:text-3xl lg:text-4xl font-light italic leading-tight text-zinc-800 font-serif">
                   "{activeFounder.quote}"
                 </blockquote>
               </motion.div>

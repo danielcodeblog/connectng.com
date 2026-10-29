@@ -237,9 +237,7 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({
               ? isLight
                 ? 'max-w-5xl h-14 rounded-full px-6 border border-zinc-200/90 bg-white/90 backdrop-blur-2xl shadow-[0_12px_40px_rgba(0,0,0,0.08)]'
                 : 'max-w-5xl h-14 rounded-full px-6 border border-white/20 bg-[#0D0D0F]/90 backdrop-blur-2xl shadow-[0_16px_50px_rgba(0,0,0,0.6)]'
-              : isLight
-                ? 'w-full max-w-7xl h-20 rounded-none px-8 border-b border-zinc-200/60 bg-white/70 backdrop-blur-md shadow-none'
-                : 'w-full max-w-7xl h-20 rounded-none px-8 border-b border-white/10 bg-[#0D0D0F]/70 backdrop-blur-md shadow-none'
+              : 'w-full max-w-7xl h-20 px-8 bg-transparent border-none backdrop-blur-none shadow-none'
           }`}
         >
           {/* Brand Logo */}
@@ -305,9 +303,7 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({
               ? isLight
                 ? 'max-w-lg h-13 rounded-full px-4 border border-zinc-200/90 bg-white/95 backdrop-blur-2xl shadow-lg' 
                 : 'max-w-lg h-13 rounded-full px-4 border border-white/20 bg-[#0D0D0F]/90 backdrop-blur-2xl shadow-2xl'
-              : isLight
-                ? 'w-full max-w-full h-16 rounded-none px-5 border-b border-zinc-200/60 bg-white/80 backdrop-blur-md shadow-none' 
-                : 'w-full max-w-full h-16 rounded-none px-5 border-b border-white/10 bg-[#0D0D0F]/80 backdrop-blur-md shadow-none'
+              : 'w-full max-w-full h-16 px-5 bg-transparent border-none backdrop-blur-none shadow-none'
           }`}
         >
           {/* Logo */}

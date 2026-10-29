@@ -111,6 +111,7 @@ const AuthScreen: React.FC<AuthScreenProps> = React.memo(({ onComplete, onViewLe
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [name, setName] = useState('');
+  const [age, setAge] = useState('');
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('');
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.INVESTOR);
@@ -140,7 +141,7 @@ const AuthScreen: React.FC<AuthScreenProps> = React.memo(({ onComplete, onViewLe
     }
   };
 
-  const attemptProfileSetup = async (userId: string, userEmail: string) => {
+  const attemptProfileSetup = async (userId: string, userEmail: string, userAge?: number) => {
       let avatarUrl = undefined;
       // Ensure we have a session before trying to upload
       const { data: { session } } = await supabase.auth.getSession();
@@ -160,6 +161,7 @@ const AuthScreen: React.FC<AuthScreenProps> = React.memo(({ onComplete, onViewLe
           name: name || userEmail.split('@')[0],
           title: title, 
           location: location, 
+          age: userAge,
           avatarUrl: avatarUrl
       });
   };
@@ -252,11 +254,17 @@ const AuthScreen: React.FC<AuthScreenProps> = React.memo(({ onComplete, onViewLe
 
       const trimmedName = name.trim();
       const trimmedEmail = email.trim();
+      const parsedAge = age.trim() ? parseInt(age.trim(), 10) : undefined;
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
       // Local client-side form safety verification
       if (!trimmedName) {
           setErrorMsg("Please provide your full name to set up your profile.");
+          setIsLoading(false);
+          return;
+      }
+      if (!age.trim() || parsedAge === undefined || isNaN(parsedAge) || parsedAge < 18 || parsedAge > 120) {
+          setErrorMsg("Please enter a valid age (must be 18 or older).");
           setIsLoading(false);
           return;
       }
@@ -291,12 +299,13 @@ const AuthScreen: React.FC<AuthScreenProps> = React.memo(({ onComplete, onViewLe
       try {
           // SQL TRIGGER COMPATIBILITY:
           // The `data` object here corresponds to `raw_user_meta_data` in Postgres.
-          // The trigger I provided looks for: 'full_name', 'role', 'title', 'location'.
+          // The trigger I provided looks for: 'full_name', 'role', 'title', 'location', 'age'.
           const metadata = {
               full_name: trimmedName,
               role: selectedRole, // FOUNDER or INVESTOR
               title: title,
-              location: location
+              location: location,
+              age: parsedAge
           };
 
           const { data, error } = await supabase.auth.signUp({
@@ -309,7 +318,7 @@ const AuthScreen: React.FC<AuthScreenProps> = React.memo(({ onComplete, onViewLe
           
           if (data.user && data.session) {
               // Session active: We can safely write to DB and Upload files
-              await attemptProfileSetup(data.user.id, trimmedEmail);
+              await attemptProfileSetup(data.user.id, trimmedEmail, parsedAge);
               onComplete(selectedRole, trimmedEmail);
           } else if (data.user && !data.session) {
               // No session: Email confirmation likely required. 
@@ -663,6 +672,7 @@ const AuthScreen: React.FC<AuthScreenProps> = React.memo(({ onComplete, onViewLe
                 
                              <div className="space-y-4">
                                  <InputField icon={User} placeholder="Full Name" value={name} onChange={setName} required autoComplete="name" label="Full Name" />
+                                 <InputField icon={User} type="number" placeholder="Age (e.g. 28)" value={age} onChange={setAge} required label="Age" />
                                  <InputField icon={Mail} type="email" placeholder="Email" value={email} onChange={setEmail} required autoComplete="email" label="Email Address" />
                                  <PasswordInput value={password} onChange={setPassword} autoComplete="new-password" label="Password" />
                                  

@@ -288,6 +288,7 @@ export const StorageService = {
             id: uid,
             name: data.full_name,
             title: data.title,
+            age: data.age,
             avatarUrl: data.avatar_url,
             location: data.location,
             email: data.email,
@@ -310,6 +311,7 @@ export const StorageService = {
     name: string, 
     title: string, 
     location: string, 
+    age: number | null,
     avatarUrl: string, 
     email: string, 
     role: UserRole, 
@@ -326,6 +328,7 @@ export const StorageService = {
         if (updates.name) dbUpdates.full_name = updates.name;
         if (updates.title) dbUpdates.title = updates.title;
         if (updates.location) dbUpdates.location = updates.location;
+        if (updates.age !== undefined) dbUpdates.age = updates.age;
         if (updates.avatarUrl) dbUpdates.avatar_url = updates.avatarUrl;
         if (updates.email) dbUpdates.email = updates.email;
         if (updates.role) dbUpdates.role = updates.role;
@@ -619,7 +622,7 @@ export const StorageService = {
     }
   },
 
-  completeUserProfile: async (userId: string, email: string, role: UserRole, details: { name: string, title: string, location: string, avatarUrl?: string }) => {
+  completeUserProfile: async (userId: string, email: string, role: UserRole, details: { name: string, title: string, location: string, age?: number, avatarUrl?: string }) => {
     await StorageService.init();
     if (_isMock) return;
     try {
@@ -630,6 +633,7 @@ export const StorageService = {
             title: details.title,
             role: role, 
             location: details.location,
+            age: details.age || null,
             avatar_url: details.avatarUrl || null,
             updated_at: new Date().toISOString()
         };

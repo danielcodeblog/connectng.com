@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     plan TEXT DEFAULT 'free',
     bio TEXT,
     location TEXT,
+    age INTEGER,
     website TEXT,
     email TEXT,
     encryption_public_key TEXT,
@@ -523,6 +524,10 @@ BEGIN
 
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='profiles' AND column_name='deactivation_reason') THEN
         ALTER TABLE public.profiles ADD COLUMN deactivation_reason TEXT;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='profiles' AND column_name='age') THEN
+        ALTER TABLE public.profiles ADD COLUMN age INTEGER;
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='pitches' AND column_name='is_active') THEN

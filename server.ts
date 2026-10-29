@@ -789,7 +789,7 @@ async function startServer() {
         return res.status(500).json({ error: 'Supabase client not initialized' });
       }
       const userId = req.params.id;
-      const { full_name, title, bio, location, website, role, plan, billing_cycle } = req.body;
+      const { full_name, title, bio, location, website, role, plan, billing_cycle, age } = req.body;
       const updateData: Record<string, any> = {};
 
       if (full_name !== undefined) updateData.full_name = String(full_name).slice(0, 100);
@@ -797,6 +797,7 @@ async function startServer() {
       if (bio !== undefined) updateData.bio = String(bio).slice(0, 1000);
       if (location !== undefined) updateData.location = String(location).slice(0, 100);
       if (website !== undefined) updateData.website = String(website).slice(0, 200);
+      if (age !== undefined) updateData.age = age ? Number(age) : null;
       if (role !== undefined && ['MEMBER', 'FOUNDER', 'INVESTOR', 'ADMIN'].includes(String(role).toUpperCase())) {
         updateData.role = String(role).toUpperCase();
       }

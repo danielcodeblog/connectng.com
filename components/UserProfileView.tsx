@@ -240,6 +240,12 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ userId, onClos
             
             {/* Unboxed metadata line with typographic separators */}
             <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+              {profile.age && (
+                <>
+                  <span>{profile.age} yrs old</span>
+                  <span aria-hidden="true">·</span>
+                </>
+              )}
               {profile.location && (
                 <>
                   <span className="flex items-center gap-1"><MapPin size={13} /> {profile.location}</span>

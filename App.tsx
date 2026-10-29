@@ -356,6 +356,16 @@ const App = () => {
         return;
       }
 
+      if (pathname === '/terms' || hash === '#terms') {
+        setGlobalLegalView('terms');
+        return;
+      }
+
+      if (pathname === '/privacy' || hash === '#privacy') {
+        setGlobalLegalView('privacy');
+        return;
+      }
+
       if (pathname === '/blog' || hash === '#blog') {
         setAppState('BLOG');
         return;

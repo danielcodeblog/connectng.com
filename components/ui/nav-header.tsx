@@ -1,6 +1,6 @@
-"use client";
+"use client"; 
 
-import React from "react";
+import React, { useRef, useState } from "react";
 import { motion } from "motion/react";
 
 export interface NavItemDef {
@@ -19,6 +19,12 @@ export function NavHeader({
   onNavigate: (page: string) => void;
   lightMode?: boolean;
 }) {
+  const [position, setPosition] = useState({
+    left: 0,
+    width: 0,
+    opacity: 0,
+  });
+
   const normalizedPages = pages.map((p) => {
     if (typeof p === "string") {
       const labelMap: Record<string, string> = {
@@ -42,51 +48,72 @@ export function NavHeader({
 
   return (
     <ul
-      role="menubar"
-      aria-label="Main Navigation"
-      className="relative mx-auto hidden lg:flex items-center gap-1 w-fit p-1 select-none"
+      className="relative mx-auto hidden lg:flex w-fit items-center"
+      onMouseLeave={() => setPosition((pv) => ({ ...pv, opacity: 0 }))}
     >
-      {normalizedPages.map((item) => {
-        const isActive = activeId === item.id;
-        return (
-          <li
-            key={item.id}
-            role="menuitem"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onNavigate(item.id);
-              }
-            }}
-            onClick={() => onNavigate(item.id)}
-            className={`relative flex items-center gap-1.5 cursor-pointer px-4 py-2 text-xs tracking-wider uppercase font-bold transition-colors duration-150 select-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-amber-400 text-black ${
-              isActive
-                ? "text-black font-extrabold"
-                : "text-black hover:text-black/80 hover:bg-black/5 font-medium"
-            }`}
-          >
-            {/* Active Pill using motion layoutId for zero-glitch transition */}
-            {isActive && (
-              <motion.div
-                layoutId="nav-active-indicator"
-                transition={{
-                  type: "spring",
-                  stiffness: 420,
-                  damping: 32,
-                  mass: 0.7,
-                }}
-                className="absolute inset-0 rounded-full z-0 pointer-events-none bg-black/10 border border-black/15 shadow-xs"
-              />
-            )}
+      {normalizedPages.map((item) => (
+        <Tab 
+          key={item.id} 
+          setPosition={setPosition} 
+          isActive={activeId === item.id}
+          onClick={() => onNavigate(item.id)}
+          lightMode={lightMode}
+        >
+          {item.label}
+        </Tab>
+      ))}
 
-            <span className="relative z-10 text-black">{item.label}</span>
-            {isActive && (
-              <span className="relative z-10 w-1.5 h-1.5 rounded-full bg-black" />
-            )}
-          </li>
-        );
-      })}
+      <Cursor position={position} lightMode={lightMode} />
     </ul>
   );
 }
+
+const Tab = ({
+  children,
+  setPosition,
+  isActive,
+  onClick,
+  lightMode,
+}: {
+  children: React.ReactNode;
+  setPosition: any;
+  isActive: boolean;
+  onClick: () => void;
+  lightMode?: boolean;
+}) => {
+  const ref = useRef<HTMLLIElement>(null);
+  return (
+    <li
+      ref={ref}
+      onMouseEnter={() => {
+        if (!ref.current) return;
+
+        const { width } = ref.current.getBoundingClientRect();
+        setPosition({
+          width,
+          opacity: 1,
+          left: ref.current.offsetLeft,
+        });
+      }}
+      onClick={onClick}
+      className={`relative z-10 block cursor-pointer px-3 py-1.5 text-xs uppercase tracking-wider transition-colors md:px-4 md:py-2 md:text-xs font-bold ${
+        lightMode
+          ? isActive ? "text-zinc-950 font-extrabold" : "text-zinc-700 hover:text-zinc-950"
+          : isActive ? "text-[#FFBF00] font-extrabold" : "text-white hover:text-white/80"
+      }`}
+    >
+      {children}
+    </li>
+  );
+};
+
+const Cursor = ({ position, lightMode }: { position: any; lightMode?: boolean }) => {
+  return (
+    <motion.li
+      animate={position}
+      className={`absolute z-0 h-8 md:h-8 rounded-full ${
+        lightMode ? "bg-zinc-900/10" : "bg-white/10"
+      }`}
+    />
+  );
+};

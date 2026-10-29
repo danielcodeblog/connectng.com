@@ -39,6 +39,7 @@ export interface FounderProfile {
   role: string;
   email?: string;
   location?: string;
+  age?: number;
 }
 
 export interface Startup {

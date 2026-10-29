@@ -17,6 +17,7 @@ import UserProfileView from './UserProfileView';
 import { PitchEditor } from './PitchEditor';
 import { PitchSimulator } from './PitchSimulator';
 import { ConnectUpIcon } from './ui/ConnectUpLogo';
+import { getCompanyLogo } from './CompanyLogos';
 
 interface FounderDashboardProps {
   userProfile?: {
@@ -346,7 +347,7 @@ const FounderDashboard: React.FC<FounderDashboardProps> = React.memo(({
                             : "bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-700/50"
                         }`}
                       >
-                        <IconWrapper icon={Video01Icon} size={13} />
+                        {getCompanyLogo(pitch.name || '', "w-3.5 h-3.5")}
                         <span>{pitch.name || `Pitch #${idx + 1}`}</span>
                         {activePitchIndex === idx && (
                           <span className="ml-1 text-[9px] bg-amber-400 text-zinc-950 px-1 py-0.2 rounded font-extrabold uppercase">Live</span>

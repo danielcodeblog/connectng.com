@@ -1,7 +1,12 @@
-"use client"; 
+"use client";
 
-import React, { useRef, useState } from "react";
+import React from "react";
 import { motion } from "motion/react";
+
+export interface NavItemDef {
+  id: string;
+  label: string;
+}
 
 export function NavHeader({
   pages,
@@ -9,95 +14,79 @@ export function NavHeader({
   onNavigate,
   lightMode = false,
 }: {
-  pages: string[];
+  pages: (string | NavItemDef)[];
   currentPage: string;
   onNavigate: (page: string) => void;
   lightMode?: boolean;
 }) {
-  const [position, setPosition] = useState({
-    left: 0,
-    width: 0,
-    opacity: 0,
+  const normalizedPages = pages.map((p) => {
+    if (typeof p === "string") {
+      const labelMap: Record<string, string> = {
+        home: "Home",
+        about: "About",
+        why: "Why Us",
+        founders: "Founders",
+        pricing: "Pricing",
+        blog: "Blog",
+        contact: "Contact",
+      };
+      return {
+        id: p,
+        label: labelMap[p] || (p.charAt(0).toUpperCase() + p.slice(1)),
+      };
+    }
+    return p;
   });
+
+  const activeId = currentPage === "founders" ? "about" : currentPage;
 
   return (
     <ul
-      className="relative mx-auto hidden lg:flex items-center gap-1 w-fit p-1"
-      onMouseLeave={() => setPosition((pv) => ({ ...pv, opacity: 0 }))}
+      role="menubar"
+      aria-label="Main Navigation"
+      className="relative mx-auto hidden lg:flex items-center gap-1 w-fit p-1 select-none"
     >
-      {pages.map((page) => (
-        <Tab 
-          key={page} 
-          setPosition={setPosition} 
-          isActive={currentPage === page}
-          onClick={() => onNavigate(page)}
-          lightMode={lightMode}
-        >
-          {page}
-        </Tab>
-      ))}
+      {normalizedPages.map((item) => {
+        const isActive = activeId === item.id;
+        return (
+          <li
+            key={item.id}
+            role="menuitem"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onNavigate(item.id);
+              }
+            }}
+            onClick={() => onNavigate(item.id)}
+            className={`relative flex items-center gap-1.5 cursor-pointer px-4 py-2 text-xs tracking-wider uppercase font-bold transition-colors duration-150 select-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-amber-400 text-black ${
+              isActive
+                ? "text-black font-extrabold"
+                : "text-black hover:text-black/80 hover:bg-black/5 font-medium"
+            }`}
+          >
+            {/* Active Pill using motion layoutId for zero-glitch transition */}
+            {isActive && (
+              <motion.div
+                layoutId="nav-active-indicator"
+                transition={{
+                  type: "spring",
+                  stiffness: 420,
+                  damping: 32,
+                  mass: 0.7,
+                }}
+                className="absolute inset-0 rounded-full z-0 pointer-events-none bg-black/10 border border-black/15 shadow-xs"
+              />
+            )}
 
-      <Cursor position={position} lightMode={lightMode} />
+            <span className="relative z-10 text-black">{item.label}</span>
+            {isActive && (
+              <span className="relative z-10 w-1.5 h-1.5 rounded-full bg-black" />
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }
-
-const Tab = ({
-  children,
-  setPosition,
-  isActive,
-  onClick,
-  lightMode,
-}: {
-  children: React.ReactNode;
-  setPosition: any;
-  isActive: boolean;
-  onClick: () => void;
-  lightMode?: boolean;
-}) => {
-  const ref = useRef<HTMLLIElement>(null);
-  return (
-    <li
-      ref={ref}
-      onMouseEnter={() => {
-        if (!ref.current) return;
-
-        const { width } = ref.current.getBoundingClientRect();
-        setPosition({
-          width,
-          opacity: 1,
-          left: ref.current.offsetLeft,
-        });
-      }}
-      onClick={onClick}
-      className={`relative z-10 flex items-center gap-1.5 cursor-pointer px-4 py-1.5 text-xs uppercase tracking-wider font-bold transition-colors select-none ${
-        isActive 
-          ? lightMode 
-            ? "text-zinc-950 font-extrabold" 
-            : "text-[#FFBF00] font-extrabold"
-          : lightMode 
-            ? "text-zinc-500 hover:text-zinc-950" 
-            : "text-zinc-400 hover:text-white"
-      }`}
-    >
-      <span>{children}</span>
-      {isActive && (
-        <span className={`w-1 h-1 rounded-full ${lightMode ? 'bg-zinc-950' : 'bg-[#FFBF00] shadow-[0_0_8px_#FFBF00]'}`} />
-      )}
-    </li>
-  );
-};
-
-const Cursor = ({ position, lightMode }: { position: any; lightMode?: boolean }) => {
-  return (
-    <motion.li
-      animate={position}
-      transition={{ type: "spring", stiffness: 400, damping: 30 }}
-      className={`absolute z-0 h-7 rounded-full pointer-events-none ${
-        lightMode 
-          ? "bg-zinc-100 border border-zinc-200/80 shadow-xs" 
-          : "bg-white/10 border border-white/10 shadow-xs backdrop-blur-md"
-      }`}
-    />
-  );
-};

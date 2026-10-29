@@ -12,6 +12,7 @@ import { VideoPlayer } from './VideoPlayer';
 import { CircleLoader } from './CircleLoader';
 import CommunityFeed from './communityfeed';
 import UserProfileView from './UserProfileView';
+import { getCompanyLogo } from './CompanyLogos';
 
 interface SwipeDeckProps {
   onMatch?: (startup: Startup) => void;
@@ -589,8 +590,10 @@ const SwipeCard = ({
         ) : card.imageUrl ? (
           <img src={card.imageUrl} className="w-full h-full object-cover" alt="" />
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-zinc-800 to-zinc-950 flex items-center justify-center">
-             <span className="text-white/20 font-display font-black text-6xl tracking-widest uppercase">{card.name ? card.name[0] : ''}</span>
+          <div className="w-full h-full bg-gradient-to-br from-zinc-900 via-zinc-950 to-black flex flex-col items-center justify-center p-8">
+            <div className="w-24 h-24 rounded-3xl bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center shadow-2xl p-4">
+              {getCompanyLogo(card.name, "w-14 h-14")}
+            </div>
           </div>
         )}
         

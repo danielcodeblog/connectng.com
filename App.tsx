@@ -215,7 +215,18 @@ const App = () => {
   const [communityRefreshTrigger, setCommunityRefreshTrigger] = useState(0);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [authInitialMode, setAuthInitialMode] = useState<'user' | 'admin'>('user');
+  const [authInitialIsSignUp, setAuthInitialIsSignUp] = useState<boolean>(false);
   const [isAccountDeactivated, setIsAccountDeactivated] = useState<boolean>(false);
+
+  const handleLoginClick = useCallback(() => {
+    setAuthInitialIsSignUp(false);
+    setAppState('AUTH');
+  }, []);
+
+  const handleSignUpClick = useCallback(() => {
+    setAuthInitialIsSignUp(true);
+    setAppState('AUTH');
+  }, []);
 
   // Persist view state to localStorage
   useEffect(() => {
@@ -1639,9 +1650,8 @@ const App = () => {
         {(appState === 'LANDING' || appState === 'INITIALIZING') ? (
           <>
             <LandingSite 
-              onLoginClick={() => {
-                setAppState('AUTH');
-              }} 
+              onLoginClick={handleLoginClick} 
+              onSignUpClick={handleSignUpClick}
               onAdminLoginClick={() => {
                 try {
                   window.history.pushState({}, '', '/admin');
@@ -1676,9 +1686,7 @@ const App = () => {
           <>
             <BlogPage 
               onBackHome={() => handleNavigateFromStandalone('home')}
-              onLoginClick={() => {
-                setAppState('AUTH');
-              }}
+              onLoginClick={handleLoginClick}
               onNavigateToContact={() => handleNavigateFromStandalone('contact')}
               onNavigateToSection={handleNavigateFromStandalone}
               onLegalView={setGlobalLegalView}
@@ -1691,9 +1699,7 @@ const App = () => {
           <>
             <AboutPage 
               onBackHome={() => handleNavigateFromStandalone('home')}
-              onLoginClick={() => {
-                setAppState('AUTH');
-              }}
+              onLoginClick={handleLoginClick}
               onNavigateToBlog={() => handleNavigateFromStandalone('blog')}
               onNavigateToContact={() => handleNavigateFromStandalone('contact')}
               onNavigateToSection={handleNavigateFromStandalone}
@@ -1707,9 +1713,7 @@ const App = () => {
           <>
             <ContactPage 
               onBackHome={() => handleNavigateFromStandalone('home')}
-              onLoginClick={() => {
-                setAppState('AUTH');
-              }}
+              onLoginClick={handleLoginClick}
               onNavigateToBlog={() => handleNavigateFromStandalone('blog')}
               onNavigateToSection={handleNavigateFromStandalone}
               onLegalView={setGlobalLegalView}
@@ -1736,6 +1740,7 @@ const App = () => {
           <>
             <AuthScreen 
               initialMode={authInitialMode}
+              initialIsSignUp={authInitialIsSignUp}
               onComplete={handleAuthComplete} 
               onViewLegal={setGlobalLegalView} 
               onBackHome={() => setAppState('LANDING')} 

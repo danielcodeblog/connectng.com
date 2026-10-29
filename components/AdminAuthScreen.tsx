@@ -25,7 +25,7 @@ const InputField = ({
   label
 }: any) => (
   <div className={`relative group ${className}`}>
-     {label && <label className="block text-sm font-medium text-zinc-500 mb-1.5 ml-1">{label}</label>}
+     {label && <label className="block text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1.5 ml-1">{label}</label>}
      <input 
         type={type} 
         value={value}
@@ -33,7 +33,7 @@ const InputField = ({
         placeholder={placeholder}
         required={required}
         autoComplete={autoComplete}
-        className="w-full h-16 px-6 bg-white/5 backdrop-blur-lg border border-zinc-800 hover:border-yellow-400 rounded-sm text-zinc-900 placeholder-zinc-400 focus:bg-white/20 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 transition-all duration-200 font-medium text-lg shadow-[inset_0_1px_2px_rgba(0,0,0,0.03)]"
+        className="w-full h-16 px-6 bg-zinc-50 dark:bg-zinc-800/90 border border-zinc-300 dark:border-zinc-700 hover:border-amber-400 dark:hover:border-amber-400 rounded-sm text-zinc-900 dark:text-zinc-50 placeholder-zinc-400 dark:placeholder-zinc-400 focus:bg-white dark:focus:bg-zinc-800 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 transition-all duration-200 font-medium text-lg shadow-[inset_0_1px_2px_rgba(0,0,0,0.03)]"
      />
   </div>
 );
@@ -48,7 +48,7 @@ const PasswordInput = ({
   const [show, setShow] = useState(false);
   return (
       <div className="relative group">
-          {label && <label className="block text-sm font-medium text-zinc-500 mb-1.5 ml-1">{label}</label>}
+          {label && <label className="block text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1.5 ml-1">{label}</label>}
           <div className="relative">
               <input 
                   type={show ? "text" : "password"} 
@@ -57,12 +57,12 @@ const PasswordInput = ({
                   placeholder={placeholder}
                   required
                   autoComplete={autoComplete}
-                  className="w-full h-16 pl-6 pr-12 bg-white/5 backdrop-blur-lg border border-zinc-800 hover:border-yellow-400 rounded-sm text-zinc-900 placeholder-zinc-400 focus:bg-white/20 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 transition-all duration-200 font-medium text-lg shadow-[inset_0_1px_2px_rgba(0,0,0,0.03)]"
+                  className="w-full h-16 pl-6 pr-12 bg-zinc-50 dark:bg-zinc-800/90 border border-zinc-300 dark:border-zinc-700 hover:border-amber-400 dark:hover:border-amber-400 rounded-sm text-zinc-900 dark:text-zinc-50 placeholder-zinc-400 dark:placeholder-zinc-400 focus:bg-white dark:focus:bg-zinc-800 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 transition-all duration-200 font-medium text-lg shadow-[inset_0_1px_2px_rgba(0,0,0,0.03)]"
               />
               <button 
                   type="button" 
                   onClick={() => setShow(!show)}
-                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-zinc-400 hover:text-zinc-600 cursor-pointer z-20 focus:outline-none"
+                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer z-20 focus:outline-none"
               >
                   {show ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>

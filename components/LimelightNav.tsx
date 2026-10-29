@@ -88,8 +88,10 @@ export const LimelightNav = ({
           >
             {/* Solid background capsule animation for active items - Removed as requested */}
 
-            <div className={`relative flex items-center justify-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-full transition-all duration-300 ${
-              isActive ? 'text-brand-primary' : 'text-black dark:text-white hover:text-zinc-500 dark:hover:text-zinc-400'
+            <div className={`relative flex items-center justify-center gap-2 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-full transition-all duration-300 ${
+              isActive 
+                ? 'text-[#FFBF00] bg-amber-400/15 dark:bg-amber-400/20 border border-amber-400/30 shadow-[0_2px_12px_rgba(255,191,0,0.15)] font-bold' 
+                : 'text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
             }`}>
 
               <span className={`transition-transform duration-300 ${isActive ? 'scale-105' : 'scale-100'}`}>

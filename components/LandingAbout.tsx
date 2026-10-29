@@ -1,6 +1,5 @@
-
 import React, { useRef } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Sparkles, Target, Zap, Shield, CheckCircle2 } from 'lucide-react';
 import { TypewriterSequence } from './TypewriterSequence';
 import connectImg from '../src/assets/images/connect.png';
 
@@ -8,91 +7,117 @@ export const LandingAbout = () => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div className="w-full py-24 sm:py-32 px-4 sm:px-6 bg-[#FAF6E8] relative overflow-hidden" ref={containerRef}>
-      {/* Background Connect.png Image */}
-      <div className="absolute inset-0 pointer-events-none z-0">
-        <img 
-          src={connectImg} 
-          alt="" 
-          className="w-full h-full object-cover object-center opacity-90" 
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#FAF6E8]/30 via-transparent to-[#FAF6E8]/30" />
-      </div>
+    <div className="w-full py-20 sm:py-28 px-4 sm:px-6 lg:px-8 bg-white text-zinc-900 relative overflow-hidden border-b border-zinc-200" ref={containerRef}>
+      {/* Subtle Background Glow */}
+      <div className="absolute top-1/4 -right-48 w-96 h-96 bg-amber-500/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-1/4 -left-48 w-96 h-96 bg-[#FFBF00]/5 rounded-full blur-[140px] pointer-events-none" />
 
-      {/* Soft Mauve Golden Hour Background Glow */}
-      <div className="absolute top-0 right-0 w-96 h-96 bg-[#E0B0FF]/20 rounded-full blur-[100px] pointer-events-none z-0" />
       <div className="max-w-7xl mx-auto w-full relative z-10">
-
-        {/* Modern Deconstructed Heading */}
-        <div className="mb-20 sm:mb-28 flex flex-col items-center text-center">
-          <span
-            className="text-xs tracking-[0.25em] font-bold uppercase text-zinc-950 bg-[#E0B0FF]/40 border border-[#E0B0FF]/60 px-4 py-1.5 rounded-full mb-5 shadow-xs"
-          >
-            Our Mission
+        {/* Story Chapter Heading (Paragraph removed per request) */}
+        <div className="mb-14 sm:mb-20 flex flex-col items-center text-center">
+          <span className="text-xs tracking-[0.25em] font-mono font-bold uppercase text-amber-800 bg-amber-100 border border-amber-200 px-4 py-1.5 rounded-full mb-4 shadow-xs">
+            The Story & Mission
           </span>
-          <h2 
-            className="text-5xl sm:text-7xl md:text-8xl font-black text-zinc-900 leading-[1.0] tracking-tight font-sans"
-          >
-            Pitching, <span className="italic font-serif font-light text-[#FFBF00]">Evolved.</span>
+          <h2 className="text-4xl sm:text-6xl md:text-7xl font-black text-zinc-950 leading-tight tracking-tight">
+            Pitching, <span className="italic font-serif font-light text-amber-600">Evolved.</span>
           </h2>
         </div>
 
-        {/* Improved Bento-grid Layout */}
-        <div className="grid lg:grid-cols-3 gap-6 items-stretch">
-          
-          {/* Main Prop */}
-          <div 
-            className="lg:col-span-2 p-6 sm:p-10 md:p-14 bg-white/70 backdrop-blur-md border border-amber-200/60 shadow-[0_8px_32px_0_rgba(207,181,59,0.08)] rounded-[2.5rem] flex flex-col justify-between min-h-[240px] sm:min-h-[320px] lg:min-h-[380px]"
-          >
-            <TypewriterSequence 
-              className="font-serif text-xl sm:text-3xl md:text-5xl font-light text-zinc-900 leading-[1.15] tracking-tight mb-6 sm:mb-12 block"
-              disableAnimation
-              segments={[
-                { text: "We believe the strongest partnerships start with " },
-                { text: "instant alignment", className: "text-[#FFBF00] font-normal italic" },
-                { text: ", not endless cold emails. We are redefining how founders tell their stories and how investors deploy capital." }
-              ]}
-            />
-            <div className="h-[1px] w-20 bg-gradient-to-r from-[#FFBF00] to-[#CFB53B]" />
+        {/* Narrative Bento Grid */}
+        <div className="grid lg:grid-cols-12 gap-6 items-stretch">
+          {/* Main Statement */}
+          <div className="lg:col-span-7 p-8 sm:p-12 md:p-14 bg-zinc-50 border border-zinc-200/80 rounded-[2.5rem] flex flex-col justify-between shadow-lg relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
+            <div>
+              <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-700 mb-4 block">
+                01 / THE PHILOSOPHY
+              </span>
+              <TypewriterSequence 
+                className="font-serif text-2xl sm:text-3xl md:text-4xl font-light text-zinc-900 leading-snug tracking-tight mb-8 block"
+                disableAnimation
+                segments={[
+                  { text: "We believe the strongest venture partnerships start with " },
+                  { text: "instant alignment", className: "text-amber-600 font-normal italic" },
+                  { text: ", not endless cold outreach. We are redefining how founders tell their stories and how capital is deployed." }
+                ]}
+              />
+            </div>
           </div>
 
-          {/* Aesthetic Element */}
-          <div 
-            className="relative aspect-[16/10] sm:aspect-video lg:aspect-auto lg:h-full bg-white border border-amber-200/60 shadow-[0_8px_32px_0_rgba(207,181,59,0.08)] rounded-[2.5rem] overflow-hidden min-h-[200px] sm:min-h-[280px] lg:min-h-[380px] group/img"
-          >
-            <img 
-              src="https://images.unsplash.com/photo-1552664730-d307ca884978?w=800&q=80" 
-              className="w-full h-full object-cover opacity-95 group-hover/img:opacity-100 transition-all duration-500 group-hover/img:scale-105"
-              alt="Founders Meeting"
-              referrerPolicy="no-referrer"
-            />
-          </div>
+          {/* Side Visual Card */}
+          <div className="lg:col-span-5 relative bg-zinc-900 text-white border border-zinc-800 rounded-[2.5rem] overflow-hidden min-h-[320px] p-8 flex flex-col justify-between group shadow-xl">
+            <div className="absolute inset-0 z-0">
+              <img 
+                src={connectImg} 
+                alt="ConnectUp Network" 
+                className="w-full h-full object-cover opacity-35 group-hover:scale-105 transition-transform duration-700" 
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/70 to-transparent" />
+            </div>
 
-          {/* Features */}
-          <div className="lg:col-span-3 grid sm:grid-cols-2 gap-6">
-            {[
-              { 
-                bg: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&q=80&w=800"
-              },
-              { 
-                bg: "https://images.unsplash.com/photo-1551434678-e076c223a692?auto=format&fit=crop&q=80&w=800"
-              }
-            ].map((item, i) => (
-              <div 
-                key={i}
-                className="p-10 rounded-[2.5rem] border backdrop-blur-md transition-all duration-500 bg-zinc-950 border-zinc-900 shadow-[0_8px_32px_0_rgba(0,0,0,0.15)] text-white relative overflow-hidden group min-h-[220px]"
-              >
-                {/* Background Image */}
-                <div className="absolute inset-0 z-0">
-                  <img 
-                    src={item.bg} 
-                    alt="" 
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform duration-700" 
-                  />
-                </div>
+            <div className="relative z-10 flex items-center justify-between">
+              <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-400">
+                02 / THE ECOSYSTEM
+              </span>
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+            </div>
+
+            <div className="relative z-10 space-y-3">
+              <h3 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                Direct Deal Channels
+              </h3>
+              <p className="text-zinc-300 text-sm leading-relaxed">
+                Skip the gatekeepers. Verified founders connect directly with thesis-aligned angel syndicates and venture partners.
+              </p>
+              <div className="pt-2 flex items-center gap-2 text-xs font-bold text-[#FFBF00]">
+                <span>No broker fees. Zero warm intro loops.</span>
               </div>
-            ))}
+            </div>
+          </div>
+
+          {/* Lower Story Comparison Grid: Old Way vs ConnectUp Way */}
+          <div className="lg:col-span-12 grid md:grid-cols-2 gap-6 pt-2">
+            <div className="p-8 sm:p-10 rounded-[2rem] bg-red-50 border border-red-200">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="w-6 h-6 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-xs font-black">✕</span>
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-red-700">The Outdated Fundraising Playbook</span>
+              </div>
+              <ul className="space-y-3 text-sm text-zinc-700 font-light">
+                <li className="flex items-start gap-2.5">
+                  <span className="text-red-500 mt-0.5">•</span>
+                  <span>200+ cold emails with static PDF decks yielding less than 2% response rate</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="text-red-500 mt-0.5">•</span>
+                  <span>Months of radio silence while burning through crucial startup runway</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="text-red-500 mt-0.5">•</span>
+                  <span>Unvetted terms, opaque investor feedback, and heavy broker cuts</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="p-8 sm:p-10 rounded-[2rem] bg-amber-50 border border-amber-200">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="w-6 h-6 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-xs font-black">✓</span>
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-800">The ConnectUp Platform Way</span>
+              </div>
+              <ul className="space-y-3 text-sm text-zinc-800 font-light">
+                <li className="flex items-start gap-2.5">
+                  <span className="text-amber-600 mt-0.5">•</span>
+                  <span>Stage & thesis match engine guarantees every conversation has active mandate</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="text-amber-600 mt-0.5">•</span>
+                  <span>Interactive pitch rooms showcase verified traction, cap tables, and live metrics</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="text-amber-600 mt-0.5">•</span>
+                  <span>Private direct messaging with lead syndicates and zero platform cut on your round</span>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>

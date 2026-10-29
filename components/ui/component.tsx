@@ -22,10 +22,9 @@ export function ParallaxComponent() {
       });
 
       const layers = [
-        { layer: "1", yPercent: 40 },
-        { layer: "2", yPercent: 30 },
-        { layer: "3", yPercent: 20 },
-        { layer: "4", yPercent: 5 }
+        { layer: "1", yPercent: 15 },
+        { layer: "2", yPercent: 8 },
+        { layer: "3", yPercent: 12 }
       ];
 
       layers.forEach((layerObj, idx) => {
@@ -57,14 +56,14 @@ export function ParallaxComponent() {
               loading="eager" 
               data-parallax-layer="1" 
               alt="Background Layer" 
-              className="absolute inset-0 w-full h-full object-cover object-bottom z-0" 
+              className="absolute inset-0 w-full h-full object-cover object-bottom z-0 opacity-80" 
             />
             <img 
               src="https://cdn.prod.website-files.com/671752cd4027f01b1b8f1c7f/6717795b4d5ac529e7d3a562_osmo-parallax-layer-2.webp" 
               loading="eager" 
               data-parallax-layer="2" 
               alt="Midground Layer" 
-              className="absolute inset-0 w-full h-full object-cover object-bottom z-10" 
+              className="absolute inset-0 w-full h-full object-cover object-bottom z-20 opacity-100 visible pointer-events-none" 
             />
             
             <div data-parallax-layer="3" className="absolute top-[40%] sm:top-[42%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-40 flex flex-col items-center justify-center w-full px-4 text-center">
@@ -77,14 +76,6 @@ export function ParallaxComponent() {
                 /> <br/>friction.
               </h2>
             </div>
-            
-            <img 
-              src="https://cdn.prod.website-files.com/671752cd4027f01b1b8f1c7f/6717795bb5aceca85011ad83_osmo-parallax-layer-1.webp" 
-              loading="eager" 
-              data-parallax-layer="4" 
-              alt="Foreground Layer" 
-              className="absolute inset-0 w-full h-full object-cover object-bottom z-30" 
-            />
           </div>
           <div className="absolute bottom-0 inset-x-0 h-40 bg-gradient-to-t from-[#0A0A0C] via-[#0A0A0C]/80 to-transparent z-40 pointer-events-none"></div>
         </div>

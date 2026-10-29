@@ -26,7 +26,7 @@ export const LandingHome = ({ onNavigate, onLoginClick, showVideo }: HomeViewPro
   }, []);
 
   return (
-    <div ref={homeRef} className="w-full relative bg-gradient-to-b from-yellow-400 to-white">
+    <div ref={homeRef} className="w-full relative bg-[#0A0A0C]">
       <ParallaxComponent />
     </div>
   );

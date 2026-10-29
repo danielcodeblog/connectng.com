@@ -1,8 +1,9 @@
 
 import React, { useState, useRef } from 'react';
-import { Heart, ThumbsDown, Building2, Briefcase, TrendingUp, Users } from 'lucide-react';
+import { Heart, ThumbsDown, Briefcase, TrendingUp, Users } from 'lucide-react';
 import gsap from 'gsap';
 import { FOUNDERS, FounderData } from '../src/constants';
+import { getCompanyLogo } from './CompanyLogos';
 
 export const LandingDiscover = () => {
   const [founders, setFounders] = useState<FounderData[]>(FOUNDERS);
@@ -84,10 +85,12 @@ export const LandingDiscover = () => {
           style={{ willChange: 'transform' }}
         >
           <div 
-            className="h-40 sm:h-48 w-full flex items-center justify-center text-4xl font-[800]"
+            className="h-40 sm:h-48 w-full flex items-center justify-center p-4 relative overflow-hidden"
             style={{ background: currentFounder.image }}
           >
-             <Building2 size={56} className="text-black/30" />
+            <div className="p-3 bg-black/25 backdrop-blur-md rounded-2xl border border-white/20 shadow-xl flex items-center justify-center">
+              {getCompanyLogo(currentFounder.title, "w-12 h-12 sm:w-14 sm:h-14")}
+            </div>
           </div>
           
           <div className="p-6 sm:p-8">

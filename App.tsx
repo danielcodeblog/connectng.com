@@ -1779,7 +1779,18 @@ const App = () => {
             )}
 
             <main className={`flex-1 pt-0 ${currentView === 'admin' ? 'p-0 max-w-none' : isLockedView ? 'pb-[72px] md:pb-0 max-w-[1920px]' : 'pb-20 md:pb-0 max-w-[1920px]'} bg-transparent relative z-10 w-full mx-auto`}>
-              {mainContent}
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentView}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                  className="w-full h-full flex flex-col flex-1"
+                >
+                  {mainContent}
+                </motion.div>
+              </AnimatePresence>
             </main>
 
             {/* Global Notification Toast */}

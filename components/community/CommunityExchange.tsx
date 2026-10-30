@@ -157,7 +157,7 @@ export const CommunityExchange: React.FC<CommunityExchangeProps> = ({
             The Founder Exchange
           </h2>
           <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed font-sans">
-            Ask for what your venture needs. Offer what your journey has taught you. No cold pitches—only high-conviction mutual aid.
+            Ask for what your venture needs. Offer what your journey has taught you. No cold pitches only high conviction mutual aid.
           </p>
         </div>
 

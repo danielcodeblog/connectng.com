@@ -33,7 +33,7 @@ const InputField = ({
         placeholder={placeholder}
         required={required}
         autoComplete={autoComplete}
-        className="w-full h-16 px-6 bg-zinc-50 dark:bg-zinc-800/90 border border-zinc-300 dark:border-zinc-700 hover:border-amber-400 dark:hover:border-amber-400 rounded-sm text-zinc-900 dark:text-zinc-50 placeholder-zinc-400 dark:placeholder-zinc-400 focus:bg-white dark:focus:bg-zinc-800 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 transition-all duration-200 font-medium text-lg shadow-[inset_0_1px_2px_rgba(0,0,0,0.03)]"
+        className="auth-input w-full h-16 px-6 bg-zinc-50 dark:bg-zinc-800/90 border border-zinc-300 dark:border-zinc-700 hover:border-amber-400 dark:hover:border-amber-400 rounded-sm text-zinc-900 dark:text-zinc-50 placeholder-zinc-400 dark:placeholder-zinc-400 focus:bg-white dark:focus:bg-zinc-800 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 transition-all duration-200 font-medium text-lg shadow-[inset_0_1px_2px_rgba(0,0,0,0.03)]"
      />
   </div>
 );
@@ -57,7 +57,7 @@ const PasswordInput = ({
                   placeholder={placeholder}
                   required
                   autoComplete={autoComplete}
-                  className="w-full h-16 pl-6 pr-12 bg-zinc-50 dark:bg-zinc-800/90 border border-zinc-300 dark:border-zinc-700 hover:border-amber-400 dark:hover:border-amber-400 rounded-sm text-zinc-900 dark:text-zinc-50 placeholder-zinc-400 dark:placeholder-zinc-400 focus:bg-white dark:focus:bg-zinc-800 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 transition-all duration-200 font-medium text-lg shadow-[inset_0_1px_2px_rgba(0,0,0,0.03)]"
+                  className="auth-input w-full h-16 pl-6 pr-12 bg-zinc-50 dark:bg-zinc-800/90 border border-zinc-300 dark:border-zinc-700 hover:border-amber-400 dark:hover:border-amber-400 rounded-sm text-zinc-900 dark:text-zinc-50 placeholder-zinc-400 dark:placeholder-zinc-400 focus:bg-white dark:focus:bg-zinc-800 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 transition-all duration-200 font-medium text-lg shadow-[inset_0_1px_2px_rgba(0,0,0,0.03)]"
               />
               <button 
                   type="button" 
@@ -178,7 +178,7 @@ export const AdminAuthScreen: React.FC<AdminAuthScreenProps> = ({ onComplete, on
   };
 
   return (
-    <div className="min-h-screen w-full bg-white relative overflow-y-hidden">
+    <div className="auth-screen min-h-screen w-full bg-white relative overflow-y-hidden">
       {/* Main Card */}
       <div className="w-full h-screen overflow-hidden flex flex-col md:grid md:grid-cols-10 relative z-10">
         

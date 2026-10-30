@@ -416,7 +416,7 @@ export const BlogPage: React.FC<BlogPageProps> = ({
                 </div>
 
                 {/* Right Content Area */}
-                <div className="lg:col-span-9 space-y-8 bg-white p-6 sm:p-12 rounded-3xl border border-zinc-200 shadow-sm">
+                <div className="lg:col-span-8 space-y-8 bg-white p-6 sm:p-12 rounded-3xl border border-zinc-200 shadow-sm">
                   
                   {/* Metadata Header */}
                   <div className="space-y-4">

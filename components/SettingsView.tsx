@@ -81,6 +81,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [activeThemeLocal, setActiveThemeLocal] = useState<'light' | 'dark'>(theme || 'light');
+
+  useEffect(() => {
+    if (theme) setActiveThemeLocal(theme);
+  }, [theme]);
 
   // Account Lifecycle & Deactivation State
   const [isDeactivatedLocal, setIsDeactivatedLocal] = useState<boolean>(() => {
@@ -205,15 +210,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {/* Light Mode Card */}
               <div 
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveThemeLocal('light');
                   onSetTheme?.('light');
                 }}
-                className={`p-6 rounded-3xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
-                  theme === 'light' 
-                    ? 'border-amber-400 bg-amber-50/30 dark:bg-zinc-900 shadow-lg' 
+                className={`p-6 rounded-3xl border-2 cursor-pointer transition-all flex flex-col justify-between relative overflow-hidden ${
+                  activeThemeLocal === 'light' 
+                    ? 'border-amber-400 bg-amber-50/40 dark:bg-zinc-900 shadow-xl ring-2 ring-amber-400/20' 
                     : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 hover:border-zinc-300'
                 }`}
               >
+                {activeThemeLocal === 'light' && (
+                  <div className="absolute top-4 right-4 bg-amber-400 text-zinc-950 font-black text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full shadow-xs">
+                    Active
+                  </div>
+                )}
                 <div className="space-y-4">
                   <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center">
                     <Sun size={24} />
@@ -225,28 +237,34 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
                 <div className="pt-6 mt-6 border-t border-zinc-200/60 dark:border-zinc-800 flex items-center justify-between">
                   <span 
-                    className="text-xs font-bold text-zinc-700 dark:text-zinc-300 cursor-pointer"
-                    onClick={() => onSetTheme?.('light')}
+                    className={`text-xs font-bold ${activeThemeLocal === 'light' ? 'text-amber-600 dark:text-amber-400 font-black' : 'text-zinc-700 dark:text-zinc-300'}`}
                   >
-                    {theme === 'light' ? 'Select Light' : 'Select Light'}
+                    {activeThemeLocal === 'light' ? 'Currently Active' : 'Select Light'}
                   </span>
-                  <div className={`w-5 h-5 rounded-full flex items-center justify-center border ${theme === 'light' ? 'bg-amber-400 border-amber-500 text-black' : 'border-zinc-300'}`}>
-                    {theme === 'light' && <Check size={12} strokeWidth={3} />}
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center border shadow-xs ${activeThemeLocal === 'light' ? 'bg-amber-400 border-amber-500 text-zinc-950 scale-110' : 'border-zinc-300'}`}>
+                    {activeThemeLocal === 'light' && <Check size={14} strokeWidth={3} />}
                   </div>
                 </div>
               </div>
 
               {/* Dark Mode Card */}
               <div 
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveThemeLocal('dark');
                   onSetTheme?.('dark');
                 }}
-                className={`p-6 rounded-3xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
-                  theme === 'dark' 
-                    ? 'border-amber-400 bg-zinc-900 shadow-lg' 
+                className={`p-6 rounded-3xl border-2 cursor-pointer transition-all flex flex-col justify-between relative overflow-hidden ${
+                  activeThemeLocal === 'dark' 
+                    ? 'border-amber-400 bg-zinc-900 shadow-xl ring-2 ring-amber-400/20' 
                     : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 hover:border-zinc-300'
                 }`}
               >
+                {activeThemeLocal === 'dark' && (
+                  <div className="absolute top-4 right-4 bg-amber-400 text-zinc-950 font-black text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full shadow-xs">
+                    Active
+                  </div>
+                )}
                 <div className="space-y-4">
                   <div className="w-12 h-12 rounded-2xl bg-zinc-800 text-amber-400 flex items-center justify-center">
                     <Moon size={24} />
@@ -257,11 +275,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   </div>
                 </div>
                 <div className="pt-6 mt-6 border-t border-zinc-200/60 dark:border-zinc-800 flex items-center justify-between">
-                  <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
-                    {theme === 'dark' ? 'Currently Active' : 'Select Dark'}
+                  <span className={`text-xs font-bold ${activeThemeLocal === 'dark' ? 'text-amber-400 font-black' : 'text-zinc-700 dark:text-zinc-300'}`}>
+                    {activeThemeLocal === 'dark' ? 'Currently Active' : 'Select Dark'}
                   </span>
-                  <div className={`w-5 h-5 rounded-full flex items-center justify-center border ${theme === 'dark' ? 'bg-amber-400 border-amber-500 text-black' : 'border-zinc-300'}`}>
-                    {theme === 'dark' && <Check size={12} strokeWidth={3} />}
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center border shadow-xs ${activeThemeLocal === 'dark' ? 'bg-amber-400 border-amber-500 text-zinc-950 scale-110' : 'border-zinc-300'}`}>
+                    {activeThemeLocal === 'dark' && <Check size={14} strokeWidth={3} />}
                   </div>
                 </div>
               </div>
@@ -837,7 +855,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   value={localProfile.name || ''} 
                   onChange={(e) => setLocalProfile({...localProfile, name: e.target.value})}
                   placeholder="e.g. Alex Chen"
-                  className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-850 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl text-sm font-semibold text-zinc-900 dark:text-white focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 outline-none transition-all" 
+                  className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl text-sm font-semibold text-zinc-900 dark:text-white focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 outline-none transition-all" 
                 />
               </div>
 
@@ -851,7 +869,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   value={localProfile.title || ''} 
                   onChange={(e) => setLocalProfile({...localProfile, title: e.target.value})}
                   placeholder={role === 'founder' ? 'e.g. Founder & CEO' : 'e.g. Partner, Venture Fund'}
-                  className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-850 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl text-sm font-semibold text-zinc-900 dark:text-white focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 outline-none transition-all" 
+                  className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl text-sm font-semibold text-zinc-900 dark:text-white focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 outline-none transition-all" 
                 />
               </div>
 
@@ -865,7 +883,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   value={localProfile.location || ''} 
                   onChange={(e) => setLocalProfile({...localProfile, location: e.target.value})}
                   placeholder="e.g. San Francisco, CA"
-                  className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-850 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl text-sm font-semibold text-zinc-900 dark:text-white focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 outline-none transition-all" 
+                  className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl text-sm font-semibold text-zinc-900 dark:text-white focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 outline-none transition-all" 
                 />
               </div>
 
@@ -879,7 +897,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   value={localProfile.email || ''} 
                   onChange={(e) => setLocalProfile({...localProfile, email: e.target.value})}
                   placeholder="e.g. alex@startup.com"
-                  className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-850 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl text-sm font-semibold text-zinc-900 dark:text-white focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 outline-none transition-all" 
+                  className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl text-sm font-semibold text-zinc-900 dark:text-white focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 outline-none transition-all" 
                 />
               </div>
             </div>
@@ -935,7 +953,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     value={passwordState.new}
                     onChange={(e) => passwordState.setNew(e.target.value)}
                     placeholder="Enter at least 8 characters"
-                    className="w-full pl-4 pr-11 py-3 bg-zinc-50 dark:bg-zinc-850 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl text-sm font-semibold text-zinc-900 dark:text-white focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 outline-none transition-all" 
+                    className="w-full pl-4 pr-11 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl text-sm font-semibold text-zinc-900 dark:text-white focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 outline-none transition-all" 
                   />
                   <button
                     type="button"
@@ -957,7 +975,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     value={passwordState.confirm}
                     onChange={(e) => passwordState.setConfirm(e.target.value)}
                     placeholder="Re-enter your new password"
-                    className="w-full pl-4 pr-11 py-3 bg-zinc-50 dark:bg-zinc-850 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl text-sm font-semibold text-zinc-900 dark:text-white focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 outline-none transition-all" 
+                    className="w-full pl-4 pr-11 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl text-sm font-semibold text-zinc-900 dark:text-white focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 outline-none transition-all" 
                   />
                   <button
                     type="button"

@@ -7,8 +7,7 @@ import {
   UserPlus, Check, Eye, ChevronRight, X, AlertCircle, Clock, Send, FileSpreadsheet,
   Settings, HelpCircle, Bell, LogOut, LayoutGrid, Mic, Play, Copy, ExternalLink,
   ChevronDown, Sun, Moon, Database, Laptop, Layers,
-  CheckCircle2, Info, BellRing, Receipt, Printer, Radio, MessageSquare,
-  Minimize2, Maximize2
+  CheckCircle2, Info, BellRing, Receipt, Printer, Radio, MessageSquare
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -207,19 +206,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
   const [dashboardTxSearch, setDashboardTxSearch] = useState('');
   const [dashboardTxLimit, setDashboardTxLimit] = useState<number>(5);
   const [copiedTxId, setCopiedTxId] = useState<string | null>(null);
-  const [isCompact, setIsCompact] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('connectup_admin_compact') !== 'false';
-    } catch {
-      return true;
-    }
+  // Dashboard density is permanently compact
+  const isCompact = true;
+
+  const [isDarkTheme, setIsDarkTheme] = useState(() => {
+    return document.documentElement.classList.contains('dark') || localStorage.getItem('connectup_theme') === 'dark';
   });
+
+  const toggleAdminTheme = () => {
+    const isDark = document.documentElement.classList.contains('dark');
+    if (isDark) {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('connectup_theme', 'light');
+      setIsDarkTheme(false);
+    } else {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('connectup_theme', 'dark');
+      setIsDarkTheme(true);
+    }
+  };
 
   useEffect(() => {
     try {
-      localStorage.setItem('connectup_admin_compact', isCompact.toString());
+      localStorage.setItem('connectup_admin_compact', 'true');
     } catch {}
-  }, [isCompact]);
+  }, []);
 
   // Admin profile state
   const [adminProfileState, setAdminProfileState] = useState({
@@ -1424,7 +1435,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
       <div className="flex-1 flex overflow-hidden">
         
         {/* EXECUTIVE ENTERPRISE SIDEBAR */}
-        <aside className={`${isCompact ? 'w-56' : 'w-64'} bg-white dark:bg-[#0B0B0E] border-r border-zinc-200 dark:border-zinc-800 hidden md:flex flex-col justify-between shrink-0 select-none transition-all duration-200`}>
+        <aside className="w-60 bg-white dark:bg-[#0B0B0E] border-r border-zinc-200 dark:border-zinc-800 hidden md:flex flex-col justify-between shrink-0 select-none transition-all duration-200 relative z-20">
           
           <div className="flex flex-col">
             {/* Workspace Header */}
@@ -1539,14 +1550,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                 </div>
               </div>
             </div>
-
-            <button
-              onClick={() => onNavigateHome && onNavigateHome()}
-              className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-lg transition-colors cursor-pointer"
-            >
-              <LogOut size={13} />
-              <span>Back to App</span>
-            </button>
           </div>
         </aside>
 
@@ -1554,61 +1557,89 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
         <div className="flex-1 flex flex-col min-w-0 overflow-y-auto custom-scrollbar scroll-smooth overscroll-contain">
           
           {/* SAAS TOP BAR CONTRACT */}
-          <header className="sticky top-0 z-30 bg-white/95 dark:bg-[#09090B]/95 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-800/80 w-full shrink-0">
-            <div className={`w-full ${isCompact ? 'max-w-[960px]' : 'max-w-5xl'} mx-auto px-3.5 sm:px-4 py-1.5 flex items-center justify-between gap-3 transition-all duration-200`}>
+          <header className="sticky top-0 z-10 bg-white/95 dark:bg-[#0B0B0E]/95 backdrop-blur-xl border-b border-zinc-200/90 dark:border-zinc-800/90 w-full shrink-0 shadow-xs">
+            <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3 flex items-center justify-between gap-3 sm:gap-4 transition-all duration-200">
             
             {/* Zone 1: Contextual Breadcrumb */}
-            <div className="flex items-center gap-1.5 text-xs shrink-0">
-              <span className="text-zinc-400 font-medium">Admin</span>
-              <span className="text-zinc-300 dark:text-zinc-700">/</span>
-              <span className="text-zinc-950 dark:text-zinc-100 font-semibold capitalize">
-                {activeTab === 'dashboards' ? 'Overview' : activeTab === 'subscriptions' ? 'Transaction History' : activeTab === 'users' ? 'Users' : activeTab === 'reports' ? 'Reports' : activeTab === 'townhall' ? 'Town Hall Boards' : activeTab === 'blogs' ? 'Blog & Editorial' : activeTab === 'logs' ? 'Audit Logs' : activeTab}
-              </span>
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-400/15 border border-amber-400/30 text-amber-500 flex items-center justify-center shrink-0">
+                  {activeTab === 'dashboards' ? <LayoutGrid size={16} /> :
+                   activeTab === 'users' ? <Users size={16} /> :
+                   activeTab === 'subscriptions' ? <Receipt size={16} /> :
+                   activeTab === 'reports' ? <ShieldAlert size={16} /> :
+                   activeTab === 'townhall' ? <Radio size={16} /> :
+                   activeTab === 'blogs' ? <FileText size={16} /> :
+                   activeTab === 'logs' ? <Clock size={16} /> :
+                   <Settings size={16} />}
+                </div>
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <span className="text-zinc-400 font-medium hidden sm:inline">Admin</span>
+                    <span className="text-zinc-300 dark:text-zinc-700 hidden sm:inline">/</span>
+                    <span className="text-zinc-950 dark:text-zinc-100 font-bold text-sm tracking-tight capitalize">
+                      {activeTab === 'dashboards' ? 'Executive Overview' :
+                       activeTab === 'subscriptions' ? 'Transaction History' :
+                       activeTab === 'users' ? 'User Directory' :
+                       activeTab === 'reports' ? 'Safety & Moderation' :
+                       activeTab === 'townhall' ? 'Town Hall Boards' :
+                       activeTab === 'blogs' ? 'Editorial & Blogs' :
+                       activeTab === 'logs' ? 'Audit & Security Logs' : 'Workspace Settings'}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* Zone 2: Search with hotkey decoration */}
-            <div className="flex-1 max-w-[260px] hidden sm:block">
+            {/* Zone 2: Search with hotkey decoration & clear button */}
+            <div className="flex-1 max-w-sm md:max-w-md lg:max-w-lg hidden sm:block">
               <div className="relative flex items-center">
-                <Search size={13} className="absolute left-2.5 text-zinc-400" />
+                <Search size={14} className="absolute left-3 text-zinc-400 pointer-events-none" />
                 <input
                   type="text"
-                  placeholder="Search users..."
+                  placeholder="Search users, emails, startups..."
                   value={userSearch}
                   onChange={(e) => {
                     setUserSearch(e.target.value);
                     if (activeTab !== 'users' && e.target.value) setActiveTab('users');
                   }}
-                  className="w-full h-7.5 pl-7.5 pr-9 text-xs bg-zinc-100 dark:bg-zinc-900 border border-transparent focus:border-zinc-300 dark:focus:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none transition-all"
+                  className="w-full h-9 pl-9 pr-14 text-xs bg-zinc-100/90 dark:bg-zinc-900/90 border border-zinc-200/90 dark:border-zinc-800 rounded-xl text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-amber-400 dark:focus:border-amber-400 focus:ring-2 focus:ring-amber-400/10 transition-all font-medium"
                 />
-                <span className="absolute right-1.5 px-1 py-0.2 text-[9px] font-mono text-zinc-400 bg-zinc-200/60 dark:bg-zinc-800 rounded pointer-events-none">
-                  ⌘K
-                </span>
+                {userSearch ? (
+                  <button 
+                    onClick={() => setUserSearch('')}
+                    className="absolute right-2.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-0.5 cursor-pointer"
+                  >
+                    <X size={12} />
+                  </button>
+                ) : (
+                  <span className="absolute right-2.5 px-1.5 py-0.5 text-[9px] font-mono font-bold text-zinc-400 bg-zinc-200/70 dark:bg-zinc-800 rounded pointer-events-none">
+                    ⌘K
+                  </span>
+                )}
               </div>
             </div>
 
-            {/* Zone 3: Primary Actions & Notification Center */}
-            <div className="flex items-center gap-2 relative">
-              {/* Density Toggle */}
+            {/* Zone 3: Primary Actions, Theme Toggle & Notification Center */}
+            <div className="flex items-center gap-2 sm:gap-2.5 relative">
+
+              {/* Theme Toggle (Dark / Light) */}
               <button
-                onClick={() => setIsCompact(prev => !prev)}
-                title={isCompact ? "Current: Compact view. Click for normal view" : "Current: Normal view. Click for compact view"}
-                className={`h-7.5 px-2 rounded-lg border text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
-                  isCompact 
-                    ? 'border-amber-400/80 bg-amber-400/10 text-amber-700 dark:text-amber-400 shadow-xs' 
-                    : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50'
-                }`}
+                onClick={toggleAdminTheme}
+                title={isDarkTheme ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                className="w-9 h-9 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 flex items-center justify-center transition-all cursor-pointer shadow-2xs"
               >
-                {isCompact ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
-                <span className="hidden sm:inline font-mono text-[10px]">{isCompact ? 'Compact' : 'Normal'}</span>
+                {isDarkTheme ? <Sun size={15} className="text-amber-400" /> : <Moon size={15} />}
               </button>
 
+              {/* Refresh Data button */}
               <button
                 onClick={refreshAllData}
                 disabled={isRefreshing}
-                title="Refresh data"
-                className="w-7.5 h-7.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
+                title="Refresh dashboard data"
+                className="w-9 h-9 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 flex items-center justify-center transition-all cursor-pointer disabled:opacity-50 shadow-2xs"
               >
-                <RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''} />
+                <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
               </button>
 
               {/* SaaS Notification Center Bell */}
@@ -1616,13 +1647,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                 <button
                   onClick={() => setIsNotificationsOpen(prev => !prev)}
                   title="Notifications"
-                  className={`relative w-7.5 h-7.5 rounded-lg border transition-all flex items-center justify-center cursor-pointer ${
+                  className={`relative w-9 h-9 rounded-xl border transition-all flex items-center justify-center cursor-pointer shadow-2xs ${
                     isNotificationsOpen 
                       ? 'border-amber-400 bg-amber-400/15 text-amber-500 shadow-xs' 
                       : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300'
                   }`}
                 >
-                  <Bell size={14} className={unreadCount > 0 ? 'text-zinc-900 dark:text-zinc-100' : ''} />
+                  <Bell size={15} className={unreadCount > 0 ? 'text-zinc-900 dark:text-zinc-100' : ''} />
                   {unreadCount > 0 && (
                     <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-amber-500 text-[9px] font-black text-zinc-950 shadow-xs ring-2 ring-white dark:ring-zinc-950">
                       {unreadCount}
@@ -1645,7 +1676,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 8, scale: 0.95 }}
                         transition={{ type: "spring", stiffness: 450, damping: 32 }}
-                        className="absolute right-0 top-10 mt-2 z-50 w-80 sm:w-96 rounded-2xl bg-white dark:bg-[#121216] border border-zinc-200 dark:border-zinc-800 shadow-[0_20px_50px_rgba(0,0,0,0.2)] overflow-hidden font-sans"
+                        className="absolute right-0 top-11 mt-2 z-50 w-80 sm:w-96 rounded-2xl bg-white dark:bg-[#121216] border border-zinc-200 dark:border-zinc-800 shadow-[0_20px_50px_rgba(0,0,0,0.2)] overflow-hidden font-sans"
                       >
                         {/* Header */}
                         <div className="p-3.5 border-b border-zinc-150 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-900/30 flex items-center justify-between">
@@ -1776,9 +1807,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
 
               <button
                 onClick={() => setIsAddUserModalOpen(true)}
-                className="h-8 px-3.5 rounded-lg bg-[#FACC15] hover:bg-amber-400 text-zinc-950 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs whitespace-nowrap"
+                className="h-9 px-4 rounded-xl bg-[#FACC15] hover:bg-amber-400 active:scale-95 text-zinc-950 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm whitespace-nowrap"
               >
-                <Plus size={14} strokeWidth={2.5} />
+                <Plus size={15} strokeWidth={2.5} />
                 <span className="hidden sm:inline">Add User</span>
               </button>
             </div>
@@ -1786,7 +1817,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
           </header>
 
           {/* MOBILE TABS NAVIGATION BAR (md:hidden) */}
-          <div className="md:hidden flex items-center gap-1.5 overflow-x-auto px-4 py-2.5 bg-white border-b border-zinc-200 shrink-0 no-scrollbar select-none">
+          <div className="md:hidden flex items-center gap-1.5 overflow-x-auto px-4 py-2.5 bg-white dark:bg-[#0B0B0E] border-b border-zinc-200 dark:border-zinc-800 shrink-0 no-scrollbar select-none">
             {[
               { id: 'dashboards', label: 'Overview', icon: LayoutGrid, count: null },
               { id: 'users', label: 'Users', icon: Users, count: users.length },
@@ -1806,14 +1837,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer shrink-0 ${
                     isActive
                       ? 'bg-[#FACC15] text-zinc-950 font-bold shadow-xs'
-                      : 'text-zinc-600 hover:bg-zinc-100'
+                      : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
                   }`}
                 >
                   <Icon size={14} />
                   <span>{tab.label}</span>
                   {tab.count !== null && tab.count > 0 && (
                     <span className={`text-[10px] font-mono px-1 rounded ${
-                      isActive ? 'bg-zinc-950 text-white font-bold' : 'bg-zinc-100 text-zinc-500'
+                      isActive ? 'bg-zinc-950 text-white font-bold' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'
                     }`}>
                       {tab.count}
                     </span>
@@ -1821,20 +1852,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                 </button>
               );
             })}
-            {onNavigateHome && (
-              <button
-                onClick={onNavigateHome}
-                title="Exit Admin"
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 whitespace-nowrap cursor-pointer ml-auto shrink-0"
-              >
-                <LogOut size={13} />
-                <span>Exit</span>
-              </button>
-            )}
           </div>
 
-          {/* TAB CONTENT VIEWPORT */}
-          <main className={`flex-1 p-3 sm:p-4 pb-16 space-y-3.5 ${isCompact ? 'max-w-[960px]' : 'max-w-5xl'} w-full mx-auto transition-all duration-200`}>
+          {/* TAB CONTENT VIEWPORT - COMPACT DASHBOARD */}
+          <main className="flex-1 p-4 sm:p-5 pb-20 space-y-4 max-w-7xl w-full mx-auto transition-all duration-200">
             
             {/* TAB 1: OVERVIEW & BENTO METRICS */}
             {activeTab === 'dashboards' && (
@@ -3135,7 +3156,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
 
             {/* TAB 6: SETTINGS */}
             {activeTab === 'settings' && (
-              <div className="space-y-6 max-w-3xl">
+              <div className="space-y-6 max-w-5xl">
                 <div>
                   <h2 className="text-lg font-bold text-zinc-950 dark:text-white">Settings</h2>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">Manage authentication and system preferences</p>

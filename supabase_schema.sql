@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     website TEXT,
     email TEXT,
     encryption_public_key TEXT,
+    read_receipts_enabled BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     last_seen TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
@@ -65,25 +66,81 @@ CREATE POLICY "Profiles are viewable by everyone" ON public.profiles FOR SELECT 
 CREATE POLICY "Users can update their own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
 CREATE POLICY "Users can insert their own profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
 
--- Trigger to prevent client-side updates to restricted fields like 'plan' and 'role'
-CREATE OR REPLACE FUNCTION public.protect_profile_fields()
-RETURNS TRIGGER AS $$
+-- Ensure billing/subscription columns exist on profiles
+DO $$
 BEGIN
-    -- Prevent authenticated users from modifying their plan or role 
-    -- (auth.role() will be 'authenticated' or 'anon' from the client, 'service_role' from backend)
-    IF auth.role() = 'authenticated' THEN
-        NEW.plan = OLD.plan;
-        NEW.role = OLD.role;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='profiles' AND column_name='subscription_tier') THEN
+        ALTER TABLE public.profiles ADD COLUMN subscription_tier TEXT DEFAULT 'free';
     END IF;
-    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='profiles' AND column_name='subscription_status') THEN
+        ALTER TABLE public.profiles ADD COLUMN subscription_status TEXT DEFAULT 'inactive';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='profiles' AND column_name='billing_cycle') THEN
+        ALTER TABLE public.profiles ADD COLUMN billing_cycle TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='profiles' AND column_name='subscription_end_date') THEN
+        ALTER TABLE public.profiles ADD COLUMN subscription_end_date TIMESTAMP WITH TIME ZONE;
+    END IF;
+END $$;
+
+-- Subscription transactions (read-only to owner; writes restricted to service_role)
+CREATE TABLE IF NOT EXISTS public.subscription_transactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    amount DECIMAL(12,2) NOT NULL,
+    currency TEXT DEFAULT 'USD',
+    reference TEXT UNIQUE,
+    status TEXT NOT NULL,
+    tier TEXT NOT NULL,
+    billing_cycle TEXT NOT NULL,
+    provider TEXT DEFAULT 'Paystack',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.subscription_transactions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view their own transactions" ON public.subscription_transactions;
+CREATE POLICY "Users can view their own transactions"
+    ON public.subscription_transactions FOR SELECT
+    USING (auth.uid() = user_id);
+
+-- Trigger to prevent client-side privilege escalation or billing tampering on INSERT and UPDATE
+CREATE OR REPLACE FUNCTION public.protect_profile_fields()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    IF auth.role() IN ('authenticated', 'anon') THEN
+        IF TG_OP = 'INSERT' THEN
+            IF UPPER(COALESCE(NEW.role, '')) NOT IN ('MEMBER', 'FOUNDER', 'INVESTOR') THEN
+                NEW.role := 'MEMBER';
+            ELSE
+                NEW.role := UPPER(NEW.role);
+            END IF;
+            NEW.plan := 'free';
+            NEW.subscription_tier := 'free';
+            NEW.subscription_status := 'inactive';
+            NEW.billing_cycle := NULL;
+            NEW.subscription_end_date := NULL;
+        ELSIF TG_OP = 'UPDATE' THEN
+            NEW.role := OLD.role;
+            NEW.plan := OLD.plan;
+            NEW.subscription_tier := OLD.subscription_tier;
+            NEW.subscription_status := OLD.subscription_status;
+            NEW.billing_cycle := OLD.billing_cycle;
+            NEW.subscription_end_date := OLD.subscription_end_date;
+        END IF;
+    END IF;
+
     NEW.updated_at = timezone('utc'::text, now());
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 DROP TRIGGER IF EXISTS enforce_profile_security ON public.profiles;
 CREATE TRIGGER enforce_profile_security
-    BEFORE UPDATE ON public.profiles
+    BEFORE INSERT OR UPDATE ON public.profiles
     FOR EACH ROW EXECUTE FUNCTION public.protect_profile_fields();
 
 -- Profile Follow Feature
@@ -376,6 +433,8 @@ CREATE TABLE IF NOT EXISTS public.messages (
     file_size TEXT,
     duration NUMERIC,
     reactions JSONB DEFAULT '[]',
+    delivered_at TIMESTAMP WITH TIME ZONE,
+    read_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -383,6 +442,7 @@ CREATE TABLE IF NOT EXISTS public.messages (
 CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON public.messages(chat_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created_at ON public.messages(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON public.messages(sender_id);
+CREATE INDEX IF NOT EXISTS idx_messages_chat_unread ON public.messages(chat_id, sender_id, status) WHERE status <> 'read';
 
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view messages in their chats" ON public.messages FOR SELECT USING (
@@ -395,14 +455,66 @@ CREATE POLICY "Users can insert messages in their chats" ON public.messages FOR 
         WHERE id = messages.chat_id AND (investor_id = auth.uid() OR startup_id = auth.uid())
     )
 );
-CREATE POLICY "Authors can update message content" ON public.messages FOR UPDATE USING (auth.uid() = sender_id);
-CREATE POLICY "Recipients can update message status" ON public.messages FOR UPDATE USING (
-    chat_id IN (SELECT id FROM public.chats WHERE investor_id = auth.uid() OR startup_id = auth.uid())
+CREATE POLICY "Participants can update message status and receipts" ON public.messages FOR UPDATE USING (
+    EXISTS (
+        SELECT 1 FROM public.chats
+        WHERE id = messages.chat_id AND (investor_id = auth.uid() OR startup_id = auth.uid())
+    )
 ) WITH CHECK (
-    -- Prevent content modification by ensuring ONLY 'status' column changes
-    -- This is best handled by column-level permissions if available, but for RLS:
-    (content = (SELECT content FROM public.messages WHERE id = public.messages.id))
+    EXISTS (
+        SELECT 1 FROM public.chats
+        WHERE id = messages.chat_id AND (investor_id = auth.uid() OR startup_id = auth.uid())
+    )
 );
+
+-- Relational Read Receipts Table
+CREATE TABLE IF NOT EXISTS public.message_read_receipts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    message_id UUID REFERENCES public.messages(id) ON DELETE CASCADE NOT NULL,
+    chat_id UUID REFERENCES public.chats(id) ON DELETE CASCADE NOT NULL,
+    reader_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    read_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    UNIQUE(message_id, reader_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_read_receipts_chat_reader ON public.message_read_receipts(chat_id, reader_id);
+CREATE INDEX IF NOT EXISTS idx_read_receipts_message ON public.message_read_receipts(message_id);
+
+ALTER TABLE public.message_read_receipts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Chat participants can view read receipts" ON public.message_read_receipts FOR SELECT USING (
+    EXISTS (
+        SELECT 1 FROM public.chats
+        WHERE id = message_read_receipts.chat_id AND (investor_id = auth.uid() OR startup_id = auth.uid())
+    )
+);
+CREATE POLICY "Recipients can insert their own read receipts" ON public.message_read_receipts FOR INSERT WITH CHECK (
+    auth.uid() = reader_id AND
+    EXISTS (
+        SELECT 1 FROM public.chats
+        WHERE id = message_read_receipts.chat_id AND (investor_id = auth.uid() OR startup_id = auth.uid())
+    )
+);
+CREATE POLICY "Recipients can update their own read receipts" ON public.message_read_receipts FOR UPDATE USING (auth.uid() = reader_id) WITH CHECK (auth.uid() = reader_id);
+
+-- Realtime Publication & Triggers for Chats / Messages / Read Receipts
+ALTER TABLE public.chats REPLICA IDENTITY FULL;
+ALTER TABLE public.messages REPLICA IDENTITY FULL;
+ALTER TABLE public.message_read_receipts REPLICA IDENTITY FULL;
+
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+        IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'chats') THEN
+            ALTER PUBLICATION supabase_realtime ADD TABLE public.chats;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'messages') THEN
+            ALTER PUBLICATION supabase_realtime ADD TABLE public.messages;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'message_read_receipts') THEN
+            ALTER PUBLICATION supabase_realtime ADD TABLE public.message_read_receipts;
+        END IF;
+    END IF;
+END $$;
 
 -- Meetings Table
 CREATE TABLE IF NOT EXISTS public.meetings (
@@ -423,14 +535,31 @@ CREATE TABLE IF NOT EXISTS public.meetings (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='meetings' AND column_name='startup_id') THEN
+        ALTER TABLE public.meetings ADD COLUMN startup_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='meetings' AND column_name='investor_id') THEN
+        ALTER TABLE public.meetings ADD COLUMN investor_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='meetings' AND column_name='user_id') THEN
+        ALTER TABLE public.meetings ADD COLUMN user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
+    END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_meetings_startup ON public.meetings(startup_id);
 CREATE INDEX IF NOT EXISTS idx_meetings_investor ON public.meetings(investor_id);
 CREATE INDEX IF NOT EXISTS idx_meetings_start_time ON public.meetings(start_time);
 
 ALTER TABLE public.meetings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view their meetings" ON public.meetings;
 CREATE POLICY "Users can view their meetings" ON public.meetings FOR SELECT USING (auth.uid() = investor_id OR auth.uid() = startup_id OR auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can insert meetings" ON public.meetings;
 CREATE POLICY "Users can insert meetings" ON public.meetings FOR INSERT WITH CHECK (auth.uid() = startup_id OR auth.uid() = investor_id OR auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update their meetings" ON public.meetings;
 CREATE POLICY "Users can update their meetings" ON public.meetings FOR UPDATE USING (auth.uid() = investor_id OR auth.uid() = startup_id OR auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete their meetings" ON public.meetings;
 CREATE POLICY "Users can delete their meetings" ON public.meetings FOR DELETE USING (auth.uid() = investor_id OR auth.uid() = startup_id OR auth.uid() = user_id);
 
 -- Pitches Table (for multi-pitch management per founder)
@@ -545,21 +674,28 @@ CREATE POLICY "Users can delete their own profile"
 ON public.profiles FOR DELETE 
 USING (auth.uid() = id);
 
--- 3. Stored Procedure for Cascading Deletion
+-- 3. Stored Procedure for Cascading Self-Deletion (Strictly caller-authorized)
 CREATE OR REPLACE FUNCTION public.delete_user_account(user_id_to_delete UUID)
 RETURNS BOOLEAN
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
+    -- Only the account owner (or backend service_role) may invoke deletion
+    IF auth.role() <> 'service_role' AND (auth.uid() IS NULL OR auth.uid() IS DISTINCT FROM user_id_to_delete) THEN
+        RAISE EXCEPTION 'Unauthorized: cannot delete another user account';
+    END IF;
+
     -- Delete all user data in foreign key order
-    DELETE FROM public.community_comments WHERE author_id = user_id_to_delete;
-    DELETE FROM public.community_posts WHERE author_id = user_id_to_delete OR user_id = user_id_to_delete OR profile_id = user_id_to_delete;
+    DELETE FROM public.community_comments WHERE user_id = user_id_to_delete;
+    DELETE FROM public.community_posts WHERE author_id = user_id_to_delete;
     DELETE FROM public.meetings WHERE user_id = user_id_to_delete OR startup_id = user_id_to_delete OR investor_id = user_id_to_delete;
     DELETE FROM public.swipes WHERE user_id = user_id_to_delete OR startup_id = user_id_to_delete;
     DELETE FROM public.pitches WHERE user_id = user_id_to_delete;
     DELETE FROM public.startup_metrics WHERE startup_id = user_id_to_delete;
     DELETE FROM public.startups WHERE id = user_id_to_delete;
+    DELETE FROM public.message_read_receipts WHERE reader_id = user_id_to_delete;
     DELETE FROM public.messages WHERE sender_id = user_id_to_delete;
     DELETE FROM public.chats WHERE startup_id = user_id_to_delete OR investor_id = user_id_to_delete;
     DELETE FROM public.reports WHERE reporter_id = user_id_to_delete OR reported_profile_id = user_id_to_delete;
@@ -574,7 +710,8 @@ EXCEPTION
 END;
 $$;
 
--- Grant execution permissions
+-- Restrict execution permissions
+REVOKE ALL ON FUNCTION public.delete_user_account(UUID) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.delete_user_account(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.delete_user_account(UUID) TO service_role;
 

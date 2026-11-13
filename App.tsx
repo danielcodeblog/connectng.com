@@ -464,8 +464,25 @@ const App = () => {
 
   // Settings State
   const [settingsPath, setSettingsPath] = useState<'root' | 'profile' | 'security' | 'password' | 'chat-prefs' | 'terms' | 'privacy' | 'subscription' | 'support'>('root');
-  const [chatSounds, setChatSounds] = useState(true);
-  const [readReceipts, setReadReceipts] = useState(true);
+  const [chatSounds, setChatSounds] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('connectup_chat_sounds');
+      return saved !== null ? saved === 'true' : true;
+    } catch { return true; }
+  });
+  const [readReceipts, setReadReceiptsState] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('connectup_read_receipts');
+      return saved !== null ? saved === 'true' : true;
+    } catch { return true; }
+  });
+  const setReadReceipts = useCallback((enabled: boolean) => {
+    setReadReceiptsState(enabled);
+    try {
+      localStorage.setItem('connectup_read_receipts', String(enabled));
+    } catch {}
+    StorageService.updateUserProfile({ readReceiptsEnabled: enabled }).catch(() => {});
+  }, []);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [newPassword, setNewPassword] = useState('');
@@ -653,6 +670,13 @@ const App = () => {
            setIsAccountDeactivated(StorageService.isAccountDeactivated(uid));
         }
 
+        if (currentProfile.readReceiptsEnabled !== undefined) {
+           setReadReceiptsState(currentProfile.readReceiptsEnabled);
+           try {
+             localStorage.setItem('connectup_read_receipts', String(currentProfile.readReceiptsEnabled));
+           } catch {}
+        }
+
         setUserProfile(prev => ({
            ...prev,
            name: currentProfile.name || prev.name || '',
@@ -692,7 +716,13 @@ const App = () => {
       if (appState !== 'MAIN_APP' || !currentUserId) return;
 
       const sub = StorageService.subscribeToGlobalMessages(async (msg) => {
-          if (msg.sender_id === currentUserId) return;
+          if (msg._table === 'chats' || (msg._eventType && msg._eventType !== 'INSERT')) return;
+          if (!msg.sender_id || msg.sender_id === currentUserId) return;
+
+          // Acknowledge delivery in real time since this user's client received the event online
+          if (msg.id) {
+              StorageService.markMessageAsDelivered(msg.id).catch(() => {});
+          }
 
           if (currentView !== 'messages') {
               setHasUnreadMessages(true);
@@ -1133,32 +1163,40 @@ const App = () => {
       return;
     }
     setIsProcessing(true);
-    
-    // Calculate end date (7 days from now)
-    const endDate = new Date();
-    endDate.setDate(endDate.getDate() + 7);
 
     try {
-      await StorageService.updateUserProfile({
-        plan: 'pro',
-        billingCycle: 'trial',
-        subscriptionEndDate: endDate.toISOString()
-      });
-      
-      // Record a transaction of $0 for the trial to pass performDataCheck
-      await StorageService.recordTransaction(0, 'pro', 'trial');
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) throw new Error('Authentication required');
 
-      // Set trial_used in localStorage to prevent starting again
+      const res = await fetch('/api/user/start-trial', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || !result?.success) {
+        throw new Error(result?.error || 'Failed to start free trial.');
+      }
+
       const identifier = currentUserId || userProfile.email || 'guest';
       localStorage.setItem(`trial_used_${identifier}`, 'true');
       setHasUsedTrial(true);
 
-      setUserProfile(prev => prev ? ({ 
-        ...prev, 
+      setUserProfile(prev => prev ? ({
+        ...prev,
         plan: 'pro',
-        billingCycle: 'trial',
-        subscriptionEndDate: endDate.toISOString()
+        billingCycle: result.billingCycle || 'trial',
+        subscriptionEndDate: result.subscriptionEndDate
       }) : null);
+
+      try {
+        const txs = await StorageService.getTransactions();
+        setTransactions(txs);
+      } catch {}
+
       setNotification({
         sender: "Subscription",
         message: "Your 1-week free trial has started!",
@@ -1166,11 +1204,11 @@ const App = () => {
         type: 'system'
       });
       setSettingsPath('root');
-    } catch (e) {
+    } catch (e: any) {
       console.error('Free trial start error:', e);
       setNotification({
         sender: "Error",
-        message: "Failed to start free trial. Please try again later.",
+        message: e?.message || "Failed to start free trial. Please try again later.",
         userId: "sys",
         type: 'error'
       });
@@ -1183,8 +1221,7 @@ const App = () => {
     if (!userProfile) return;
     setIsProcessing(true);
     const amount = billingCycle === 'yearly' ? 29 : 5;
-    
-    // Calculate end date
+
     const endDate = new Date();
     if (billingCycle === 'yearly') {
       endDate.setFullYear(endDate.getFullYear() + 1);
@@ -1192,124 +1229,79 @@ const App = () => {
       endDate.setMonth(endDate.getMonth() + 1);
     }
 
-    const refString = typeof reference === 'string' 
-      ? reference 
-      : (reference?.reference || reference?.trxref || reference?.transaction || `tx_${Date.now()}`);
+    const refString = typeof reference === 'string'
+      ? reference
+      : (reference?.reference || reference?.trxref || reference?.transaction || '');
 
-    const newProfileState = {
-      ...userProfile,
-      plan: 'pro',
-      billingCycle: billingCycle,
-      subscriptionEndDate: endDate.toISOString()
-    };
-
-    if (StorageService.isMockMode()) {
-       await StorageService.updateUserProfile({
-         plan: 'pro',
-         billingCycle: billingCycle,
-         subscriptionEndDate: endDate.toISOString()
-       });
-       await StorageService.recordTransaction(amount, 'pro', billingCycle);
-       setUserProfile(newProfileState);
-       try {
-         localStorage.setItem('connectup_cached_profile', JSON.stringify(newProfileState));
-       } catch (e) {}
-       const txs = await StorageService.getTransactions();
-       setTransactions(txs);
-       setIsProcessing(false);
-       setSettingsTab('subscription');
-       setNotification({
-         sender: "Subscription Active",
-         message: "Congratulations! You are now on the Pro Plan.",
-         userId: "sys",
-         type: 'system'
-       });
-       return;
+    if (!refString) {
+      setIsProcessing(false);
+      setNotification({
+        sender: "Payment Error",
+        message: "Missing payment reference. Please contact support if you were charged.",
+        userId: "sys",
+        type: 'error'
+      });
+      return;
     }
 
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
+      if (!token) {
+        throw new Error('Authentication session expired. Please sign in again.');
+      }
 
-      // Optimistically update React state and cache so UI immediately reflects the new plan
-      setUserProfile(newProfileState);
-      try {
-        localStorage.setItem('connectup_cached_profile', JSON.stringify(newProfileState));
-      } catch (e) {}
-
-      // Verify payment on server (updates database securely with admin client)
+      // Verify payment strictly on server before updating subscription state
       const verifyRes = await fetch('/api/verify-payment', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ reference: refString, billingCycle, amount, plan: 'pro' }),
       });
-      
-      if (!verifyRes.ok) {
-        const errorJson = await verifyRes.json().catch(() => ({}));
-        throw new Error(errorJson.error || `Payment verification server error: ${verifyRes.status}`);
+
+      const verifyData = await verifyRes.json().catch(() => ({}));
+      if (!verifyRes.ok || (!verifyData.success && !verifyData.status)) {
+        throw new Error(verifyData.error || `Payment verification failed (${verifyRes.status})`);
       }
 
-      const verifyData = await verifyRes.json();
-      
-      if (verifyData.status && (verifyData.data?.status === 'success' || verifyData.data?.plan === 'pro')) {
-          const finalEndDate = verifyData.data?.subscriptionEndDate || endDate.toISOString();
-          const finalCycle = verifyData.data?.billingCycle || billingCycle;
-          
-          const verifiedProfile = { 
-            ...userProfile, 
-            plan: 'pro',
-            billingCycle: finalCycle,
-            subscriptionEndDate: finalEndDate
-          };
-          
-          setUserProfile(verifiedProfile);
-          try {
-            localStorage.setItem('connectup_cached_profile', JSON.stringify(verifiedProfile));
-          } catch (e) {}
-          
-          // Refresh local transactions view
-          try {
-            const txs = await StorageService.getTransactions();
-            setTransactions(txs);
-          } catch (e) {}
-          
-          setNotification({
-            sender: "Subscription Active",
-            message: `You are now on Pro Connect (${finalCycle === 'yearly' ? 'Annual' : 'Monthly'})! Enjoy premium features.`,
-            userId: "sys",
-            type: 'system'
-          });
-          
-          setSettingsTab('subscription');
-      } else {
-          throw new Error(verifyData.error || "Payment verification failed");
-      }
-    } catch (e: any) {
-      console.error('Subscription update error:', e);
-      // Fallback: update profile via StorageService if verify route encountered any issue
+      const finalEndDate = verifyData.data?.subscriptionEndDate || endDate.toISOString();
+      const finalCycle = verifyData.data?.billingCycle || billingCycle;
+
+      const verifiedProfile = {
+        ...userProfile,
+        plan: 'pro',
+        billingCycle: finalCycle,
+        subscriptionEndDate: finalEndDate
+      };
+
+      setUserProfile(verifiedProfile);
       try {
-        await StorageService.updateUserProfile({
-          plan: 'pro',
-          billingCycle: billingCycle,
-          subscriptionEndDate: endDate.toISOString()
-        });
-        await StorageService.recordTransaction(amount, 'pro', billingCycle);
+        localStorage.setItem('connectup_cached_profile', JSON.stringify(verifiedProfile));
+      } catch (e) {}
+
+      try {
         const txs = await StorageService.getTransactions();
         setTransactions(txs);
-      } catch (fallbackErr) {
-        console.warn('StorageService fallback update error:', fallbackErr);
-      }
+      } catch (e) {}
 
       setNotification({
-        sender: "Subscription Notice",
-        message: "Payment recorded. Your Pro subscription is now active.",
+        sender: "Subscription Active",
+        message: `You are now on Pro Connect (${finalCycle === 'yearly' ? 'Annual' : 'Monthly'})! Enjoy premium features.`,
         userId: "sys",
         type: 'system'
       });
+
       setSettingsTab('subscription');
+    } catch (e: any) {
+      console.error('Subscription verification error:', e);
+      setNotification({
+        sender: "Verification Failed",
+        message: e?.message || "Could not verify payment with our server. Please contact support.",
+        userId: "sys",
+        type: 'error'
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -1328,13 +1320,24 @@ const App = () => {
     setIsCancelModalOpen(false);
     setIsProcessing(true);
     try {
-      await StorageService.updateUserProfile({ 
-        plan: 'free',
-        billingCycle: null,
-        subscriptionEndDate: null
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) throw new Error('Authentication required');
+
+      const res = await fetch('/api/user/cancel-subscription', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
       });
-      setUserProfile(prev => ({ 
-        ...prev, 
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || !result?.success) {
+        throw new Error(result?.error || 'Failed to cancel subscription');
+      }
+
+      setUserProfile(prev => ({
+        ...prev,
         plan: 'free',
         billingCycle: null,
         subscriptionEndDate: null
@@ -1345,11 +1348,11 @@ const App = () => {
         userId: "sys",
         type: 'system'
       });
-    } catch (e) {
+    } catch (e: any) {
       console.error('Subscription cancellation error:', e);
       setNotification({
         sender: "Error",
-        message: "Failed to cancel subscription. Please contact support.",
+        message: e?.message || "Failed to cancel subscription. Please contact support.",
         userId: "sys",
         type: 'error'
       });
@@ -1510,6 +1513,7 @@ const App = () => {
               {...{
                 email: userProfile?.email || 'user@connectup.com',
                 amount: (billingCycle === 'yearly' ? 2900 : 500) * 1400,
+                metadata: { custom_fields: [], userId: currentUserId || '', billingCycle } as any,
                 publicKey: (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_PAYSTACK_PUBLIC_KEY) || (typeof process !== 'undefined' && (process as any).env && ((process as any).env.VITE_PAYSTACK_PUBLIC_KEY || (process as any).env.PAYSTACK_PUBLIC_KEY)) || '',
                 text: isProcessing 
                   ? 'Processing...' 

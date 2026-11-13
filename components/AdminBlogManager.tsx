@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import DOMPurify from 'dompurify';
 import { 
   FileText, Plus, Search, Filter, Edit3, Trash2, Eye, CheckCircle2, 
   XCircle, Clock, Globe, Lock, Share2, Copy, Check, ExternalLink, 
@@ -1156,7 +1157,7 @@ export const AdminBlogManager: React.FC<AdminBlogManagerProps> = ({
                 {/* Content */}
                 <div 
                   className="prose dark:prose-invert max-w-none text-xs leading-relaxed text-zinc-700 dark:text-zinc-300 space-y-3"
-                  dangerouslySetInnerHTML={{ __html: previewPost.content }}
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(previewPost.content || '') }}
                 />
               </div>
 

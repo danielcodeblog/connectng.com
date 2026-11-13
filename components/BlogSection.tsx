@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import DOMPurify from 'dompurify';
 import { motion } from 'motion/react';
 import { ArrowUpRight, ChevronLeft, ChevronRight, Calendar, User, Clock, ArrowLeft } from 'lucide-react';
 import investorsAndFounders from '@/src/assets/images/investors_and_founders_1_1785147760772.jpg';
@@ -178,7 +179,7 @@ export const BlogSection: React.FC = () => {
 
                 <div 
                   className="prose prose-zinc prose-yellow max-w-none text-zinc-700 leading-relaxed text-lg prose-headings:text-zinc-900 prose-headings:font-normal prose-headings:font-serif prose-headings:tracking-tight prose-p:mb-6 prose-blockquote:border-l-[#FFBF00] prose-blockquote:bg-zinc-50 prose-blockquote:border prose-blockquote:border-zinc-200 prose-blockquote:p-8 prose-blockquote:rounded-[2.5rem] prose-blockquote:not-italic prose-blockquote:text-xl prose-blockquote:font-serif prose-blockquote:font-light"
-                  dangerouslySetInnerHTML={{ __html: selectedBlog.content }}
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(selectedBlog.content || '') }}
                 />
               </div>
             </div>

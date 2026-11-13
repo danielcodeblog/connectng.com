@@ -82,6 +82,8 @@ export interface Message {
   isMe: boolean;
   reactions?: Reaction[];
   status?: 'sent' | 'delivered' | 'read';
+  deliveredAt?: Date | string | null;
+  readAt?: Date | string | null;
 }
 
 export interface ChatSession {
@@ -93,10 +95,14 @@ export interface ChatSession {
   avatarUrl: string;
   founderAvatarUrl?: string;
   lastMessage: string;
+  lastMessageSenderId?: string;
+  lastMessageStatus?: 'sent' | 'delivered' | 'read';
+  lastMessageReadAt?: string | null;
   peerPublicKey?: string;
   timestamp: Date | string;
   unread: number;
   lastSeen?: string;
+  isOnline?: boolean;
 }
 
 export interface CommunityComment {

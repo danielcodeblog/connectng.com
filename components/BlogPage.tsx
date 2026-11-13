@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import DOMPurify from 'dompurify';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   ArrowLeft, ArrowRight, Share2, Check, Bookmark, BookOpen, 
@@ -486,7 +487,7 @@ export const BlogPage: React.FC<BlogPageProps> = ({
                   {/* Article HTML Content */}
                   <div 
                     className="prose prose-zinc max-w-none text-zinc-800 space-y-6 leading-relaxed font-sans text-base sm:text-lg [&>h2]:font-serif [&>h2]:text-2xl [&>h2]:font-bold [&>h2]:text-zinc-950 [&>h2]:mt-8 [&>h2]:mb-4 [&>h3]:font-serif [&>h3]:text-xl [&>h3]:font-bold [&>h3]:text-zinc-950 [&>h3]:mt-6 [&>h3]:mb-3 [&>blockquote]:border-l-4 [&>blockquote]:border-amber-400 [&>blockquote]:pl-4 [&>blockquote]:italic [&>blockquote]:text-zinc-700 [&>ul]:list-disc [&>ul]:pl-5 [&>ul]:space-y-2"
-                    dangerouslySetInnerHTML={{ __html: selectedPost.content }}
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(selectedPost.content || '') }}
                   />
 
                   {/* Bottom Author Box */}

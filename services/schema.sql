@@ -22,6 +22,44 @@ create policy "Users can insert their own profile" on public.profiles for insert
 drop policy if exists "Users can update their own profile" on public.profiles;
 create policy "Users can update their own profile" on public.profiles for update using ((select auth.uid()) = id);
 
+create or replace function public.protect_profile_fields()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.role() in ('authenticated', 'anon') then
+    if tg_op = 'INSERT' then
+      if upper(coalesce(new.role, '')) not in ('MEMBER', 'FOUNDER', 'INVESTOR') then
+        new.role := 'MEMBER';
+      else
+        new.role := upper(new.role);
+      end if;
+      new.plan := 'free';
+      new.subscription_tier := 'Free';
+      new.subscription_status := 'inactive';
+      new.billing_cycle := null;
+      new.subscription_end_date := null;
+    elsif tg_op = 'UPDATE' then
+      new.role := old.role;
+      new.plan := old.plan;
+      new.subscription_tier := old.subscription_tier;
+      new.subscription_status := old.subscription_status;
+      new.billing_cycle := old.billing_cycle;
+      new.subscription_end_date := old.subscription_end_date;
+    end if;
+  end if;
+  new.updated_at = timezone('utc'::text, now());
+  return new;
+end;
+$$;
+
+drop trigger if exists enforce_profile_security on public.profiles;
+create trigger enforce_profile_security
+  before insert or update on public.profiles
+  for each row execute function public.protect_profile_fields();
+
 -- 2. COMMUNITY POSTS
 create table if not exists public.community_posts (
   id uuid default gen_random_uuid() primary key,
@@ -116,7 +154,7 @@ drop policy if exists "Everyone can view community posts" on public.community_po
 create policy "Everyone can view community posts" on public.community_posts for select using (true);
 
 drop policy if exists "Authenticated users can create posts" on public.community_posts;
-create policy "Authenticated users can create posts" on public.community_posts for insert with check (auth.role() = 'authenticated');
+create policy "Authenticated users can create posts" on public.community_posts for insert with check ((select auth.uid()) = author_id OR (select auth.uid()) = user_id);
 
 drop policy if exists "Users can update their own posts" on public.community_posts;
 create policy "Users can update their own posts" on public.community_posts for update using ((select auth.uid()) = author_id OR (select auth.uid()) = user_id);
@@ -197,7 +235,7 @@ alter table public.meetings enable row level security;
 drop policy if exists "Users can view their own meetings" on public.meetings;
 create policy "Users can view their own meetings" on public.meetings for select using ((select auth.uid()) = user_id OR (select auth.uid()) = investor_id OR (select auth.uid()) = startup_id);
 drop policy if exists "Users can insert their own meetings" on public.meetings;
-create policy "Users can insert their own meetings" on public.meetings for insert with check (auth.role() = 'authenticated');
+create policy "Users can insert their own meetings" on public.meetings for insert with check ((select auth.uid()) = user_id OR (select auth.uid()) = investor_id OR (select auth.uid()) = startup_id);
 drop policy if exists "Users can update their own meetings" on public.meetings;
 create policy "Users can update their own meetings" on public.meetings for update using ((select auth.uid()) = user_id OR (select auth.uid()) = investor_id OR (select auth.uid()) = startup_id);
 drop policy if exists "Users can delete their own meetings" on public.meetings;
@@ -259,6 +297,8 @@ drop policy if exists "Users can view their chats" on public.chats;
 create policy "Users can view their chats" on public.chats for select using ((select auth.uid()) = startup_id OR (select auth.uid()) = investor_id);
 drop policy if exists "Users can insert chats" on public.chats;
 create policy "Users can insert chats" on public.chats for insert with check ((select auth.uid()) = startup_id OR (select auth.uid()) = investor_id);
+drop policy if exists "Users can update chats" on public.chats;
+create policy "Users can update chats" on public.chats for update using ((select auth.uid()) = startup_id OR (select auth.uid()) = investor_id);
 
 create table if not exists public.messages (
   id uuid default gen_random_uuid() primary key,
@@ -270,6 +310,8 @@ create table if not exists public.messages (
   file_size text,
   duration int,
   reactions jsonb default '[]'::jsonb,
+  delivered_at timestamp with time zone,
+  read_at timestamp with time zone,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -278,12 +320,31 @@ begin
   if not exists (select 1 from information_schema.columns where table_name = 'messages' and column_name = 'status') then
     alter table public.messages add column status text default 'sent';
   end if;
+  if not exists (select 1 from information_schema.columns where table_name = 'messages' and column_name = 'delivered_at') then
+    alter table public.messages add column delivered_at timestamp with time zone;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name = 'messages' and column_name = 'read_at') then
+    alter table public.messages add column read_at timestamp with time zone;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'read_receipts_enabled') then
+    alter table public.profiles add column read_receipts_enabled boolean not null default true;
+  end if;
 end $$;
+
+create table if not exists public.message_read_receipts (
+  id uuid default gen_random_uuid() primary key,
+  message_id uuid references public.messages(id) on delete cascade not null,
+  chat_id uuid references public.chats(id) on delete cascade not null,
+  reader_id uuid references auth.users(id) on delete cascade not null,
+  read_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  unique(message_id, reader_id)
+);
 
 -- Add performance indexes for large scale
 create index if not exists idx_messages_chat_id on public.messages(chat_id);
 create index if not exists idx_messages_created_at on public.messages(created_at desc);
 create index if not exists idx_messages_sender_id on public.messages(sender_id);
+create index if not exists idx_read_receipts_chat_reader on public.message_read_receipts(chat_id, reader_id);
 create index if not exists idx_chats_startup on public.chats(startup_id);
 create index if not exists idx_chats_investor on public.chats(investor_id);
 create index if not exists idx_chats_updated_at on public.chats(updated_at desc);
@@ -298,8 +359,28 @@ create policy "Users can view messages in their chats" on public.messages for se
 );
 drop policy if exists "Users can insert messages in their chats" on public.messages;
 create policy "Users can insert messages in their chats" on public.messages for insert with check (
+  (select auth.uid()) = sender_id and
   exists (select 1 from public.chats where id = messages.chat_id and (startup_id = (select auth.uid()) or investor_id = (select auth.uid())))
 );
+drop policy if exists "Participants can update message status and receipts" on public.messages;
+create policy "Participants can update message status and receipts" on public.messages for update using (
+  exists (select 1 from public.chats where id = messages.chat_id and (startup_id = (select auth.uid()) or investor_id = (select auth.uid())))
+);
+
+alter table public.message_read_receipts enable row level security;
+drop policy if exists "Chat participants can view read receipts" on public.message_read_receipts;
+create policy "Chat participants can view read receipts" on public.message_read_receipts for select using (
+  exists (select 1 from public.chats where id = message_read_receipts.chat_id and (startup_id = (select auth.uid()) or investor_id = (select auth.uid())))
+);
+drop policy if exists "Recipients can insert their own read receipts" on public.message_read_receipts;
+create policy "Recipients can insert their own read receipts" on public.message_read_receipts for insert with check (
+  (select auth.uid()) = reader_id and
+  exists (select 1 from public.chats where id = message_read_receipts.chat_id and (startup_id = (select auth.uid()) or investor_id = (select auth.uid())))
+);
+
+alter table public.chats replica identity full;
+alter table public.messages replica identity full;
+alter table public.message_read_receipts replica identity full;
 
 -- STORAGE BUCKETS
 insert into storage.buckets (id, name, public) values ('images', 'images', true) ON CONFLICT DO NOTHING;

@@ -138,7 +138,8 @@ export class EncryptionService {
   // Encrypt a message string
   static async encryptMessage(plaintext: string, peerPublicKeyJwkStr: string | null): Promise<string> {
     if (!this.generatedKeys || !peerPublicKeyJwkStr || !this.myPrivateKey) {
-      return plaintext; // Fallback if no keys, but in a real app might want to block
+      console.warn("E2EE skipped: missing local keypair or recipient public key.");
+      return plaintext;
     }
 
     try {
@@ -160,7 +161,7 @@ export class EncryptionService {
       return `E2EE::${btoa(JSON.stringify(payload))}`;
     } catch (e) {
       console.error("Encryption failed", e);
-      return plaintext;
+      throw new Error("Failed to encrypt message payload.");
     }
   }
 

@@ -1159,55 +1159,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
             </div>
 
-            {/* Deactivation vs Deletion Explanation Cards */}
-            <div className="grid md:grid-cols-2 gap-5">
-              <div className="p-6 rounded-2xl bg-zinc-50/70 dark:bg-zinc-800/40 border border-zinc-200/70 dark:border-zinc-800 space-y-3">
-                <div className="flex items-center gap-2 text-zinc-900 dark:text-white font-extrabold text-sm">
-                  <PauseCircle size={18} className="text-amber-500" />
-                  <span>Deactivation (Reversible)</span>
-                </div>
-                <ul className="space-y-2 text-xs text-zinc-600 dark:text-zinc-400">
-                  <li className="flex items-start gap-2">
-                    <Check size={14} className="text-emerald-500 shrink-0 mt-0.5" />
-                    <span>Your startup pitch & cards are hidden from discovery.</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check size={14} className="text-emerald-500 shrink-0 mt-0.5" />
-                    <span>All messages, contacts, and pitch decks are preserved safely.</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check size={14} className="text-emerald-500 shrink-0 mt-0.5" />
-                    <span>Inbound email alerts and push sounds are silenced.</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check size={14} className="text-emerald-500 shrink-0 mt-0.5" />
-                    <span>Instant reactivation anytime by clicking "Reactivate".</span>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="p-6 rounded-2xl bg-zinc-50/70 dark:bg-zinc-800/40 border border-zinc-200/70 dark:border-zinc-800 space-y-3">
-                <div className="flex items-center gap-2 text-zinc-900 dark:text-white font-extrabold text-sm">
-                  <Trash2 size={18} className="text-red-500" />
-                  <span>Permanent Deletion (Irreversible)</span>
-                </div>
-                <ul className="space-y-2 text-xs text-zinc-600 dark:text-zinc-400">
-                  <li className="flex items-start gap-2">
-                    <AlertTriangle size={14} className="text-red-500 shrink-0 mt-0.5" />
-                    <span>Permanently wipes all profile data, pitches, and meetings.</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <AlertTriangle size={14} className="text-red-500 shrink-0 mt-0.5" />
-                    <span>Deletes all conversations and mutual matches forever.</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <AlertTriangle size={14} className="text-red-500 shrink-0 mt-0.5" />
-                    <span>Cancels active subscription tier with no undo possible.</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-
             {/* Interactive Deactivation Form */}
             {!isDeactivatedLocal ? (
               <div className="p-6 sm:p-8 rounded-3xl bg-zinc-50/50 dark:bg-zinc-850/60 border border-zinc-200/80 dark:border-zinc-700/80 space-y-6">
@@ -1367,11 +1318,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     </p>
                     {isPro ? (
                       <span title="Pro Member">
-                        <BadgeCheck size={16} className="text-amber-500 fill-amber-400/20 shrink-0" />
+                        <BadgeCheck size={16} className="text-[#EAB308] dark:text-amber-400 fill-[#EAB308]/25 dark:fill-amber-400/25 shrink-0" />
                       </span>
                     ) : (
                       <span title="Free Member">
-                        <BadgeCheck size={16} className="text-zinc-400/60 shrink-0" />
+                        <BadgeCheck size={16} className="text-[#EAB308] dark:text-amber-400 fill-[#EAB308]/20 dark:fill-amber-400/20 shrink-0" />
                       </span>
                     )}
                   </div>

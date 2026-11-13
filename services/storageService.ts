@@ -141,20 +141,26 @@ export const StorageService = {
   
   isMockMode: () => _isMock,
 
-  sendEmail: async (toEmail: string, subject: string, text: string, html?: string) => {
+  sendNotificationEmail: async (payload: {
+    type: 'comment' | 'message' | 'meeting_scheduled' | 'meeting_updated';
+    recipientId?: string;
+    to?: string;
+    data?: Record<string, any>;
+  }) => {
     try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        const token = sessionData?.session?.access_token;
-        await fetch('/api/send-email', {
-            method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ to: toEmail, subject, text, html }),
-        });
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) return;
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload),
+      });
     } catch (e) {
-        console.error("Failed to send email to " + toEmail + ":", e);
+      console.error("Failed to send notification email:", e);
     }
   },
 
@@ -298,6 +304,7 @@ export const StorageService = {
             subscriptionEndDate: data.subscription_end_date,
             isActive: !isDeactivated,
             isDeactivated: isDeactivated,
+            readReceiptsEnabled: data.read_receipts_enabled !== undefined ? data.read_receipts_enabled : true,
             deactivatedAt: data.deactivated_at || (isLocalDeactivated ? localStorage.getItem(`connectup_deactivated_at_${uid}`) : null),
             deactivationReason: data.deactivation_reason || (isLocalDeactivated ? localStorage.getItem(`connectup_deactivation_reason_${uid}`) : null)
         };
@@ -317,7 +324,8 @@ export const StorageService = {
     role: UserRole, 
     plan: string,
     billingCycle: string | null,
-    subscriptionEndDate: string | null
+    subscriptionEndDate: string | null,
+    readReceiptsEnabled: boolean
   }>) => {
     await StorageService.init();
     if (_isMock) { Object.assign(MOCK_PROFILE, updates); return; }
@@ -332,6 +340,7 @@ export const StorageService = {
         if (updates.avatarUrl) dbUpdates.avatar_url = updates.avatarUrl;
         if (updates.email) dbUpdates.email = updates.email;
         if (updates.role) dbUpdates.role = updates.role;
+        if (updates.readReceiptsEnabled !== undefined) dbUpdates.read_receipts_enabled = updates.readReceiptsEnabled;
         
         if (updates.billingCycle !== undefined) dbUpdates.billing_cycle = updates.billingCycle;
         if (updates.subscriptionEndDate !== undefined) dbUpdates.subscription_end_date = updates.subscriptionEndDate;
@@ -342,7 +351,16 @@ export const StorageService = {
             dbUpdates.subscription_status = updates.plan === 'pro' ? 'active' : 'inactive';
         }
         
-        const { error } = await supabase.from('profiles').update(dbUpdates).eq('id', user.id);
+        let { error } = await supabase.from('profiles').update(dbUpdates).eq('id', user.id);
+        if (error && error.message?.includes('read_receipts_enabled')) {
+            delete dbUpdates.read_receipts_enabled;
+            if (Object.keys(dbUpdates).length > 0) {
+                const retry = await supabase.from('profiles').update(dbUpdates).eq('id', user.id);
+                error = retry.error;
+            } else {
+                error = null;
+            }
+        }
         if (error) handleSupabaseError(error, 'updateUserProfile');
     } catch (e) { 
         handleSupabaseError(e, 'updateUserProfile'); 
@@ -527,8 +545,14 @@ export const StorageService = {
 
   uploadVideo: async (file: File): Promise<string | null> => {
     await StorageService.init();
+    const allowedVideoMimes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-m4v'];
+    const allowedVideoExts = ['mp4', 'webm', 'mov', 'm4v'];
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    if (!allowedVideoMimes.includes(file.type) || !allowedVideoExts.includes(ext)) {
+        console.warn("Blocked disallowed video upload type:", file.type, ext);
+        return null;
+    }
     if (file.size > 50 * 1024 * 1024) {
-        alert("Video file is too large. Please upload a video smaller than 50MB.");
         return null;
     }
     if (_isMock) return URL.createObjectURL(file);
@@ -536,16 +560,15 @@ export const StorageService = {
         const user = await getAuthenticatedUser();
         const uid = user?.id;
         if (!uid) return null;
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Date.now()}.${fileExt}`;
+        const fileName = `${Date.now()}.${ext}`;
         const filePath = `${uid}/${fileName}`;
         
         const { error: uploadError } = await supabase.storage.from('videos').upload(filePath, file, { 
             upsert: true,
-            cacheControl: '3600' 
+            cacheControl: '3600',
+            contentType: file.type
         });
         if (uploadError) {
-            // If it's a network error, switch to mock mode for this session
             if (uploadError.message?.toLowerCase().includes('fetch')) {
                 console.warn("Supabase upload unreachable (Failed to fetch). Switching to Mock Mode.");
                 _isMock = true;
@@ -554,11 +577,9 @@ export const StorageService = {
 
             console.error("Supabase upload error:", uploadError);
 
-            // Fallback to images bucket if videos bucket doesn't exist
-            const { error: fallbackError } = await supabase.storage.from('images').upload(filePath, file, { upsert: true });
+            const { error: fallbackError } = await supabase.storage.from('images').upload(filePath, file, { upsert: true, contentType: file.type });
             if (fallbackError) {
                 if (fallbackError.message?.toLowerCase().includes('fetch')) {
-                    console.warn("Fallback upload unreachable (Failed to fetch). Switching to Mock Mode.");
                     _isMock = true;
                     return URL.createObjectURL(file);
                 }
@@ -586,10 +607,33 @@ export const StorageService = {
 
   uploadFile: async (file: File, bucket: string = 'images'): Promise<string | null> => {
     await StorageService.init();
+    const allowedBuckets = ['images', 'avatars', 'videos'];
+    if (!allowedBuckets.includes(bucket)) {
+        console.warn("Blocked upload to unsupported bucket:", bucket);
+        return null;
+    }
+
+    // Enforce safe media MIME types and extensions (explicitly exclude SVG/HTML/JS active content)
+    const allowedMimes = [
+      'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+      'audio/webm', 'audio/ogg', 'audio/mpeg', 'audio/mp4', 'audio/wav',
+      'application/pdf'
+    ];
+    const allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'webm', 'ogg', 'mp3', 'm4a', 'wav', 'pdf'];
+    const rawExt = (file.name.split('.').pop() || '').toLowerCase();
+    if (!allowedMimes.includes(file.type) || !allowedExts.includes(rawExt)) {
+        console.warn("Blocked disallowed file upload type:", file.type, rawExt);
+        return null;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+        console.warn("Blocked oversized upload:", file.size);
+        return null;
+    }
+
     if (_isMock) return URL.createObjectURL(file);
     try {
         let fileToUpload = file;
-        if (file.type.startsWith('image/')) {
+        if (file.type.startsWith('image/') && file.type !== 'image/gif') {
             try {
                 const imageCompression = (await import('browser-image-compression')).default;
                 const options = {
@@ -600,16 +644,18 @@ export const StorageService = {
                 fileToUpload = await imageCompression(file, options);
             } catch (e) {
                 console.error("Image compression failed:", e);
-                // Continue with original file if compression fails
             }
         }
 
         const user = await getAuthenticatedUser();
         if (!user) return null;
-        const fileExt = fileToUpload.name.split('.').pop();
-        const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-        const filePath = `${fileName}`;
-        const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, fileToUpload, { upsert: true });
+        // Store under `${user.id}/...` so storage RLS folder-ownership policies (`storage.foldername(name)[1]`) match
+        const fileName = `${Date.now()}.${rawExt}`;
+        const filePath = `${user.id}/${fileName}`;
+        const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, fileToUpload, {
+            upsert: true,
+            contentType: fileToUpload.type || file.type
+        });
         if (uploadError) {
             console.error(`Upload error in ${bucket}:`, uploadError);
             return null;
@@ -626,12 +672,14 @@ export const StorageService = {
     await StorageService.init();
     if (_isMock) return;
     try {
+        // Never allow client-side profile completion to assign ADMIN role
+        const safeRole = (role === UserRole.FOUNDER || role === UserRole.INVESTOR) ? role : UserRole.FOUNDER;
         const profileData = {
             id: userId,
             email: email,
             full_name: details.name || email.split('@')[0],
             title: details.title,
-            role: role, 
+            role: safeRole, 
             location: details.location,
             age: details.age || null,
             avatar_url: details.avatarUrl || null,
@@ -1913,15 +1961,16 @@ export const StorageService = {
 
           console.log("Comment added successfully:", data);
 
-          // Send email to post author
+          // Send email to post author via server-side recipient lookup & template
           (async () => {
             const { data: post } = await supabase.from('community_posts').select('author_id, user_id, profile_id').eq('id', postId).single();
             const authorId = post?.author_id || post?.user_id || post?.profile_id;
-            if (authorId) {
-                const { data: profile } = await supabase.from('profiles').select('email').eq('id', authorId).single();
-                if (profile?.email) {
-                    await StorageService.sendEmail(profile.email, "New Comment!", `You have a new comment on your post: "${content}"`);
-                }
+            if (authorId && authorId !== user.id) {
+                await StorageService.sendNotificationEmail({
+                    type: 'comment',
+                    recipientId: authorId,
+                    data: { preview: content }
+                });
             }
           })();
           return {
@@ -2234,25 +2283,18 @@ export const StorageService = {
               const userName = profile?.name || "User";
               const formattedDate = new Date(meeting.date!).toLocaleString();
               
-              StorageService.sendEmail(
-                  meeting.guestEmail,
-                  `Meeting Scheduled: ${meeting.title}`,
-                  `Hi ${meeting.guestName},\n\n${userName} has scheduled a meeting with you.\n\nTitle: ${meeting.title}\nDate: ${formattedDate}\nType: ${meeting.type}\n\nSee you there!`,
-                  `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #1a1a1a;">
-                    <h2 style="color: #000; font-size: 24px; font-weight: 800; tracking-tight: -0.05em;">Meeting Scheduled</h2>
-                    <p>Hi <strong>${meeting.guestName}</strong>,</p>
-                    <p><strong>${userName}</strong> has scheduled a meeting with you on <strong>ConnectUp</strong>.</p>
-                    <div style="background-color: #FFFCF0; padding: 24px; border-radius: 24px; border: 1px solid #FFF2C2; margin: 24px 0;">
-                      <p style="margin: 0 0 10px 0;"><strong>Title:</strong> ${meeting.title}</p>
-                      <p style="margin: 0 0 10px 0;"><strong>Date:</strong> ${formattedDate}</p>
-                      <p style="margin: 0;"><strong>Type:</strong> ${meeting.type}</p>
-                      ${meeting.meetingLink ? `<p style="margin: 10px 0 0 0;"><strong>Link:</strong> <a href="${meeting.meetingLink}" style="color: #000; font-weight: bold;">Join Meeting</a></p>` : ''}
-                    </div>
-                    <p style="color: #71717a; font-size: 13px;">Don't forget to add this to your calendar.</p>
-                    <hr style="border: none; border-top: 1px solid #f4f4f4; margin: 24px 0;" />
-                    <p style="font-size: 12px; color: #a1a1aa;">Sent via ConnectUp - The Founder-Investor Network</p>
-                  </div>`
-              ).catch(e => console.error("Email send background failed:", e));
+              StorageService.sendNotificationEmail({
+                  type: 'meeting_scheduled',
+                  to: meeting.guestEmail,
+                  data: {
+                      guestName: meeting.guestName,
+                      organizerName: userName,
+                      title: meeting.title,
+                      formattedDate,
+                      meetingType: meeting.type,
+                      meetingLink: meeting.meetingLink
+                  }
+              }).catch(e => console.error("Email send background failed:", e));
           }
       } catch (e) { 
           if (!handleSupabaseError(e, 'createMeeting')) {
@@ -2292,24 +2334,17 @@ export const StorageService = {
                 const userName = profile?.name || "User";
                 const formattedDate = new Date(meeting.date!).toLocaleString();
                 
-                StorageService.sendEmail(
-                    meeting.guestEmail,
-                    `Meeting Updated: ${meeting.title}`,
-                    `Hi ${meeting.guestName},\n\nThe meeting "${meeting.title}" has been updated.\n\nNew Date: ${formattedDate}\nType: ${meeting.type}`,
-                    `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #1a1a1a;">
-                        <h2 style="color: #000; font-size: 24px; font-weight: 800; tracking-tight: -0.05em;">Meeting Updated</h2>
-                        <p>Hi <strong>${meeting.guestName}</strong>,</p>
-                        <p>The meeting with <strong>${userName}</strong> has been updated on <strong>ConnectUp</strong>.</p>
-                        <div style="background-color: #f7fee7; padding: 24px; border-radius: 24px; border: 1px solid #d9f99d; margin: 24px 0;">
-                        <p style="margin: 0 0 10px 0;"><strong>Title:</strong> ${meeting.title}</p>
-                        <p style="margin: 0 0 10px 0;"><strong>Date:</strong> ${formattedDate}</p>
-                        <p style="margin: 0;"><strong>Type:</strong> ${meeting.type}</p>
-                        </div>
-                        <p style="color: #71717a; font-size: 13px;">Please check your schedule for any conflicts.</p>
-                        <hr style="border: none; border-top: 1px solid #f4f4f4; margin: 24px 0;" />
-                        <p style="font-size: 12px; color: #a1a1aa;">Sent via ConnectUp - The Founder-Investor Network</p>
-                    </div>`
-                ).catch(e => console.error("Email update send background failed:", e));
+                StorageService.sendNotificationEmail({
+                    type: 'meeting_updated',
+                    to: meeting.guestEmail,
+                    data: {
+                        guestName: meeting.guestName,
+                        organizerName: userName,
+                        title: meeting.title,
+                        formattedDate,
+                        meetingType: meeting.type
+                    }
+                }).catch(e => console.error("Email update send background failed:", e));
              }
           }
       } catch (e) { 
@@ -2438,12 +2473,21 @@ export const StorageService = {
           const startupIds = rawChats.map(c => c.startup_id);
           const allProfileIds = [...new Set([...investorIds, ...startupIds])];
           const chatIds = rawChats.map(c => c.id);
-           const [profilesResult, startupsResult, lastMsgsResult, unreadResult] = await Promise.all([
+          const [profilesResult, startupsResult, initialLastMsgsResult, unreadResult] = await Promise.all([
              supabase.from('profiles').select('id, full_name, avatar_url, title, role, email').in('id', allProfileIds),
              supabase.from('startups').select('id, name').in('id', startupIds),
-             supabase.from('messages').select('chat_id, content, type, created_at').in('chat_id', chatIds).order('created_at', { ascending: false }),
+             supabase.from('messages').select('chat_id, sender_id, content, type, status, read_at, created_at').in('chat_id', chatIds).order('created_at', { ascending: false }),
              supabase.from('messages').select('chat_id').in('chat_id', chatIds).neq('sender_id', user.id).neq('status', 'read')
           ]);
+
+          let lastMsgsResult: { data: any[] | null; error: any } = initialLastMsgsResult;
+          if (lastMsgsResult.error && (lastMsgsResult.error.code === '42703' || lastMsgsResult.error.message?.includes('read_at'))) {
+              lastMsgsResult = await supabase
+                  .from('messages')
+                  .select('chat_id, sender_id, content, type, status, created_at')
+                  .in('chat_id', chatIds)
+                  .order('created_at', { ascending: false });
+          }
           
           let profilesData: any[] = profilesResult.data || [];
           if (profilesResult.error) {
@@ -2455,8 +2499,8 @@ export const StorageService = {
 
           const profileMap = new Map<string, any>(profilesData.map((p: any) => [p.id, p]));
           const startupMap = new Map<string, any>((startupsResult.data || []).map((s: any) => [s.id, s]));
-          const lastMsgMap = new Map();
-          (lastMsgsResult.data || []).forEach((m: any) => { if (!lastMsgMap.has(m.chat_id)) lastMsgMap.set(m.chat_id, m.content || (m.type === 'image' ? 'Image' : 'Message')); });
+          const lastMsgMap = new Map<string, any>();
+          (lastMsgsResult.data || []).forEach((m: any) => { if (!lastMsgMap.has(m.chat_id)) lastMsgMap.set(m.chat_id, m); });
           
           const unreadMap = new Map();
           (unreadResult.data || []).forEach((m: any) => {
@@ -2514,7 +2558,10 @@ export const StorageService = {
               }
               
               const peerKey = partnerProfile?.encryption_public_key || null;
-              let plainLastMsg = lastMsgMap.get(c.id) || 'Matched! Say hello.';
+              const lastMsgRow = lastMsgMap.get(c.id);
+              let plainLastMsg = lastMsgRow
+                ? (lastMsgRow.content || (lastMsgRow.type === 'image' ? 'Image' : lastMsgRow.type === 'document' ? 'Attachment' : 'Message'))
+                : 'Matched! Say hello.';
               if (plainLastMsg.startsWith('E2EE::')) {
                   plainLastMsg = await EncryptionService.decryptMessage(plainLastMsg, peerKey);
               }
@@ -2528,7 +2575,10 @@ export const StorageService = {
                   avatarUrl: realAvatar, 
                   founderAvatarUrl: getAvatarUrl(partnerProfile?.avatar_url) || realAvatar,
                   lastMessage: plainLastMsg,
-                  timestamp: c.updated_at, 
+                  lastMessageSenderId: lastMsgRow?.sender_id,
+                  lastMessageStatus: lastMsgRow?.status || 'sent',
+                  lastMessageReadAt: lastMsgRow?.read_at || null,
+                  timestamp: lastMsgRow?.created_at || c.updated_at, 
                   unread: unreadMap.get(c.id) || 0,
                   lastSeen: partnerProfile?.last_seen
               };
@@ -2580,17 +2630,36 @@ export const StorageService = {
                   fileName: m.file_name, 
                   fileSize: m.file_size, 
                   duration: m.duration,
-                  status: m.status
+                  status: m.status || 'sent',
+                  deliveredAt: m.delivered_at || null,
+                  readAt: m.read_at || null
               };
           }));
       } catch (e) { return []; }
   },
 
-  subscribeToMessages: (chatId: string, callback: (payload: any) => void) => {
-      if (_isMock || !isSupabaseConfigured) return { unsubscribe: () => {} };
+  subscribeToMessages: (
+      chatId: string,
+      callback: (payload: any) => void,
+      currentUserId?: string | null
+  ) => {
+      const noopHandle = {
+          unsubscribe: () => {},
+          sendTyping: (_isTyping: boolean) => {},
+          broadcastReadReceipt: (_messageIds: string[], _readAt: string) => {},
+          broadcastDeliveredReceipt: (_messageId: string, _deliveredAt: string) => {}
+      };
+      if (_isMock || !isSupabaseConfigured) return noopHandle;
       try {
-          const channelName = `chat-${chatId}-${Math.random().toString(36).substring(2, 9)}`;
-          const channel = supabase.channel(channelName)
+          const channelName = `realtime-chat-${chatId}`;
+          const channel = supabase.channel(channelName, {
+              config: {
+                  broadcast: { self: false },
+                  presence: { key: currentUserId || `anon-${Math.random().toString(36).substring(2, 7)}` }
+              }
+          });
+
+          channel
               .on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: `chat_id=eq.${chatId}` }, (payload) => {
                   try {
                       if (payload.eventType === 'INSERT') callback({ type: 'INSERT', message: payload.new });
@@ -2600,31 +2669,130 @@ export const StorageService = {
                       console.warn('Error in message subscription callback:', err);
                   }
               })
-              .subscribe();
+              .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'message_read_receipts', filter: `chat_id=eq.${chatId}` }, (payload) => {
+                  try {
+                      callback({
+                          type: 'READ_RECEIPT',
+                          messageIds: [payload.new.message_id],
+                          readerId: payload.new.reader_id,
+                          readAt: payload.new.read_at
+                      });
+                  } catch (err) {
+                      console.warn('Error in read receipt subscription callback:', err);
+                  }
+              })
+              .on('broadcast', { event: 'typing' }, ({ payload }) => {
+                  try {
+                      if (payload && payload.userId !== currentUserId) {
+                          callback({ type: 'TYPING', userId: payload.userId, isTyping: !!payload.isTyping });
+                      }
+                  } catch (e) {}
+              })
+              .on('broadcast', { event: 'read_receipt' }, ({ payload }) => {
+                  try {
+                      if (payload && payload.readerId !== currentUserId) {
+                          callback({
+                              type: 'READ_RECEIPT',
+                              messageIds: payload.messageIds || [],
+                              readerId: payload.readerId,
+                              readAt: payload.readAt || new Date().toISOString()
+                          });
+                      }
+                  } catch (e) {}
+              })
+              .on('broadcast', { event: 'delivered_receipt' }, ({ payload }) => {
+                  try {
+                      if (payload && payload.receiverId !== currentUserId) {
+                          callback({
+                              type: 'DELIVERED_RECEIPT',
+                              messageId: payload.messageId,
+                              deliveredAt: payload.deliveredAt || new Date().toISOString()
+                          });
+                      }
+                  } catch (e) {}
+              })
+              .on('presence', { event: 'sync' }, () => {
+                  try {
+                      const state = channel.presenceState();
+                      const onlineUserIds = Object.keys(state).filter(id => id && !id.startsWith('anon-'));
+                      callback({ type: 'PRESENCE', onlineUserIds });
+                  } catch (e) {}
+              })
+              .subscribe(async (status) => {
+                  if (status === 'SUBSCRIBED' && currentUserId) {
+                      try {
+                          await channel.track({ user_id: currentUserId, online_at: new Date().toISOString() });
+                      } catch (e) {}
+                  }
+              });
 
           return {
               unsubscribe: () => {
                   try {
                       supabase.removeChannel(channel);
                   } catch (e) {}
+              },
+              sendTyping: (isTyping: boolean) => {
+                  if (!currentUserId) return;
+                  try {
+                      channel.send({
+                          type: 'broadcast',
+                          event: 'typing',
+                          payload: { userId: currentUserId, isTyping }
+                      });
+                  } catch (e) {}
+              },
+              broadcastReadReceipt: (messageIds: string[], readAt: string) => {
+                  if (!currentUserId || !messageIds.length) return;
+                  try {
+                      channel.send({
+                          type: 'broadcast',
+                          event: 'read_receipt',
+                          payload: { readerId: currentUserId, messageIds, readAt }
+                      });
+                  } catch (e) {}
+              },
+              broadcastDeliveredReceipt: (messageId: string, deliveredAt: string) => {
+                  if (!currentUserId || !messageId) return;
+                  try {
+                      channel.send({
+                          type: 'broadcast',
+                          event: 'delivered_receipt',
+                          payload: { receiverId: currentUserId, messageId, deliveredAt }
+                      });
+                  } catch (e) {}
               }
           };
       } catch (e) {
           console.warn('Failed to subscribe to chat messages:', e);
-          return { unsubscribe: () => {} };
+          return noopHandle;
       }
   },
 
-  subscribeToGlobalMessages: (callback: (message: any) => void) => {
+  subscribeToGlobalMessages: (callback: (payload: any) => void) => {
       if (_isMock || !isSupabaseConfigured) return { unsubscribe: () => {} };
       try {
           const channelName = `global-messages-${Math.random().toString(36).substring(2, 9)}`;
           const channel = supabase.channel(channelName)
               .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
                   try {
-                      callback(payload.new);
+                      callback({ ...payload.new, _eventType: 'INSERT', _table: 'messages' });
                   } catch (err) {
-                      console.warn('Error in global message callback:', err);
+                      console.warn('Error in global message INSERT callback:', err);
+                  }
+              })
+              .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, (payload) => {
+                  try {
+                      callback({ ...payload.new, _eventType: 'UPDATE', _table: 'messages' });
+                  } catch (err) {
+                      console.warn('Error in global message UPDATE callback:', err);
+                  }
+              })
+              .on('postgres_changes', { event: '*', schema: 'public', table: 'chats' }, (payload) => {
+                  try {
+                      callback({ ...(payload.new || payload.old || {}), _eventType: payload.eventType, _table: 'chats' });
+                  } catch (err) {
+                      console.warn('Error in global chat callback:', err);
                   }
               })
               .subscribe();
@@ -2646,7 +2814,7 @@ export const StorageService = {
       await StorageService.init();
       await StorageService.ensureEncryptionInitialized();
       if (_isMock) { 
-          const newMsg = { ...message, id: `mock_msg_${Date.now()}`, chatId }; 
+          const newMsg = { ...message, id: `mock_msg_${Date.now()}`, chatId, status: message.status || 'sent' }; 
           MOCK_MESSAGES.push(newMsg); 
           return newMsg; 
       }
@@ -2673,7 +2841,8 @@ export const StorageService = {
               encryptedContent = await EncryptionService.encryptMessage(message.text, peerKey);
           }
 
-          const messageId = generateUUID();
+          const isValidUUID = (id?: string) => !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+          const messageId = isValidUUID(message.id) ? message.id : generateUUID();
           const payload: any = { 
               id: messageId, 
               chat_id: chatId, 
@@ -2722,15 +2891,19 @@ export const StorageService = {
               console.warn("Could not update chat timestamp (not critical):", chatUpdateError);
           }
 
-          // Send email Notification
+          // Send email notification via server-side recipient lookup & template
           (async () => {
               try {
                   const { data: chat } = await supabase.from('chats').select('startup_id, investor_id').eq('id', chatId).maybeSingle();
                   if (chat) {
                       const recipientId = chat.startup_id === userId ? chat.investor_id : chat.startup_id;
-                      const { data: profile } = await supabase.from('profiles').select('email').eq('id', recipientId).maybeSingle();
-                      if (profile?.email) {
-                          await StorageService.sendEmail(profile.email, "New Message!", `You have a new message: "${message.text}"`);
+                      if (recipientId && recipientId !== userId) {
+                          const preview = message.text?.startsWith('E2EE::') ? '' : (message.text || '');
+                          await StorageService.sendNotificationEmail({
+                              type: 'message',
+                              recipientId,
+                              data: { preview }
+                          });
                       }
                   }
               } catch (err) {
@@ -2749,7 +2922,9 @@ export const StorageService = {
               fileName: insertedRow.file_name, 
               fileSize: insertedRow.file_size, 
               duration: insertedRow.duration,
-              status: insertedRow.status || 'sent'
+              status: insertedRow.status || 'sent',
+              deliveredAt: insertedRow.delivered_at || null,
+              readAt: insertedRow.read_at || null
           };
       } catch (e) { 
           console.error("Error adding message to DB:", e);
@@ -2757,33 +2932,127 @@ export const StorageService = {
       }
   },
 
-  markMessageAsRead: async (messageId: string): Promise<boolean> => {
-      await StorageService.init();
-      if (_isMock) return true;
-      try {
-          const { error } = await supabase
-              .from('messages')
-              .update({ status: 'read' })
-              .eq('id', messageId)
-              .neq('status', 'read');
-          return !error;
-      } catch (e) { return false; }
-  },
-
-  markAllMessagesAsRead: async (chatId: string): Promise<boolean> => {
+  markMessageAsDelivered: async (messageId: string): Promise<boolean> => {
       await StorageService.init();
       if (_isMock) return true;
       try {
           const user = await getAuthenticatedUser();
           if (!user) return false;
-          const { error } = await supabase
+          const nowIso = new Date().toISOString();
+
+          const { error: rpcErr } = await supabase.rpc('mark_message_delivered', { p_message_id: messageId });
+          if (!rpcErr) return true;
+
+          // Fallback direct update
+          let { error } = await supabase
               .from('messages')
-              .update({ status: 'read' })
+              .update({ status: 'delivered', delivered_at: nowIso })
+              .eq('id', messageId)
+              .neq('sender_id', user.id)
+              .eq('status', 'sent');
+
+          if (error && error.message?.includes('delivered_at')) {
+              const retry = await supabase
+                  .from('messages')
+                  .update({ status: 'delivered' })
+                  .eq('id', messageId)
+                  .neq('sender_id', user.id)
+                  .eq('status', 'sent');
+              error = retry.error;
+          }
+          return !error;
+      } catch (e) { return false; }
+  },
+
+  markMessageAsRead: async (messageId: string, chatId?: string): Promise<string | null> => {
+      await StorageService.init();
+      const nowIso = new Date().toISOString();
+      if (_isMock) return nowIso;
+      try {
+          const user = await getAuthenticatedUser();
+          if (!user) return null;
+
+          let { error } = await supabase
+              .from('messages')
+              .update({ status: 'read', read_at: nowIso })
+              .eq('id', messageId)
+              .neq('sender_id', user.id)
+              .neq('status', 'read');
+
+          if (error && error.message?.includes('read_at')) {
+              const retry = await supabase
+                  .from('messages')
+                  .update({ status: 'read' })
+                  .eq('id', messageId)
+                  .neq('sender_id', user.id)
+                  .neq('status', 'read');
+              error = retry.error;
+          }
+
+          if (chatId) {
+              try {
+                  await supabase.from('message_read_receipts').upsert(
+                      { message_id: messageId, chat_id: chatId, reader_id: user.id, read_at: nowIso },
+                      { onConflict: 'message_id,reader_id' }
+                  );
+              } catch (e) {}
+          }
+          return !error ? nowIso : null;
+      } catch (e) { return null; }
+  },
+
+  markAllMessagesAsRead: async (chatId: string): Promise<{ messageIds: string[]; readAt: string } | null> => {
+      await StorageService.init();
+      const nowIso = new Date().toISOString();
+      if (_isMock) return { messageIds: [], readAt: nowIso };
+      try {
+          const user = await getAuthenticatedUser();
+          if (!user) return null;
+
+          // 1. Prefer atomic database RPC (updates messages + inserts message_read_receipts)
+          const { data: rpcData, error: rpcError } = await supabase.rpc('mark_chat_messages_read', { p_chat_id: chatId });
+          if (!rpcError && Array.isArray(rpcData)) {
+              const updatedIds = rpcData.map((r: any) => r.message_id).filter(Boolean);
+              const readAt = rpcData[0]?.read_at || nowIso;
+              return { messageIds: updatedIds, readAt };
+          }
+
+          // 2. Fallback to direct table updates if RPC isn't installed yet
+          const { data: unreadRows } = await supabase
+              .from('messages')
+              .select('id')
               .eq('chat_id', chatId)
               .neq('sender_id', user.id)
               .neq('status', 'read');
-          return !error;
-      } catch (e) { return false; }
+
+          const unreadIds = (unreadRows || []).map((r: any) => r.id).filter(Boolean);
+          if (unreadIds.length === 0) return { messageIds: [], readAt: nowIso };
+
+          let { error } = await supabase
+              .from('messages')
+              .update({ status: 'read', read_at: nowIso })
+              .in('id', unreadIds);
+
+          if (error && error.message?.includes('read_at')) {
+              const retry = await supabase
+                  .from('messages')
+                  .update({ status: 'read' })
+                  .in('id', unreadIds);
+              error = retry.error;
+          }
+
+          try {
+              const receiptRows = unreadIds.map((messageId: string) => ({
+                  message_id: messageId,
+                  chat_id: chatId,
+                  reader_id: user.id,
+                  read_at: nowIso
+              }));
+              await supabase.from('message_read_receipts').upsert(receiptRows, { onConflict: 'message_id,reader_id' });
+          } catch (e) {}
+
+          return !error ? { messageIds: unreadIds, readAt: nowIso } : null;
+      } catch (e) { return null; }
   },
 
   submitPostReport: async (target: any, reason: string): Promise<boolean> => {

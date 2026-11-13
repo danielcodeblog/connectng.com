@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   SendHorizontal, Paperclip, ChevronLeft, 
   Search, Video, MessageCircle,
-  User, CheckCheck, FileText, Download,
+  User, Check, CheckCheck, Clock, FileText, Download,
   ImagePlus, FileImage, FileSpreadsheet,
   FileVideo, FileAudio, FileArchive, File
 } from 'lucide-react';
@@ -171,6 +171,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
   const [notification, setNotification] = useState<{ id: string, name: string, message: string } | null>(null);
   const notificationTimerRef = useRef<any>(null);
 
+  // Realtime Presence & Typing State
+  const [isPeerTyping, setIsPeerTyping] = useState(false);
+  const [isPeerOnline, setIsPeerOnline] = useState(false);
+  const typingTimeoutRef = useRef<any>(null);
+  const peerTypingTimeoutRef = useRef<any>(null);
+  const subscriptionHandleRef = useRef<{
+    unsubscribe: () => void;
+    sendTyping: (isTyping: boolean) => void;
+    broadcastReadReceipt: (messageIds: string[], readAt: string) => void;
+    broadcastDeliveredReceipt: (messageId: string, deliveredAt: string) => void;
+  } | null>(null);
+
   // Loading States
   const [isLoadingChats, setIsLoadingChats] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
@@ -188,14 +200,19 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const soundRef = useRef<boolean>(soundEnabled);
+  const readReceiptsRef = useRef<boolean>(readReceiptsEnabled);
   const scrollTimeoutRef = useRef<any>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const chatsRef = useRef<ChatSession[]>(chats);
 
-  // Keep chatsRef in sync with chats state
+  // Keep refs in sync
   useEffect(() => {
     chatsRef.current = chats;
   }, [chats]);
+
+  useEffect(() => {
+    readReceiptsRef.current = readReceiptsEnabled;
+  }, [readReceiptsEnabled]);
 
   // --- Initialization ---
 
@@ -207,9 +224,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
     const originalBodyBg = document.body.style.backgroundColor;
     const originalHtmlBg = document.documentElement.style.backgroundColor;
 
-    // Apply chat light gray background to prevent black rubber-band gap
-    document.body.style.backgroundColor = '#F9FAFB';
-    document.documentElement.style.backgroundColor = '#F9FAFB';
+    // Apply chat surface background to prevent rubber-band gap matching active theme
+    const isDarkActive = document.documentElement.classList.contains('dark');
+    document.body.style.backgroundColor = isDarkActive ? '#09090b' : '#F9FAFB';
+    document.documentElement.style.backgroundColor = isDarkActive ? '#09090b' : '#F9FAFB';
 
     // Prevent outer browser window scrolling when keyboard is open or elements shift
     const preventWindowScroll = () => {
@@ -249,6 +267,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
         // Restore body scroll when chat interface is unmounted
         if (notificationTimerRef.current) clearTimeout(notificationTimerRef.current);
         if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        if (peerTypingTimeoutRef.current) clearTimeout(peerTypingTimeoutRef.current);
         if (audioCtxRef.current) audioCtxRef.current.close().catch(() => {});
         if (gifSearchTimerRef.current) clearTimeout(gifSearchTimerRef.current);
         
@@ -371,8 +391,35 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
     if (!currentUserId) return;
 
     const sub = StorageService.subscribeToGlobalMessages(async (msg) => {
+        if (msg._table === 'chats') {
+            await loadChats(true);
+            return;
+        }
+
+        // Handle message status/read-receipt updates in real time on the sidebar
+        if (msg._eventType === 'UPDATE') {
+            setChats(prev => prev.map(c => {
+                if (c.id !== msg.chat_id) return c;
+                const updated: ChatSession = { ...c };
+                if (msg.sender_id === currentUserId) {
+                    updated.lastMessageStatus = msg.status || updated.lastMessageStatus;
+                    updated.lastMessageReadAt = msg.read_at || updated.lastMessageReadAt;
+                }
+                if (msg.status === 'read' && msg.sender_id !== currentUserId) {
+                    updated.unread = 0;
+                }
+                return updated;
+            }));
+            await loadChats(true);
+            return;
+        }
+
         const isMe = msg.sender_id === currentUserId;
         const chatInList = chatsRef.current.find(c => c.id === msg.chat_id);
+
+        if (!isMe && msg.id && msg.chat_id !== selectedChatId) {
+            StorageService.markMessageAsDelivered(msg.id).catch(() => {});
+        }
 
         if (!chatInList) {
             if (!isMe) {
@@ -413,10 +460,28 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
 
   // --- Realtime Subscription for Selected Chat ---
   useEffect(() => {
-    if (!selectedChatId || !currentUserId) return;
+    if (!selectedChatId || !currentUserId) {
+      setIsPeerTyping(false);
+      setIsPeerOnline(false);
+      return;
+    }
 
-    loadMessages(selectedChatId, true);
-    StorageService.markAllMessagesAsRead(selectedChatId);
+    setIsPeerTyping(false);
+    setIsPeerOnline(false);
+
+    const markActiveChatRead = async () => {
+      // Clear local unread badge immediately when viewing the chat
+      setChats(prev => prev.map(c => c.id === selectedChatId ? { ...c, unread: 0 } : c));
+      if (!readReceiptsRef.current || document.visibilityState !== 'visible') return;
+      const result = await StorageService.markAllMessagesAsRead(selectedChatId);
+      if (result && result.messageIds.length > 0) {
+        subscriptionHandleRef.current?.broadcastReadReceipt(result.messageIds, result.readAt);
+      }
+    };
+
+    loadMessages(selectedChatId, true).then(() => {
+      markActiveChatRead();
+    });
 
     const subscription = StorageService.subscribeToMessages(selectedChatId, async (payload) => {
       if (payload.type === 'INSERT') {
@@ -436,13 +501,31 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
         }
 
         if (raw.sender_id !== currentUserId) {
+            setIsPeerTyping(false);
             playNotificationSound();
-            StorageService.markMessageAsRead(raw.id);
+            if (readReceiptsRef.current && document.visibilityState === 'visible') {
+                const readAt = await StorageService.markMessageAsRead(raw.id, selectedChatId);
+                if (readAt) {
+                    subscription.broadcastReadReceipt([raw.id], readAt);
+                }
+            } else {
+                const delivered = await StorageService.markMessageAsDelivered(raw.id);
+                if (delivered) {
+                    subscription.broadcastDeliveredReceipt(raw.id, new Date().toISOString());
+                }
+            }
         }
 
         setMessages(prev => {
-          if (prev.some(m => m.id === raw.id)) return prev;
-          // Also remove temp message if it matches text (optimistic UI cleanup)
+          const existingIdx = prev.findIndex(m => m.id === raw.id);
+          if (existingIdx !== -1) {
+            return prev.map(m => m.id === raw.id ? {
+              ...m,
+              status: raw.status || m.status,
+              deliveredAt: raw.delivered_at || m.deliveredAt,
+              readAt: raw.read_at || m.readAt
+            } : m);
+          }
           const withoutTemp = prev.filter(m => !(m.id.startsWith('temp-') && m.text === plainText));
           
           return [...withoutTemp, {
@@ -456,28 +539,78 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
             fileSize: raw.file_size,
             duration: raw.duration,
             reactions: raw.reactions || [],
-            status: raw.status
+            status: raw.status || 'sent',
+            deliveredAt: raw.delivered_at || null,
+            readAt: raw.read_at || null
           }];
         });
         scrollToBottom();
       } else if (payload.type === 'UPDATE') {
         const raw = payload.message;
-        // Defensive check: Ensure this update actually belongs to the active selected chat
         if (raw.chat_id !== selectedChatId) return;
-        setMessages(prev => prev.map(m => m.id === raw.id ? { ...m, status: raw.status, reactions: raw.reactions || [] } : m));
+        setMessages(prev => prev.map(m => m.id === raw.id ? {
+          ...m,
+          status: raw.status || m.status,
+          deliveredAt: raw.delivered_at || m.deliveredAt,
+          readAt: raw.read_at || m.readAt,
+          reactions: raw.reactions || m.reactions || []
+        } : m));
+      } else if (payload.type === 'READ_RECEIPT') {
+        const ids = new Set(payload.messageIds || []);
+        const readAt = payload.readAt || new Date().toISOString();
+        setMessages(prev => prev.map(m => {
+          if (m.isMe && (ids.has(m.id) || (payload.readerId && m.status !== 'read'))) {
+            return { ...m, status: 'read', deliveredAt: m.deliveredAt || readAt, readAt: m.readAt || readAt };
+          }
+          return m;
+        }));
+      } else if (payload.type === 'DELIVERED_RECEIPT') {
+        const deliveredAt = payload.deliveredAt || new Date().toISOString();
+        setMessages(prev => prev.map(m => {
+          if (m.id === payload.messageId && m.status === 'sent') {
+            return { ...m, status: 'delivered', deliveredAt };
+          }
+          return m;
+        }));
+      } else if (payload.type === 'TYPING') {
+        setIsPeerTyping(!!payload.isTyping);
+        if (peerTypingTimeoutRef.current) clearTimeout(peerTypingTimeoutRef.current);
+        if (payload.isTyping) {
+          peerTypingTimeoutRef.current = setTimeout(() => setIsPeerTyping(false), 3500);
+          scrollToBottom();
+        }
+      } else if (payload.type === 'PRESENCE') {
+        const activeChatData = chatsRef.current.find(c => c.id === selectedChatId);
+        const partnerId = activeChatData?.startupId;
+        const onlineIds: string[] = payload.onlineUserIds || [];
+        setIsPeerOnline(partnerId ? onlineIds.includes(partnerId) : onlineIds.some(id => id !== currentUserId));
       }
-    });
+    }, currentUserId);
 
-    // We can rely on realtime, fallback polling can be less aggressive
+    subscriptionHandleRef.current = subscription;
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        markActiveChatRead();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+
+    // Fallback sync every 25s in case websocket momentarily drops
     const pollInterval = setInterval(() => {
       loadMessages(selectedChatId);
-    }, 15000);
+    }, 25000);
 
     return () => {
+      subscription.sendTyping(false);
       subscription.unsubscribe();
+      subscriptionHandleRef.current = null;
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
       clearInterval(pollInterval);
     };
-  }, [selectedChatId, currentUserId]);
+  }, [selectedChatId, currentUserId, readReceiptsEnabled]);
 
   const scrollToBottom = () => {
     if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
@@ -499,19 +632,49 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
 
   // --- Actions ---
 
+  const generateClientUuid = () => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  };
+
+  const handleInputChange = (value: string) => {
+    setInput(value);
+    if (!selectedChatId) return;
+    if (value.trim().length > 0) {
+      subscriptionHandleRef.current?.sendTyping(true);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => {
+        subscriptionHandleRef.current?.sendTyping(false);
+      }, 2000);
+    } else {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      subscriptionHandleRef.current?.sendTyping(false);
+    }
+  };
+
   const handleSendMessage = async (overrideContent?: string, overrideType: 'text' | 'image' | 'audio' = 'text', additionalData?: any) => {
     if ((!input.trim() && !overrideContent) || !selectedChatId || !currentUserId) return;
 
-    const tempId = `temp-${Date.now()}`;
+    const clientUuid = generateClientUuid();
     const content = overrideContent || input.trim();
     
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    subscriptionHandleRef.current?.sendTyping(false);
+
     const optimisticMsg: Message = {
-      id: tempId,
+      id: clientUuid,
       senderId: currentUserId,
       text: content,
       type: overrideType as any,
       timestamp: new Date().toISOString(),
       isMe: true,
+      status: 'sent',
       ...additionalData
     };
 
@@ -524,11 +687,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
       const activeChatData = chats.find(c => c.id === selectedChatId);
       const saved = await StorageService.addMessage(optimisticMsg, selectedChatId, activeChatData?.peerPublicKey);
       if (saved) {
-        // Replace temp with real
-        setMessages(prev => prev.map(m => m.id === tempId ? { ...saved, isMe: true } : m));
+        setMessages(prev => prev.map(m => m.id === clientUuid ? { ...saved, isMe: true, status: saved.status || m.status } : m));
+        loadChats(true);
       } else {
         console.error("Failed to save message to DB");
-        setMessages(prev => prev.map(m => m.id === tempId ? { ...m, text: "Failed to send: " + m.text } : m));
+        setMessages(prev => prev.map(m => m.id === clientUuid ? { ...m, text: "Failed to send: " + m.text } : m));
       }
     } catch (e) {
       console.error("Send failed", e);
@@ -544,16 +707,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
     // Actual file upload to storage bucket
     const fileUrl = await StorageService.uploadFile(file, 'images');
     
-    const tempId = `temp-${Date.now()}`;
+    const clientUuid = generateClientUuid();
     const optimisticMsg: Message = {
-      id: tempId,
+      id: clientUuid,
       senderId: currentUserId,
-      text: file.name,
+      text: fileUrl || file.name,
       type: 'document',
       fileName: file.name,
       fileSize: `${(file.size / 1024 / 1024).toFixed(1)} MB`,
       timestamp: new Date().toISOString(),
-      isMe: true
+      isMe: true,
+      status: 'sent'
     };
 
     setMessages(prev => [...prev, optimisticMsg]);
@@ -565,7 +729,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
         text: fileUrl || file.name // Use URL if upload succeeded
     }, selectedChatId);
     if (saved) {
-       setMessages(prev => prev.map(m => m.id === tempId ? { ...saved, isMe: true } : m));
+       setMessages(prev => prev.map(m => m.id === clientUuid ? { ...saved, isMe: true, status: saved.status || m.status } : m));
+       loadChats(true);
     }
   };
 
@@ -689,97 +854,110 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
 
   return (
     <div 
-      className="flex font-sans text-zinc-900 bg-white fixed md:relative inset-0 md:inset-auto h-[var(--vh,100dvh)] md:h-screen w-full overflow-hidden select-none select-text-for-messages touch-pan-y"
+      className="flex font-sans text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-950 fixed md:relative inset-0 md:inset-auto h-[var(--vh,100dvh)] md:h-screen w-full overflow-hidden select-none select-text-for-messages touch-pan-y transition-colors"
       style={{ overscrollBehaviorY: 'none' }}
     >
       
       {/* --- LEFT SIDEBAR (CHAT LIST) --- */}
       <div className={`
-        absolute inset-0 md:relative md:inset-auto md:w-[400px] lg:w-[420px] bg-white border-r border-zinc-200 flex flex-col z-20 transition-transform duration-300 md:h-[100dvh] overscroll-contain
+        absolute inset-0 md:relative md:inset-auto md:w-[400px] lg:w-[420px] bg-white dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800 flex flex-col z-20 transition-all duration-300 md:h-[100dvh] overscroll-contain
         ${selectedChatId ? '-translate-x-full md:translate-x-0' : 'translate-x-0'}
       `}>
         {/* Header */}
         <div 
-          className="px-4 py-3 border-b border-transparent bg-white/95 backdrop-blur-md sticky top-0 z-30 shrink-0"
+          className="px-4 py-3 border-b border-transparent dark:border-zinc-800/60 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md sticky top-0 z-30 shrink-0 transition-colors"
           style={{ paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))' }}
         >
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-1">
-              <h1 className="text-lg font-display font-bold tracking-tight text-zinc-900" id="chat-messages-header">Messages</h1>
+              <h1 className="text-lg font-display font-bold tracking-tight text-zinc-900 dark:text-white" id="chat-messages-header">Messages</h1>
             </div>
           </div>
           
           <div className="relative group">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-brand-primary transition-colors" size={14} />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-zinc-500 group-focus-within:text-brand-primary transition-colors" size={14} />
             <input 
               type="text" 
               placeholder="Search messages..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-zinc-50 border border-zinc-200 rounded-xl py-2 pl-9 pr-3 text-sm font-medium text-zinc-900 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary focus:bg-white transition-all font-sans"
+              className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl py-2 pl-9 pr-3 text-sm font-medium text-zinc-900 dark:text-zinc-100 placeholder-zinc-500 dark:placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary focus:bg-white dark:focus:bg-zinc-900 transition-all font-sans"
             />
           </div>
         </div>
 
         {/* List */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto bg-white dark:bg-zinc-950 transition-colors">
           {isLoadingChats ? (
             <div className="p-8 flex justify-center">
-              <p className="text-xs text-zinc-400">Loading chats...</p>
+              <p className="text-xs text-zinc-400 dark:text-zinc-500">Loading chats...</p>
             </div>
           ) : filteredChats.length === 0 ? (
-            <div className="p-6 text-center text-zinc-500 text-xs">No messages yet.</div>
+            <div className="p-6 text-center text-zinc-500 dark:text-zinc-400 text-xs">No messages yet.</div>
           ) : (
             <div className="divide-y divide-transparent pb-20 sm:pb-2">
               {filteredChats.map(chat => (
                 <button
                   key={chat.id}
                   onClick={() => setSelectedChatId(chat.id)}
-                  className={`w-full p-3.5 sm:p-4 flex items-center gap-3 sm:gap-4 hover:bg-zinc-100/60 transition-colors text-left group active:bg-zinc-100 ${selectedChatId === chat.id ? 'bg-zinc-100' : ''}`}
+                  className={`w-full p-3.5 sm:p-4 flex items-center gap-3 sm:gap-4 hover:bg-zinc-100/60 dark:hover:bg-zinc-900/70 transition-colors text-left group active:bg-zinc-100 dark:active:bg-zinc-900 ${selectedChatId === chat.id ? 'bg-zinc-100 dark:bg-zinc-900' : ''}`}
                 >
                   <div className="relative shrink-0">
                     {chat.avatarUrl ? <img 
                       src={chat.avatarUrl} 
                       alt={chat.startupName} 
-                      className="w-11 h-11 sm:w-12 sm:h-12 rounded-full object-cover border border-zinc-200 shadow-sm transition-transform duration-200 group-hover:scale-102"
+                      className="w-11 h-11 sm:w-12 sm:h-12 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 shadow-sm transition-transform duration-200 group-hover:scale-102"
                     /> : (
-                      <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-zinc-100 border border-zinc-200 shadow-sm flex items-center justify-center text-zinc-400 transition-transform duration-200 group-hover:scale-102">
+                      <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-sm flex items-center justify-center text-zinc-400 dark:text-zinc-500 transition-transform duration-200 group-hover:scale-102">
                         <User size={20} />
                       </div>
                     )}
                     {/* Online Indicator */}
-                    <div className="absolute bottom-0 right-0 z-10 border border-white rounded-full bg-white scale-110">
+                    <div className="absolute bottom-0 right-0 z-10 border border-white dark:border-zinc-950 rounded-full bg-white dark:bg-zinc-950 scale-110">
                        <StatusIndicator lastSeen={chat.lastSeen || ''} size="sm" variant="dot" />
                     </div>
                   </div>
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-baseline mb-0.5">
-                      <h3 className="font-bold text-sm sm:text-[15px] text-zinc-900 truncate pr-2 tracking-tight transition-colors group-hover:text-brand-primary">{chat.startupName}</h3>
-                      <span className="text-[10px] sm:text-xs text-zinc-400 font-semibold whitespace-nowrap">
+                      <h3 className="font-bold text-sm sm:text-[15px] text-zinc-900 dark:text-zinc-100 truncate pr-2 tracking-tight transition-colors group-hover:text-brand-primary">{chat.startupName}</h3>
+                      <span className="text-[10px] sm:text-xs text-zinc-400 dark:text-zinc-500 font-semibold whitespace-nowrap">
                         {new Date(chat.timestamp).toLocaleDateString() === new Date().toLocaleDateString() 
                            ? formatTime(chat.timestamp)
                            : new Date(chat.timestamp).toLocaleDateString(undefined, {month:'short', day:'numeric'})}
                       </span>
                     </div>
-                    <p className={`text-xs sm:text-[13px] leading-relaxed truncate mt-0.5 ${chat.unread > 0 ? 'font-semibold text-zinc-900' : 'text-zinc-500'}`}>
-                      {(() => {
-                         if (!chat.lastMessage) return '';
-                         if (chat.lastMessage.startsWith('http') && (chat.lastMessage.includes('giphy') || chat.lastMessage.includes('gif'))) {
-                           return '🖼️ GIF';
-                         }
-                         if (chat.lastMessage.startsWith('http://') || chat.lastMessage.startsWith('https://') || chat.lastMessage.startsWith('blob:') || chat.lastMessage.startsWith('data:')) {
-                           const details = getFileDetails(chat.lastMessage);
-                           const iconStr = details.iconName === 'image' ? '🖼️' : details.iconName === 'video' ? '🎥' : details.iconName === 'audio' ? '🎵' : details.iconName === 'spreadsheet' ? '📊' : details.iconName === 'archive' ? '📦' : '📄';
-                           return `${iconStr} File`;
-                         }
-                         return chat.lastMessage;
-                       })()}
-                    </p>
+                    <div className="flex items-center gap-1 mt-0.5 min-w-0">
+                      {chat.lastMessageSenderId === currentUserId && readReceiptsEnabled && (
+                        <span className="shrink-0 flex items-center" title={chat.lastMessageStatus === 'read' ? 'Read' : chat.lastMessageStatus === 'delivered' ? 'Delivered' : 'Sent'}>
+                          {chat.lastMessageStatus === 'read' ? (
+                            <CheckCheck size={13} className="text-sky-500" />
+                          ) : chat.lastMessageStatus === 'delivered' ? (
+                            <CheckCheck size={13} className="text-zinc-400 dark:text-zinc-500" />
+                          ) : (
+                            <Check size={13} className="text-zinc-400 dark:text-zinc-500" />
+                          )}
+                        </span>
+                      )}
+                      <p className={`text-xs sm:text-[13px] leading-relaxed truncate ${chat.unread > 0 ? 'font-semibold text-zinc-900 dark:text-white' : 'text-zinc-500 dark:text-zinc-400'}`}>
+                        {(() => {
+                           if (!chat.lastMessage) return '';
+                           if (chat.lastMessage.startsWith('http') && (chat.lastMessage.includes('giphy') || chat.lastMessage.includes('gif'))) {
+                             return '🖼️ GIF';
+                           }
+                           if (chat.lastMessage.startsWith('http://') || chat.lastMessage.startsWith('https://') || chat.lastMessage.startsWith('blob:') || chat.lastMessage.startsWith('data:')) {
+                             const details = getFileDetails(chat.lastMessage);
+                             const iconStr = details.iconName === 'image' ? '🖼️' : details.iconName === 'video' ? '🎥' : details.iconName === 'audio' ? '🎵' : details.iconName === 'spreadsheet' ? '📊' : details.iconName === 'archive' ? '📦' : '📄';
+                             return `${iconStr} File`;
+                           }
+                           return chat.lastMessage;
+                         })()}
+                      </p>
+                    </div>
                   </div>
                   
                   {chat.unread > 0 && (
-                    <div className="shrink-0 w-5 h-5 bg-[#EAB308] text-white rounded-full flex items-center justify-center text-[10px] font-bold shadow-xs">
+                    <div className="shrink-0 w-5 h-5 bg-[#EAB308] text-white dark:text-zinc-950 rounded-full flex items-center justify-center text-[10px] font-bold shadow-xs">
                       {chat.unread}
                     </div>
                   )}
@@ -792,23 +970,23 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
 
       {/* --- RIGHT SIDE (CONVERSATION) --- */}
       <div className={`
-        absolute inset-0 md:relative md:inset-auto flex flex-col bg-white z-30 transition-transform duration-300 md:h-[100dvh] md:flex-1 overflow-hidden
+        absolute inset-0 md:relative md:inset-auto flex flex-col bg-white dark:bg-zinc-950 z-30 transition-all duration-300 md:h-[100dvh] md:flex-1 overflow-hidden
         ${selectedChatId ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
       `}>
         {selectedChatId ? (
           <>
             {/* Chat Header */}
             <div 
-              className="bg-white/40 dark:bg-zinc-950/40 backdrop-blur-xl border-b border-zinc-200/40 dark:border-zinc-800/40 px-3.5 py-2.5 sm:px-6 sm:py-4 flex items-center justify-between shrink-0 z-40"
+              className="bg-white/80 dark:bg-zinc-950/90 backdrop-blur-xl border-b border-zinc-200/60 dark:border-zinc-800 px-3.5 py-2.5 sm:px-6 sm:py-4 flex items-center justify-between shrink-0 z-40 transition-colors"
               style={{ paddingTop: 'calc(10px + env(safe-area-inset-top, 0px))' }}
             >
               <div className="flex items-center gap-2 sm:gap-3">
                 <button 
                   onClick={() => setSelectedChatId(null)}
-                  className="p-1.5 -ml-1 rounded-full hover:bg-zinc-100 text-zinc-500 active:scale-95 transition-all w-9 h-9 flex items-center justify-center"
+                  className="p-1.5 -ml-1 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 active:scale-95 transition-all w-9 h-9 flex items-center justify-center"
                   aria-label="Back to chat list"
                 >
-                  <ChevronLeft size={22} className="text-zinc-600" />
+                  <ChevronLeft size={22} className="text-zinc-600 dark:text-zinc-300" />
                 </button>
                 
                 <div 
@@ -818,13 +996,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
                 >
                   <div className="relative">
                     {headerAvatar ? (
-                      <img src={headerAvatar} className="w-10 h-10 sm:w-11 sm:h-11 rounded-full object-cover border border-zinc-200 shadow-sm transition-transform group-hover:scale-105" alt={headerName} />
+                      <img src={headerAvatar} className="w-10 h-10 sm:w-11 sm:h-11 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 shadow-sm transition-transform group-hover:scale-105" alt={headerName} />
                     ) : (
-                      <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-zinc-50 flex items-center justify-center text-zinc-400 border border-zinc-200 shadow-sm transition-transform group-hover:scale-105">
+                      <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-zinc-50 dark:bg-zinc-900 flex items-center justify-center text-zinc-400 dark:text-zinc-500 border border-zinc-200 dark:border-zinc-700 shadow-sm transition-transform group-hover:scale-105">
                         <User className="w-5 h-5" />
                       </div>
                     )}
-                    <div className="absolute bottom-0 right-0 z-10 border border-white rounded-full bg-white scale-105">
+                    <div className="absolute bottom-0 right-0 z-10 border border-white dark:border-zinc-950 rounded-full bg-white dark:bg-zinc-950 scale-105">
                       <StatusIndicator lastSeen={headerLastSeen || ''} size="sm" variant="dot" />
                     </div>
                   </div>
@@ -832,14 +1010,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
                   <div className="flex flex-col">
                     {activeChat ? (
                       <>
-                        <h2 className="font-bold text-sm sm:text-base text-zinc-900 tracking-tight leading-snug group-hover:text-brand-primary transition-colors">{headerName}</h2>
-                        <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1 select-none">
-                          <span className="w-1 h-1 rounded-full bg-emerald-600 animate-pulse" />
-                          {headerSubtitle}
+                        <h2 className="font-bold text-sm sm:text-base text-zinc-900 dark:text-white tracking-tight leading-snug group-hover:text-brand-primary transition-colors">{headerName}</h2>
+                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 select-none">
+                          <span className={`w-1.5 h-1.5 rounded-full ${isPeerTyping || isPeerOnline ? 'bg-emerald-500 animate-pulse' : 'bg-emerald-600 dark:bg-emerald-400'}`} />
+                          {isPeerTyping ? 'Typing...' : isPeerOnline ? 'Online now' : headerSubtitle}
                         </span>
                       </>
                     ) : (
-                      <div className="h-4 w-20 bg-zinc-100 rounded animate-pulse" />
+                      <div className="h-4 w-20 bg-zinc-100 dark:bg-zinc-800 rounded animate-pulse" />
                     )}
                   </div>
                 </div>
@@ -848,7 +1026,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
               <div className="flex items-center gap-1 text-zinc-400">
                 <button 
                     onClick={handleVideoCall}
-                    className="p-2.5 sm:p-3 hover:bg-zinc-100 rounded-full text-zinc-500 hover:text-brand-primary transition-all w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center active:scale-90 shadow-sm border border-zinc-100 hover:shadow-md cursor-pointer shrink-0"
+                    className="p-2.5 sm:p-3 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full text-zinc-500 dark:text-zinc-300 hover:text-brand-primary dark:hover:text-amber-400 transition-all w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center active:scale-90 shadow-sm border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:shadow-md cursor-pointer shrink-0"
                     title="Start Google Meet"
                 >
                     <Video size={22} className="sm:size-[24px]" />
@@ -859,17 +1037,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
             {/* Messages Area */}
             <div 
               ref={messagesContainerRef}
-              className="flex-1 min-h-0 overflow-y-auto px-4 py-3 sm:px-6 space-y-1.5 scroll-smooth bg-transparent overscroll-contain"
+              className="flex-1 min-h-0 overflow-y-auto px-4 py-3 sm:px-6 space-y-1.5 scroll-smooth bg-zinc-50/40 dark:bg-zinc-950 overscroll-contain transition-colors"
               style={{ WebkitOverflowScrolling: 'touch' }}
             >
                {isLoadingMessages ? (
                   <div className="h-full flex flex-col items-center justify-center p-8 text-center select-none">
-                      <p className="text-xs text-zinc-400 mt-2">Loading messages...</p>
+                      <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-2">Loading messages...</p>
                   </div>
                ) : messages.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-zinc-500 p-8 text-center select-none">
-                      <p className="text-sm font-semibold text-zinc-300">No messages yet</p>
-                      <p className="text-xs text-zinc-400 mt-0.5">Start the conversation with an investor or colleague!</p>
+                  <div className="h-full flex flex-col items-center justify-center text-zinc-500 dark:text-zinc-400 p-8 text-center select-none">
+                      <p className="text-sm font-semibold text-zinc-400 dark:text-zinc-500">No messages yet</p>
+                      <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-0.5">Start the conversation with an investor or colleague!</p>
                   </div>
                ) : (
                   messages.map((msg, idx) => {
@@ -891,7 +1069,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
                     return (
                       <React.Fragment key={msg.id}>
                         {isNewDay && (
-                          <div className="text-center text-[10px] text-zinc-400 font-bold tracking-wider uppercase py-3 select-none">
+                          <div className="text-center text-[10px] text-zinc-400 dark:text-zinc-500 font-bold tracking-wider uppercase py-3 select-none">
                             {new Date(msg.timestamp).toLocaleDateString(undefined, {month: 'long', day: 'numeric', year: 'numeric'})}
                           </div>
                         )}
@@ -900,7 +1078,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
                           <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[85%] sm:max-w-[70%]`}>
                             
                             {showAvatar && !isMe && (
-                              <span className="text-[9px] font-bold tracking-wide text-zinc-400 mb-0.5 ml-9 select-none">
+                              <span className="text-[9px] font-bold tracking-wide text-zinc-400 dark:text-zinc-500 mb-0.5 ml-9 select-none">
                                   {headerName}
                               </span>
                             )}
@@ -911,9 +1089,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
                                 <div className="w-7 h-7 shrink-0 mb-0.5">
                                   {showAvatar && (
                                     headerAvatar ? (
-                                      <img src={headerAvatar} className="w-7 h-7 rounded-full object-cover border border-zinc-200 bg-zinc-50 shadow-xs" alt="" />
+                                      <img src={headerAvatar} className="w-7 h-7 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 shadow-xs" alt="" />
                                     ) : (
-                                      <div className="w-7 h-7 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-400 border border-zinc-200 shadow-xs">
+                                      <div className="w-7 h-7 rounded-full bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center text-zinc-400 dark:text-zinc-500 border border-zinc-200 dark:border-zinc-700 shadow-xs">
                                         <User className="w-3.5 h-3.5" />
                                       </div>
                                     )
@@ -922,7 +1100,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
                               )}
 
                               {/* Bubble */}
-                              <div className={`relative px-3.5 py-2 ${bubbleCorners} shadow-sm text-[14px] sm:text-[15px] leading-relaxed break-words group transition-all select-text ${isMe ? 'bg-[#EAB308] text-white shadow-[#EAB308]/10' : 'bg-zinc-100 text-zinc-800 border border-zinc-200'}`}>
+                              <div className={`relative px-3.5 py-2 ${bubbleCorners} shadow-sm text-[14px] sm:text-[15px] leading-relaxed break-words group transition-all select-text ${isMe ? 'bg-[#EAB308] text-white shadow-[#EAB308]/10' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-800'}`}>
                                 {/* Text Content */}
                                 {msg.type === 'text' && (
                                    msg.text?.startsWith('http') && (msg.text.includes('giphy') || msg.text.includes('gif')) ? (
@@ -940,12 +1118,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
                               {/* Audio Content */}
                               {msg.type === 'audio' && (
                                   <div className="flex items-center gap-3 min-w-[150px]">
-                                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isMe ? 'bg-black/10 text-white' : 'bg-zinc-200 text-zinc-600'}`}>
+                                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isMe ? 'bg-black/10 text-white' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'}`}>
                                           <MessageCircle size={20} />
                                       </div>
                                       <div className="flex flex-col">
                                           <span className="text-xs font-bold">Audio</span>
-                                          <span className={`text-[11px] ${isMe ? 'text-white/80' : 'text-zinc-500'}`}>{msg.duration ? `${msg.duration}s` : '0s'}</span>
+                                          <span className={`text-[11px] ${isMe ? 'text-white/80' : 'text-zinc-500 dark:text-zinc-400'}`}>{msg.duration ? `${msg.duration}s` : '0s'}</span>
                                       </div>
                                   </div>
                               )}
@@ -965,12 +1143,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
 
                                 const iconContainerBg = isMe 
                                   ? 'bg-black/10 text-white' 
-                                  : (details.iconName === 'image' ? 'bg-emerald-600/10 text-emerald-600' :
-                                     details.iconName === 'spreadsheet' ? 'bg-teal-600/10 text-teal-600' :
-                                     details.iconName === 'video' ? 'bg-amber-600/10 text-amber-600' :
-                                     details.iconName === 'audio' ? 'bg-amber-600/10 text-amber-600' :
-                                     details.iconName === 'pdf' ? 'bg-red-600/10 text-red-600' :
-                                     details.iconName === 'archive' ? 'bg-amber-600/10 text-amber-600' : 'bg-zinc-200 text-zinc-600');
+                                  : (details.iconName === 'image' ? 'bg-emerald-600/10 text-emerald-600 dark:text-emerald-400' :
+                                     details.iconName === 'spreadsheet' ? 'bg-teal-600/10 text-teal-600 dark:text-teal-400' :
+                                     details.iconName === 'video' ? 'bg-amber-600/10 text-amber-600 dark:text-amber-400' :
+                                     details.iconName === 'audio' ? 'bg-amber-600/10 text-amber-600 dark:text-amber-400' :
+                                     details.iconName === 'pdf' ? 'bg-red-600/10 text-red-600 dark:text-red-400' :
+                                     details.iconName === 'archive' ? 'bg-amber-600/10 text-amber-600 dark:text-amber-400' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300');
 
                                 return (
                                   <a 
@@ -978,7 +1156,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
                                     download={details.name} 
                                     target="_blank" 
                                     rel="noopener noreferrer"
-                                    className={`flex items-center gap-3 pr-2 cursor-pointer no-underline focus:outline-none rounded-xl p-1.5 -m-1.5 transition-all ${isMe ? 'hover:bg-black/5' : 'hover:bg-zinc-50'}`}
+                                    className={`flex items-center gap-3 pr-2 cursor-pointer no-underline focus:outline-none rounded-xl p-1.5 -m-1.5 transition-all ${isMe ? 'hover:bg-black/5' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/70'}`}
                                     onClick={(e) => {
                                       if (!msg.text || (!msg.text.startsWith('http') && !msg.text.startsWith('blob:') && !msg.text.startsWith('data:'))) {
                                         e.preventDefault();
@@ -990,44 +1168,88 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
                                       <FileIcon size={20} />
                                     </div>
                                     <div className="flex flex-col overflow-hidden flex-1 text-left min-w-0 pr-1">
-                                      <span className={`font-bold text-sm truncate max-w-[200px] block transition-colors ${isMe ? 'text-white' : 'text-zinc-900'}`}>{details.name}</span>
+                                      <span className={`font-bold text-sm truncate max-w-[200px] block transition-colors ${isMe ? 'text-white' : 'text-zinc-900 dark:text-zinc-100'}`}>{details.name}</span>
                                       <div className="flex items-center gap-1.5 mt-0.5 text-[11px]">
                                         <span className={`font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md text-[9px] border shrink-0 ${
                                           isMe 
                                             ? 'bg-black/5 border-black/10 text-white/80' 
-                                            : 'bg-zinc-100 border-zinc-200 text-zinc-500'
+                                            : 'bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-300'
                                         }`}>
                                           {details.typeLabel}
                                         </span>
-                                        <span className={`truncate text-[11.5px] ${isMe ? 'text-white/70' : 'text-zinc-500'}`}>{msg.fileSize || 'Unknown size'}</span>
+                                        <span className={`truncate text-[11.5px] ${isMe ? 'text-white/70' : 'text-zinc-500 dark:text-zinc-400'}`}>{msg.fileSize || 'Unknown size'}</span>
                                       </div>
                                     </div>
-                                    <div className={`p-2 rounded-full ml-1 shrink-0 ${isMe ? 'hover:bg-black/10 text-white' : 'hover:bg-zinc-100 text-zinc-400'}`}>
+                                    <div className={`p-2 rounded-full ml-1 shrink-0 ${isMe ? 'hover:bg-black/10 text-white' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400'}`}>
                                       <Download size={16} />
                                     </div>
                                   </a>
                                 );
                               })()}
                               
-                                <div className={`flex items-center justify-end gap-1 mt-0.5 select-none ${isMe ? 'text-white/70' : 'text-zinc-400'}`}>
+                                <div className={`flex items-center justify-end gap-1 mt-0.5 select-none ${isMe ? 'text-white/80' : 'text-zinc-400 dark:text-zinc-500'}`}>
                                   <span className="text-[9px] font-normal leading-none">{formatTime(msg.timestamp)}</span>
                                   {isMe && readReceiptsEnabled && (
-                                    <div className="flex items-center leading-none">
-                                      {msg.status === 'read' ? (
-                                        <CheckCheck size={13} className="text-white" />
+                                    <div
+                                      className="flex items-center leading-none"
+                                      title={
+                                        msg.status === 'read'
+                                          ? `Read${msg.readAt ? ` at ${formatTime(msg.readAt)}` : ''}`
+                                          : msg.status === 'delivered'
+                                            ? `Delivered${msg.deliveredAt ? ` at ${formatTime(msg.deliveredAt)}` : ''}`
+                                            : 'Sent'
+                                      }
+                                    >
+                                      {msg.id.startsWith('temp-') ? (
+                                        <Clock size={11} className="text-white/60" />
+                                      ) : msg.status === 'read' ? (
+                                        <CheckCheck size={14} className="text-sky-100 drop-shadow-xs" />
+                                      ) : msg.status === 'delivered' ? (
+                                        <CheckCheck size={13} className="text-white/70" />
                                       ) : (
-                                        <CheckCheck size={13} className="opacity-45" />
+                                        <Check size={13} className="text-white/65" />
                                       )}
                                     </div>
                                   )}
                                 </div>
                               </div>
                             </div>
+                            {isMe && readReceiptsEnabled && idx === messages.length - 1 && !msg.id.startsWith('temp-') && (
+                              <span className="text-[10px] font-medium text-zinc-400 dark:text-zinc-500 mt-1 mr-1 select-none flex items-center gap-1">
+                                {msg.status === 'read' ? (
+                                  <>
+                                    <CheckCheck size={12} className="text-sky-500" />
+                                    <span className="text-zinc-500 dark:text-zinc-300 font-semibold">
+                                      Read{msg.readAt ? ` · ${formatTime(msg.readAt)}` : ''}
+                                    </span>
+                                  </>
+                                ) : msg.status === 'delivered' ? (
+                                  <>
+                                    <CheckCheck size={12} className="text-zinc-400 dark:text-zinc-500" />
+                                    <span>Delivered</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Check size={12} className="text-zinc-400 dark:text-zinc-500" />
+                                    <span>Sent</span>
+                                  </>
+                                )}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </React.Fragment>
                     );
                   })
+               )}
+               {isPeerTyping && (
+                 <div className="flex justify-start mt-2">
+                   <div className="ml-9 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-3.5 py-2.5 rounded-2xl rounded-tl-none flex items-center gap-1.5 shadow-xs">
+                     <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+                     <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+                     <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+                   </div>
+                 </div>
                )}
                <div className="h-32 sm:h-16 w-full shrink-0" />
                <div ref={messagesEndRef} />
@@ -1035,26 +1257,26 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
 
             {/* Input Area */}
             <div 
-              className="px-3 pt-3 pb-4 sm:px-5 sm:py-4 bg-white border-t border-zinc-100 shrink-0 w-full z-40 animate-slide-up relative"
+              className="px-3 pt-3 pb-4 sm:px-5 sm:py-4 bg-white dark:bg-zinc-950 border-t border-zinc-100 dark:border-zinc-800 shrink-0 w-full z-40 animate-slide-up relative transition-colors"
               style={{ paddingBottom: 'calc(18px + env(safe-area-inset-bottom, 0px))' }}
             >
               {/* GIF Picker Overlay */}
               {showGifPicker && (
                 <div 
-                  className="bg-white rounded-2xl shadow-xl border border-zinc-200 absolute bottom-full left-3 right-3 sm:left-auto sm:right-6 sm:w-[350px] max-h-[360px] mb-2 flex flex-col z-50 animate-in slide-in-from-bottom-2 duration-150 overflow-hidden"
+                  className="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-800 absolute bottom-full left-3 right-3 sm:left-auto sm:right-6 sm:w-[350px] max-h-[360px] mb-2 flex flex-col z-50 animate-in slide-in-from-bottom-2 duration-150 overflow-hidden"
                 >
-                  <div className="p-3 border-b border-zinc-200 flex items-center justify-between bg-zinc-50 shrink-0">
-                    <span className="font-bold text-xs text-zinc-500 tracking-tight">Search GIFs</span>
+                  <div className="p-3 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between bg-zinc-50 dark:bg-zinc-950 shrink-0">
+                    <span className="font-bold text-xs text-zinc-500 dark:text-zinc-400 tracking-tight">Search GIFs</span>
                     <button 
                       onClick={() => setShowGifPicker(false)}
-                      className="text-zinc-400 hover:text-zinc-900 font-bold text-[11px] px-2 py-0.5 rounded hover:bg-zinc-100 transition-colors"
+                      className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-bold text-[11px] px-2 py-0.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
                     >
                       Close
                     </button>
                   </div>
                   
                   {/* Search input inside GIF Picker */}
-                  <div className="p-2 border-b border-zinc-100 shrink-0">
+                  <div className="p-2 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
                     <div className="relative">
                       <Search size={14} className="absolute left-3 top-2.5 text-zinc-400" />
                       <input 
@@ -1065,19 +1287,19 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
                           setGifSearchQuery(e.target.value);
                           debouncedSearchGifs(e.target.value);
                         }}
-                        className="w-full pl-8 pr-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-amber-500/20 focus:bg-white"
+                        className="w-full pl-8 pr-3 py-1.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-amber-500/20 focus:bg-white dark:focus:bg-zinc-900"
                         autoFocus
                       />
                     </div>
                   </div>
 
                   {/* Popular / Quick Categories scroll */}
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 overflow-x-auto border-b border-zinc-100 shrink-0 no-scrollbar select-none">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 overflow-x-auto border-b border-zinc-100 dark:border-zinc-800 shrink-0 no-scrollbar select-none">
                     {['👍 agree', '🎉 celebrate', '😂 laugh', '💡 idea', '😮 wow', '🤔 think', '📊 stats', '💼 startup'].map((cat) => (
                       <button
                         key={cat}
                         onClick={() => handleCategoryClick(cat.split(' ')[1])}
-                        className="px-2.5 py-1 text-[11px] font-bold bg-zinc-50 border border-zinc-200 hover:bg-zinc-100 text-zinc-600 rounded-lg whitespace-nowrap active:scale-95 transition-all focus:outline-none select-none"
+                        className="px-2.5 py-1 text-[11px] font-bold bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 rounded-lg whitespace-nowrap active:scale-95 transition-all focus:outline-none select-none"
                       >
                         {cat}
                       </button>
@@ -1085,10 +1307,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
                   </div>
 
                   {/* Grid of GIFs */}
-                  <div className="flex-1 overflow-y-auto p-2 min-h-[180px] bg-white">
+                  <div className="flex-1 overflow-y-auto p-2 min-h-[180px] bg-white dark:bg-zinc-900">
                     {isGifLoading ? (
                       <div className="h-40 flex items-center justify-center">
-                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-brand-primary border-t-zinc-200" />
+                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-brand-primary border-t-zinc-200 dark:border-t-zinc-700" />
                       </div>
                     ) : gifsList.length === 0 ? (
                       <div className="h-40 flex flex-col items-center justify-center text-zinc-400 text-xs text-center p-4">
@@ -1102,7 +1324,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
                             key={gif.id}
                             type="button"
                             onClick={() => handleSendGif(gif.url)}
-                            className="relative aspect-video w-full rounded-lg overflow-hidden bg-zinc-50 hover:opacity-90 active:scale-[0.98] transition-all group border border-zinc-200"
+                            className="relative aspect-video w-full rounded-lg overflow-hidden bg-zinc-50 dark:bg-zinc-800 hover:opacity-90 active:scale-[0.98] transition-all group border border-zinc-200 dark:border-zinc-700"
                           >
                             <img 
                               src={gif.previewUrl} 
@@ -1122,18 +1344,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
               <div className="max-w-4xl mx-auto flex items-center gap-2">
                 <button 
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-10 h-10 rounded-full bg-white border border-zinc-200 text-zinc-400 hover:bg-zinc-50 hover:text-zinc-900 flex items-center justify-center transition-all shrink-0 active:scale-95 shadow-xs"
+                  className="w-10 h-10 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-400 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white flex items-center justify-center transition-all shrink-0 active:scale-95 shadow-xs"
                   title="Attach file"
                 >
                   <Paperclip size={18} />
                 </button>
                 <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
 
-                <div className="flex-1 bg-white border border-zinc-200 rounded-2xl px-3.5 py-1.5 md:py-2 flex items-center gap-2 focus-within:ring-1 focus-within:ring-brand-primary/30 focus-within:bg-white focus-within:border-zinc-300 transition-all shadow-inner">
+                <div className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl px-3.5 py-1.5 md:py-2 flex items-center gap-2 focus-within:ring-1 focus-within:ring-brand-primary/30 dark:focus-within:ring-amber-400/30 focus-within:bg-white dark:focus-within:bg-zinc-900 focus-within:border-zinc-300 dark:focus-within:border-amber-400/60 transition-all shadow-inner dark:shadow-none">
                   <input 
                     type="text" 
                     value={input}
-                    onChange={(e) => setInput(e.target.value)}
+                    onChange={(e) => handleInputChange(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
                     onFocus={() => {
                       window.scrollTo(0, 0);
@@ -1149,10 +1371,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
                       setTimeout(() => { scrollToBottom(); }, 150);
                     }}
                     placeholder="Type a message..."
-                    className="flex-1 bg-transparent text-[15px] text-zinc-900 placeholder-zinc-500 focus:outline-none py-1"
+                    className="flex-1 bg-transparent text-[15px] text-zinc-900 dark:text-zinc-100 placeholder-zinc-500 dark:placeholder-zinc-400 focus:outline-none py-1"
                   />
                   {isSending && (
-                    <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-zinc-200 border-t-zinc-400 shrink-0" />
+                    <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-zinc-200 dark:border-zinc-700 border-t-zinc-400 dark:border-t-amber-400 shrink-0" />
                   )}
                 </div>
 
@@ -1162,7 +1384,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
                   className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shrink-0 shadow-xs active:scale-95
                     ${input.trim() 
                       ? 'bg-[#EAB308] text-white hover:scale-105 hover:shadow-xs' 
-                      : 'bg-zinc-100 text-zinc-300 cursor-not-allowed'}`}
+                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-300 dark:text-zinc-500 cursor-not-allowed'}`}
                 >
                   <SendHorizontal size={18} strokeWidth={2.5} className={input.trim() ? "translate-x-[1px]" : ""} />
                 </button>
@@ -1171,14 +1393,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = React.memo(({
           </>
         ) : (
           /* Empty State (Desktop) */
-          <div className="hidden md:flex flex-1 items-center justify-center flex-col text-center p-8 bg-zinc-50/50">
-             <div className="w-24 h-24 bg-white rounded-full shadow-2xl flex items-center justify-center mb-6 border border-zinc-100">
+          <div className="hidden md:flex flex-1 items-center justify-center flex-col text-center p-8 bg-zinc-50/50 dark:bg-zinc-950 transition-colors">
+             <div className="w-24 h-24 bg-white dark:bg-zinc-900 rounded-full shadow-2xl flex items-center justify-center mb-6 border border-zinc-100 dark:border-zinc-800">
                 <div className="w-16 h-16 bg-[#EAB308] rounded-full flex items-center justify-center text-white shadow-[0_10px_30px_rgba(234,179,8,0.2)]">
                    <SendHorizontal size={32} className="ml-1" />
                 </div>
              </div>
-             <h2 className="text-2xl font-display font-bold text-zinc-900 mb-2">Your Conversations</h2>
-             <p className="text-zinc-500 max-w-xs leading-relaxed text-sm">
+             <h2 className="text-2xl font-display font-bold text-zinc-900 dark:text-white mb-2">Your Conversations</h2>
+             <p className="text-zinc-500 dark:text-zinc-400 max-w-xs leading-relaxed text-sm">
                Select a chat from the sidebar to view messages, schedule meetings, or share documents.
              </p>
           </div>

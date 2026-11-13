@@ -344,19 +344,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
   const adminApiCall = async (path: string, options: RequestInit = {}) => {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
-      let token = sessionData?.session?.access_token || localStorage.getItem('connectup_admin_session_token') || localStorage.getItem('sb-token') || '';
+      const token = sessionData?.session?.access_token || localStorage.getItem('connectup_admin_session_token') || localStorage.getItem('sb-token') || '';
       
-      // If still no token, construct session token if user is verified ADMIN in database
-      if (!token && (userProfile?.role === 'ADMIN' || (userProfile?.role as string) === 'admin')) {
-        const cleanEmail = userProfile.email?.toLowerCase() || '';
-        token = `admin_jwt_${btoa(JSON.stringify({
-          sub: userProfile.id || cleanEmail,
-          email: cleanEmail,
-          role: 'ADMIN',
-          iat: Math.floor(Date.now() / 1000),
-          exp: Math.floor(Date.now() / 1000) + 86400 * 7
-        }))}`;
-        localStorage.setItem('connectup_admin_session_token', token);
+      if (!token) {
+        throw new Error('Unauthorized: Missing valid administrator session token');
       }
 
       const headers = {
@@ -394,17 +385,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
           apiSucceeded = true;
         }
       } catch (e) {
-        console.warn("adminApiCall /api/admin/users failed, fallback to Supabase:", e);
-      }
-
-      if (!apiSucceeded) {
-        const { data: dbProfiles, error: dbErr } = await supabase
-          .from('profiles')
-          .select('*');
-        if (!dbErr && dbProfiles) {
-          data = dbProfiles;
-          apiSucceeded = true;
-        }
+        console.warn("adminApiCall /api/admin/users failed:", e);
       }
 
       if (data && Array.isArray(data)) {

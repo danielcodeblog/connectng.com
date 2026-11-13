@@ -376,16 +376,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
   const fetchUsers = async (): Promise<AdminUser[]> => {
     try {
       let data: any[] | null = null;
-      let apiSucceeded = false;
       
       try {
         const res = await adminApiCall('/api/admin/users');
-        if (Array.isArray(res)) {
+        if (Array.isArray(res) && res.length > 0) {
           data = res;
-          apiSucceeded = true;
         }
       } catch (e) {
-        console.warn("adminApiCall /api/admin/users failed:", e);
+        console.warn("adminApiCall /api/admin/users fallback to profiles table:", e);
+      }
+
+      if (!data || !Array.isArray(data) || data.length === 0) {
+        const { data: dbProfiles, error: profilesErr } = await supabase
+          .from('profiles')
+          .select('*');
+
+        if (!profilesErr && Array.isArray(dbProfiles)) {
+          data = [...dbProfiles].sort((a: any, b: any) =>
+            new Date(b.created_at || b.updated_at || b.last_seen || 0).getTime() -
+            new Date(a.created_at || a.updated_at || a.last_seen || 0).getTime()
+          );
+        } else if (profilesErr) {
+          console.error("Direct profiles query error:", profilesErr.message);
+        }
       }
 
       if (data && Array.isArray(data)) {

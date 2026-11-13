@@ -419,7 +419,7 @@ export const StorageService = {
         // 3. Profile Pro plan fallback if no transaction rows exist yet
         const { data: profile } = await supabase
             .from('profiles')
-            .select('plan, billing_cycle, created_at')
+            .select('plan, billing_cycle, updated_at')
             .eq('id', user.id)
             .maybeSingle();
 
@@ -432,7 +432,7 @@ export const StorageService = {
                 amount: profile.billing_cycle === 'yearly' ? 29 : (profile.billing_cycle === 'trial' ? 0 : 5),
                 currency: 'USD',
                 status: profile.billing_cycle === 'trial' ? 'Trial Active' : 'Completed',
-                created_at: profile.created_at || new Date().toISOString()
+                created_at: profile.updated_at || new Date().toISOString()
             }];
             localStorage.setItem('connectup_transactions_history', JSON.stringify(fallbackTx));
             return fallbackTx;

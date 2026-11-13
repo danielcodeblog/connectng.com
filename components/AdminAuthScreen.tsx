@@ -123,6 +123,12 @@ export const AdminAuthScreen: React.FC<AdminAuthScreenProps> = ({ onComplete, on
         });
         const loginData = await loginRes.json().catch(() => ({}));
         if (loginRes.ok && loginData?.token) {
+          if (loginData.session?.access_token && loginData.session?.refresh_token) {
+            await supabase.auth.setSession({
+              access_token: loginData.session.access_token,
+              refresh_token: loginData.session.refresh_token
+            }).catch(() => {});
+          }
           localStorage.setItem('connectup_admin_session_token', loginData.token);
           localStorage.setItem('connectup_logged_in', 'true');
           onComplete(UserRole.ADMIN, cleanEmail);

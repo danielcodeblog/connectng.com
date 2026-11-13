@@ -228,6 +228,22 @@ async function startServer() {
     return null;
   };
 
+  const getUserScopedSupabase = (token?: string) => {
+    if (supabaseUrl && anonKey && token) {
+      return createClient(supabaseUrl, anonKey, {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        },
+        auth: {
+          persistSession: false
+        }
+      });
+    }
+    return null;
+  };
+
   // Helper to verify JWT token strictly via cryptographic Supabase verification
   const verifyTokenAndGetUser = async (token: string) => {
     if (!token || token === 'null' || token === 'undefined' || token.startsWith('admin_jwt_')) {
@@ -698,23 +714,20 @@ async function startServer() {
       }
       
       (req as any).user = user;
+      (req as any).accessToken = token;
 
-      if (user?.role === 'ADMIN') {
-        return next();
-      }
-
-      const adminSupabase = getAdminSupabase();
-      if (!adminSupabase) {
+      const dbClient = getAdminSupabase() || getUserScopedSupabase(token);
+      if (!dbClient) {
         return res.status(500).json({ error: 'Database service unavailable' });
       }
       
-      const { data: profile } = await adminSupabase
+      const { data: profile } = await dbClient
         .from('profiles')
         .select('role')
         .eq('id', user.id)
         .maybeSingle();
         
-      if (profile?.role === 'ADMIN') {
+      if ((profile?.role || '').toUpperCase() === 'ADMIN') {
         return next();
       }
       
@@ -749,24 +762,25 @@ async function startServer() {
       }
 
       // Strictly verify ADMIN role from database profiles table alone
-      const adminSupabase = getAdminSupabase();
-      if (!adminSupabase) {
+      const dbClient = getAdminSupabase() || getUserScopedSupabase(authData.session.access_token);
+      if (!dbClient) {
         return res.status(500).json({ error: 'Database service unavailable' });
       }
 
-      const { data: profile, error: profErr } = await adminSupabase
+      const { data: profile, error: profErr } = await dbClient
         .from('profiles')
         .select('role, id, email')
         .eq('id', authData.user.id)
         .maybeSingle();
 
-      if (profErr || profile?.role !== 'ADMIN') {
+      if (profErr || (profile?.role || '').toUpperCase() !== 'ADMIN') {
         return res.status(403).json({ error: 'Access Denied: Account is not assigned the ADMIN role in the database.' });
       }
 
       return res.json({
         success: true,
         token: authData.session.access_token,
+        session: authData.session,
         user: authData.user,
         role: 'ADMIN'
       });
@@ -780,47 +794,50 @@ async function startServer() {
   app.get('/api/admin/check-role', requireAuth, async (req, res) => {
     try {
       const user = (req as any).user;
-      const adminSupabase = getAdminSupabase();
-      if (!adminSupabase) {
+      const token = (req.headers.authorization || '').split(' ')[1];
+      const dbClient = getAdminSupabase() || getUserScopedSupabase(token);
+      if (!dbClient) {
         return res.status(500).json({ error: 'Database service unavailable' });
       }
 
-      const { data: profile } = await adminSupabase
+      const { data: profile } = await dbClient
         .from('profiles')
         .select('role')
         .eq('id', user.id)
         .maybeSingle();
 
-      return res.json({ role: profile?.role || 'FOUNDER', isAdmin: profile?.role === 'ADMIN' });
+      const roleUpper = (profile?.role || 'FOUNDER').toUpperCase();
+      return res.json({ role: roleUpper, isAdmin: roleUpper === 'ADMIN' });
     } catch (err: any) {
       return res.status(500).json({ error: 'Role check failed' });
     }
   });
 
-  // Admin GET users profiles (uses service_role to bypass RLS)
+  // Admin GET users profiles (uses service_role or authenticated admin client against profiles table)
   app.get('/api/admin/users', requireAdmin, async (req, res) => {
     try {
       console.log("Admin API: Fetching users...");
       const adminSupabase = getAdminSupabase();
-      if (!adminSupabase) {
+      const dbClient = adminSupabase || getUserScopedSupabase((req as any).accessToken);
+      if (!dbClient) {
         return res.status(500).json({ error: 'Supabase client not initialized' });
       }
 
-      // 1. Fetch profiles table
+      // 1. Fetch profiles table (without assuming profiles.created_at column exists)
       let profilesData: any[] = [];
-      const { data: profiles, error: profilesError } = await adminSupabase
+      const { data: profiles, error: profilesError } = await dbClient
         .from('profiles')
         .select('*');
 
       if (!profilesError && Array.isArray(profiles)) {
         profilesData = profiles;
       } else if (profilesError) {
-        console.warn("Admin API: Error selecting profiles:", profilesError.message);
+        console.error("Admin API: Error selecting profiles:", profilesError.message);
       }
 
       // 2. Fetch Supabase Auth users if serviceRoleKey is present
       const authUsersMap = new Map<string, any>();
-      if (serviceRoleKey) {
+      if (adminSupabase && serviceRoleKey) {
         try {
           const { data: authUsersRes, error: authErr } = await adminSupabase.auth.admin.listUsers();
           if (!authErr && authUsersRes?.users) {
@@ -842,8 +859,8 @@ async function startServer() {
             email: p.email || authUser?.email || '',
             full_name: p.full_name || authUser?.user_metadata?.full_name || authUser?.user_metadata?.name || (p.email || authUser?.email || '').split('@')[0] || 'User',
             role: p.role || authUser?.user_metadata?.role || 'FOUNDER',
-            created_at: p.created_at || authUser?.created_at || new Date().toISOString(),
-            last_seen: p.last_seen || authUser?.last_sign_in_at || new Date().toISOString()
+            created_at: p.created_at || p.updated_at || authUser?.created_at || new Date().toISOString(),
+            last_seen: p.last_seen || authUser?.last_sign_in_at || p.updated_at || new Date().toISOString()
           };
         });
 
@@ -871,6 +888,8 @@ async function startServer() {
           last_seen: authUser.last_sign_in_at || new Date().toISOString()
         }));
       }
+
+      finalUsers.sort((a, b) => new Date(b.created_at || b.updated_at || 0).getTime() - new Date(a.created_at || a.updated_at || 0).getTime());
 
       console.log(`Admin API: Found ${finalUsers.length} users in Supabase.`);
       res.json(finalUsers);
@@ -1039,13 +1058,14 @@ async function startServer() {
     try {
       const { userId } = req.query;
       const adminSupabase = getAdminSupabase();
+      const dbClient = adminSupabase || getUserScopedSupabase((req as any).accessToken);
       const allTransactions: any[] = [];
       const seenIds = new Set<string>();
 
       // 1. Fetch real transactions from subscription_transactions table
-      if (adminSupabase) {
+      if (dbClient) {
         try {
-          let query = adminSupabase.from('subscription_transactions').select('*').order('created_at', { ascending: false });
+          let query = dbClient.from('subscription_transactions').select('*').order('created_at', { ascending: false });
           if (userId && typeof userId === 'string') {
             query = query.eq('user_id', userId);
           }
@@ -1074,9 +1094,9 @@ async function startServer() {
       });
 
       // 3. Fallback only if database has ZERO transaction records
-      if (allTransactions.length === 0 && adminSupabase) {
+      if (allTransactions.length === 0 && dbClient) {
         try {
-          let profQuery = adminSupabase.from('profiles').select('id, full_name, email, plan, billing_cycle, created_at, updated_at').eq('plan', 'pro');
+          let profQuery = dbClient.from('profiles').select('id, full_name, email, plan, billing_cycle, updated_at').eq('plan', 'pro');
           if (userId && typeof userId === 'string') {
             profQuery = profQuery.eq('id', userId);
           }
@@ -1105,13 +1125,13 @@ async function startServer() {
       }
 
       // 4. Enrich transactions with user details from profiles and auth.users
-      if (adminSupabase && allTransactions.length > 0) {
+      if (dbClient && allTransactions.length > 0) {
         try {
           const userIdsToLookup = Array.from(new Set(allTransactions.map(t => t.user_id).filter(Boolean)));
           
           let userProfiles: any[] = [];
           if (userIdsToLookup.length > 0) {
-            const { data } = await adminSupabase
+            const { data } = await dbClient
               .from('profiles')
               .select('id, full_name, email, avatar_url')
               .in('id', userIdsToLookup);
@@ -1381,11 +1401,11 @@ async function startServer() {
   // Admin GET reports
   app.get('/api/admin/reports', requireAdmin, async (req, res) => {
     try {
-      const adminSupabase = getAdminSupabase();
-      if (!adminSupabase) {
+      const dbClient = getAdminSupabase() || getUserScopedSupabase((req as any).accessToken);
+      if (!dbClient) {
         return res.status(500).json({ error: 'Supabase client not initialized' });
       }
-      const { data, error } = await adminSupabase
+      const { data, error } = await dbClient
         .from('reports')
         .select('*')
         .order('created_at', { ascending: false });
@@ -1476,15 +1496,15 @@ async function startServer() {
   // Admin GET dashboard counts
   app.get('/api/admin/counts', requireAdmin, async (req, res) => {
     try {
-      const adminSupabase = getAdminSupabase();
-      if (!adminSupabase) {
+      const dbClient = getAdminSupabase() || getUserScopedSupabase((req as any).accessToken);
+      if (!dbClient) {
         return res.status(500).json({ error: 'Supabase client not initialized' });
       }
       const [startupsRes, swipesRes, postsRes, pitchesRes] = await Promise.all([
-        adminSupabase.from('startups').select('id', { count: 'exact', head: true }),
-        adminSupabase.from('swipes').select('id', { count: 'exact', head: true }),
-        adminSupabase.from('community_posts').select('id', { count: 'exact', head: true }),
-        adminSupabase.from('pitches').select('id', { count: 'exact', head: true })
+        dbClient.from('startups').select('id', { count: 'exact', head: true }),
+        dbClient.from('swipes').select('id', { count: 'exact', head: true }),
+        dbClient.from('community_posts').select('id', { count: 'exact', head: true }),
+        dbClient.from('pitches').select('id', { count: 'exact', head: true })
       ]);
       
       res.json({

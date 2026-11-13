@@ -1,48 +1,65 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import ReactPlayer from 'react-player';
-import { Play, Pause, Loader2, Volume2, VolumeX, AlertCircle } from 'lucide-react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
+import { Play, Pause, Loader2, AlertCircle } from 'lucide-react';
 
-// Global tracking for user interactions to unlock audio
+interface ActiveVideoEntry {
+  shouldPlay: () => boolean;
+  wantsUnmute: () => boolean;
+}
+
+// Global tracking for user interactions to unlock audio only for actively playing unmuted videos
 let globalUserHasInteracted = false;
-const activeVideoElementsSet = new Set<HTMLVideoElement>();
-const activeVideoPlayersCallbacks = new Set<() => void>();
+const activeVideoEntries = new Map<HTMLVideoElement, ActiveVideoEntry>();
 
 if (typeof window !== 'undefined') {
   const triggerGlobalUnmute = () => {
     if (globalUserHasInteracted) return;
-    console.log("Global user interaction detected. Unmuting active videos synchronously...");
     globalUserHasInteracted = true;
 
-    // Direct synchronous unmuting of active videos
-    activeVideoElementsSet.forEach(video => {
+    activeVideoEntries.forEach((entry, video) => {
       try {
-        video.muted = false;
-        // Ensure play is resumed unmuted
-        video.play().catch(err => {
-          console.warn("Play failed on interaction-based unmute:", err.message);
-        });
-      } catch (err) {
-        console.error("Failed to unmute video synchronously:", err);
-      }
-    });
-
-    // Notify React components to update state
-    activeVideoPlayersCallbacks.forEach(cb => {
-      try {
-        cb();
-      } catch (err) {
-        console.error("Failed to call React unmute callback:", err);
+        if (!entry.shouldPlay()) return;
+        if (entry.wantsUnmute()) {
+          video.muted = false;
+          if (video.paused) {
+            video.play().catch(() => {});
+          }
+        }
+      } catch {
+        // Ignore browser media errors
       }
     });
   };
 
-  // Register typical interaction events to catch any screen activity immediately
   window.addEventListener('click', triggerGlobalUnmute, { capture: true, passive: true });
   window.addEventListener('pointerdown', triggerGlobalUnmute, { capture: true, passive: true });
   window.addEventListener('touchstart', triggerGlobalUnmute, { capture: true, passive: true });
   window.addEventListener('keydown', triggerGlobalUnmute, { capture: true, passive: true });
   window.addEventListener('mousedown', triggerGlobalUnmute, { capture: true, passive: true });
-  window.addEventListener('dragstart', triggerGlobalUnmute, { capture: true, passive: true });
+}
+
+function stopAndUnloadVideo(video: HTMLVideoElement | null) {
+  if (!video) return;
+  activeVideoEntries.delete(video);
+  try {
+    video.pause();
+    video.muted = true;
+  } catch {
+    // Ignore pause errors during unmount
+  }
+  // Defer src removal to a microtask so React StrictMode simulated remounts keep src,
+  // while real DOM unmounts (!video.isConnected) release the media pipeline immediately.
+  queueMicrotask(() => {
+    if (!video.isConnected) {
+      try {
+        video.pause();
+        video.muted = true;
+        video.removeAttribute('src');
+        video.load();
+      } catch {
+        // Ignore cleanup errors
+      }
+    }
+  });
 }
 
 interface VideoPlayerProps {
@@ -78,18 +95,19 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = React.memo(({
 }) => {
   const [isPlaying, setIsPlaying] = useState(playing !== undefined ? playing : autoPlay);
   const [isMuted, setIsMuted] = useState(muted);
-  const [volume, setVolume] = useState(1);
-  const prevMutedRef = useRef(muted);
+  const [volume] = useState(1);
+  const mutedPropRef = useRef(muted);
   
   useEffect(() => {
-      prevMutedRef.current = muted;
-      setIsMuted(muted);
+    mutedPropRef.current = muted;
+    setIsMuted(muted);
   }, [muted]);
+
   const [progress, setProgress] = useState(0);
   const [isBuffering, setIsBuffering] = useState(false);
   const [showControls, setShowControls] = useState(false);
   const [duration, setDuration] = useState(0);
-  const [currentTime, setCurrentTime] = useState(0);
+  const [, setCurrentTime] = useState(0);
   const [hasStarted, setHasStarted] = useState(false);
   const [hasError, setHasError] = useState(false);
   
@@ -98,88 +116,151 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = React.memo(({
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMounted = useRef(true);
   const playPromiseRef = useRef<Promise<void> | null>(null);
-
+  const playRequestIdRef = useRef(0);
+  const prevSrcRef = useRef(src);
   const isPlayingRef = useRef(isPlaying);
+  const isMutedRef = useRef(isMuted);
+
+  isPlayingRef.current = isPlaying;
+  isMutedRef.current = isMuted;
+
+  const pauseVideoSafely = useCallback((video: HTMLVideoElement | null) => {
+    playRequestIdRef.current += 1;
+    if (!video) return;
+    try {
+      video.pause();
+    } catch {
+      // Ignore pause errors
+    }
+    if (playPromiseRef.current) {
+      const pending = playPromiseRef.current;
+      pending
+        .then(() => {
+          if (!isMounted.current || !isPlayingRef.current) {
+            try {
+              video.pause();
+            } catch {
+              // Ignore
+            }
+          }
+        })
+        .catch(() => {
+          try {
+            video.pause();
+          } catch {
+            // Ignore
+          }
+        });
+    }
+  }, []);
+
+  const attemptPlaySafely = useCallback((video: HTMLVideoElement | null) => {
+    if (!video || !isMounted.current || !isPlayingRef.current) return;
+
+    video.muted = isMutedRef.current;
+    video.volume = volume;
+
+    if (!video.paused) return;
+
+    const reqId = ++playRequestIdRef.current;
+    const playPromise = video.play();
+    if (playPromise !== undefined) {
+      playPromiseRef.current = playPromise;
+      playPromise
+        .then(() => {
+          if (playPromiseRef.current === playPromise) {
+            playPromiseRef.current = null;
+          }
+          if (!isMounted.current || !isPlayingRef.current || reqId !== playRequestIdRef.current) {
+            try {
+              video.pause();
+            } catch {
+              // Ignore
+            }
+          }
+        })
+        .catch((error) => {
+          if (playPromiseRef.current === playPromise) {
+            playPromiseRef.current = null;
+          }
+          if (!isMounted.current || !isPlayingRef.current || reqId !== playRequestIdRef.current) {
+            try {
+              video.pause();
+            } catch {
+              // Ignore
+            }
+            return;
+          }
+          if (error?.name === 'AbortError') {
+            return;
+          }
+          if (error?.name === 'NotAllowedError') {
+            setIsMuted(true);
+            isMutedRef.current = true;
+            video.muted = true;
+            const retryPromise = video.play();
+            if (retryPromise !== undefined) {
+              playPromiseRef.current = retryPromise;
+              retryPromise
+                .then(() => {
+                  if (playPromiseRef.current === retryPromise) {
+                    playPromiseRef.current = null;
+                  }
+                  if (!isMounted.current || !isPlayingRef.current || reqId !== playRequestIdRef.current) {
+                    video.pause();
+                  }
+                })
+                .catch(() => {
+                  if (playPromiseRef.current === retryPromise) {
+                    playPromiseRef.current = null;
+                  }
+                  if (isMounted.current) {
+                    setIsPlaying(false);
+                  }
+                });
+            }
+          }
+        });
+    }
+  }, [volume]);
+
   useEffect(() => {
-    isPlayingRef.current = isPlaying;
-    
     const video = playerRef.current;
     if (!video) return;
 
-    // Apply muted property directly to DOM element (crucial for React + browser autoplay rules)
     video.muted = isMuted;
     video.volume = volume;
 
     if (isPlaying) {
-      if (!video.paused) return;
-      const playPromise = video.play();
-      if (playPromise !== undefined) {
-        playPromiseRef.current = playPromise;
-        playPromise.then(() => {
-          playPromiseRef.current = null;
-        }).catch(error => {
-          playPromiseRef.current = null;
-          if (error.name === 'AbortError') {
-             console.log("Video play aborted (temporary source switch/buffer transition):", src);
-             return; // Do not turn off isPlaying
-          }
-          if (error.name === 'NotAllowedError') {
-             console.warn("Autoplay blocked by browser policy, retrying muted so it plays automatically...");
-             setIsMuted(true);
-             video.muted = true;
-             video.play().catch(err => {
-               console.error("Muted autoplay failed as well:", err);
-               setIsPlaying(false);
-             });
-          } else {
-             console.error("Playback failed:", error);
-          }
-        });
-      }
+      attemptPlaySafely(video);
     } else {
-      if (video.paused) return;
-      if (playPromiseRef.current) {
-        playPromiseRef.current.then(() => {
-          video.pause();
-        }).catch(() => {
-          video.pause();
-        });
-      } else {
-        video.pause();
-      }
+      pauseVideoSafely(video);
     }
-  }, [isPlaying, isMuted, src]);
+  }, [isPlaying, isMuted, src, volume, attemptPlaySafely, pauseVideoSafely]);
 
-  // Register active video element
-  useEffect(() => {
-    const video = playerRef.current;
-    if (!video) return;
-
-    activeVideoElementsSet.add(video);
-
-    return () => {
-      activeVideoElementsSet.delete(video);
-    };
-  }, [src]);
-
-  useEffect(() => {
+  // Register active video element and guarantee synchronous stop & unload on unmount (React 19 + StrictMode safe)
+  useLayoutEffect(() => {
     isMounted.current = true;
+    isPlayingRef.current = playing !== undefined ? playing : autoPlay;
+    const video = playerRef.current;
+    if (video) {
+      if (src && !video.getAttribute('src')) {
+        video.setAttribute('src', src);
+      }
+      activeVideoEntries.set(video, {
+        shouldPlay: () => isMounted.current && isPlayingRef.current,
+        wantsUnmute: () => !mutedPropRef.current,
+      });
+    }
+
     return () => {
       isMounted.current = false;
+      isPlayingRef.current = false;
+      playRequestIdRef.current += 1;
       if (controlsTimeoutRef.current) {
         clearTimeout(controlsTimeoutRef.current);
       }
-      const video = playerRef.current;
-      if (video) {
-        video.pause();
-        video.src = "";
-        try {
-           video.load();
-        } catch (e) {
-           // Ignore load error during unmount
-        }
-      }
-      setIsPlaying(false);
+      stopAndUnloadVideo(video);
     };
   }, []);
 
@@ -191,9 +272,9 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = React.memo(({
       (entries) => {
         entries.forEach((entry) => {
           if (!entry.isIntersecting && isPlayingRef.current) {
-             setIsPlaying(false);
+            setIsPlaying(false);
           } else if (entry.isIntersecting && autoPlay && !isPlayingRef.current) {
-             setIsPlaying(true);
+            setIsPlaying(true);
           }
         });
       },
@@ -210,33 +291,44 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = React.memo(({
   // Sync autoPlay and playing prop changes directly to isPlaying state
   useEffect(() => {
     const targetPlaying = playing !== undefined ? playing : autoPlay;
-    console.log(`VideoPlayer: targetPlaying changed: ${targetPlaying} for ${src}`);
+    isPlayingRef.current = targetPlaying;
     setIsPlaying(targetPlaying);
-  }, [autoPlay, playing, src]);
-
-  // Only load the video when the actual source URL changes, preserving buffering for the same source
-  useEffect(() => {
-    setHasError(false);
-    if (playerRef.current) {
-        playerRef.current.load();
-        // Keep playing if intended
-        if (isPlaying) {
-          playerRef.current.muted = isMuted;
-          playerRef.current.play().catch(() => {});
-        }
+    const video = playerRef.current;
+    if (!targetPlaying && video) {
+      pauseVideoSafely(video);
     }
-  }, [src]);
+  }, [autoPlay, playing, src, pauseVideoSafely]);
+
+  // Reset & reload only when src changes after mount
+  useEffect(() => {
+    if (prevSrcRef.current === src) return;
+    prevSrcRef.current = src;
+    setHasError(false);
+    setHasStarted(false);
+    setProgress(0);
+    setCurrentTime(0);
+    const video = playerRef.current;
+    if (video) {
+      video.load();
+      if (isPlayingRef.current) {
+        attemptPlaySafely(video);
+      } else {
+        pauseVideoSafely(video);
+      }
+    }
+  }, [src, attemptPlaySafely, pauseVideoSafely]);
 
   // --- HANDLERS ---
   const togglePlay = useCallback((e?: React.MouseEvent | React.PointerEvent) => {
     e?.stopPropagation();
-    const nextPlaying = !isPlaying;
+    const nextPlaying = !isPlayingRef.current;
+    isPlayingRef.current = nextPlaying;
     setIsPlaying(nextPlaying);
     if (onPlayingChange) {
       onPlayingChange(nextPlaying);
     }
     if (controls) showControlsTemporarily();
-  }, [isPlaying, controls, onPlayingChange]);
+  }, [controls, onPlayingChange]);
 
   const toggleMute = useCallback((e: React.MouseEvent | React.PointerEvent) => {
     e.stopPropagation();
@@ -282,19 +374,12 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = React.memo(({
     setShowControls(true);
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
     controlsTimeoutRef.current = setTimeout(() => {
-       if (isPlaying) setShowControls(false);
+      if (isPlayingRef.current) setShowControls(false);
     }, 2000);
   };
 
   const handleMouseMove = () => {
-      if (controls) showControlsTemporarily();
-  };
-
-  const formatTime = (seconds: number) => {
-    if (!seconds || isNaN(seconds)) return "0:00";
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60);
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
+    if (controls) showControlsTemporarily();
   };
 
   return (
@@ -318,39 +403,47 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = React.memo(({
         onTimeUpdate={handleTimeUpdate}
         onDurationChange={handleDurationChange}
         onLoadedMetadata={() => {
-            if (isPlaying && playerRef.current) {
-                playerRef.current.play().catch(e => console.error("Autoplay failed:", e));
-            }
+          if (!isMounted.current) return;
+          if (isPlayingRef.current && playerRef.current) {
+            attemptPlaySafely(playerRef.current);
+          } else if (playerRef.current) {
+            pauseVideoSafely(playerRef.current);
+          }
         }}
-        onLoadStart={() => console.log('Video load start:', src)}
-        onWaiting={() => setIsBuffering(true)}
-        onError={(e) => {
-            const video = e.currentTarget;
-            console.error('Video error:', video.error?.message, 'src:', src, 'error code:', video.error?.code);
-            setIsBuffering(false);
-            setHasError(true);
+        onWaiting={() => {
+          if (isMounted.current) setIsBuffering(true);
+        }}
+        onError={() => {
+          if (!isMounted.current) return;
+          setIsBuffering(false);
+          setHasError(true);
         }}
         onPlaying={() => { 
-            if (isMounted.current) { 
-                setIsBuffering(false); 
-                setHasStarted(true); 
-            } 
+          if (!isMounted.current) return;
+          if (!isPlayingRef.current && playerRef.current) {
+            pauseVideoSafely(playerRef.current);
+            return;
+          }
+          setIsBuffering(false); 
+          setHasStarted(true); 
         }}
         onPlay={() => {
-            if (isMounted.current) {
-                setHasStarted(true);
-                setIsBuffering(false);
-            }
+          if (!isMounted.current) return;
+          if (!isPlayingRef.current && playerRef.current) {
+            pauseVideoSafely(playerRef.current);
+            return;
+          }
+          setHasStarted(true);
+          setIsBuffering(false);
         }}
         onEnded={() => {
-            if (playerRef.current) {
-                playerRef.current.currentTime = 0;
-                if (loop) {
-                  playerRef.current.play().catch(() => {});
-                } else {
-                  setIsPlaying(false);
-                }
-            }
+          if (!isMounted.current || !playerRef.current) return;
+          playerRef.current.currentTime = 0;
+          if (loop && isPlayingRef.current) {
+            attemptPlaySafely(playerRef.current);
+          } else {
+            setIsPlaying(false);
+          }
         }}
       />
       

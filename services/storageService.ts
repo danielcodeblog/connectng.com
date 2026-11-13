@@ -1374,6 +1374,24 @@ export const StorageService = {
       }
   },
 
+  undoSwipe: async (startupId: string) => {
+      startupId = startupId.split('-pitch')[0];
+      await StorageService.init();
+      if (_isMock) return;
+      try {
+          const user = await getAuthenticatedUser();
+          if (!user) return;
+          const { error } = await supabase
+              .from('swipes')
+              .delete()
+              .eq('user_id', user.id)
+              .eq('startup_id', startupId);
+          if (error) handleSupabaseError(error, 'undoSwipe');
+      } catch (e) {
+          handleSupabaseError(e, 'undoSwipe');
+      }
+  },
+
   getStartupByUserId: async (userId: string): Promise<Startup | null> => {
       await StorageService.init();
       if (_isMock) return MOCK_STARTUPS.find(s => s.id === userId) || null;

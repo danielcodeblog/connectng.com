@@ -1,6 +1,6 @@
 
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import { 
   X, FileText, RefreshCcw, Check, MessageCircle, Flame, User, Flag, Volume2, VolumeX, AlertTriangle, Play, Pause,
   Globe, ExternalLink, Award
@@ -62,6 +62,7 @@ const SwipeDeck: React.FC<SwipeDeckProps> = React.memo(({ onMatch, userProfile }
       setMatchedStartup(startup);
     }
 
+    setIsSwiping(false);
     setCards(prev => prev.filter(c => c.id !== startup.id));
     setIsMuted(true);
   }, []);
@@ -150,6 +151,9 @@ const SwipeDeck: React.FC<SwipeDeckProps> = React.memo(({ onMatch, userProfile }
               const isTop = index === cards.length - 1;
               const isSecond = index === cards.length - 2;
               if (!isTop && !isSecond) return null;
+              const hasActiveOverlay = Boolean(
+                matchedStartup || currentInfoOpen || reportCard || selectedProfileId || activeTab !== 'discover'
+              );
               
               return (
                 <SwipeCard 
@@ -157,6 +161,7 @@ const SwipeDeck: React.FC<SwipeDeckProps> = React.memo(({ onMatch, userProfile }
                   card={card} 
                   isTop={isTop} 
                   isSecond={isSecond}
+                  isOverlayOpen={hasActiveOverlay}
                   isSwipingNext={isSwiping}
                   onSwiping={setIsSwiping}
                   isMuted={isMuted}
@@ -231,18 +236,28 @@ const SwipeDeck: React.FC<SwipeDeckProps> = React.memo(({ onMatch, userProfile }
       {/* MEMO OVERLAY */}
       <AnimatePresence>
         {currentInfoOpen && memoCard && (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="absolute inset-x-4 md:inset-y-20 md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-xl lg:max-w-2xl z-[80] bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden my-auto md:max-h-[76vh]"
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={handleCloseMemo}
+            onPointerDown={(e) => e.stopPropagation()}
+            onPointerUp={(e) => e.stopPropagation()}
+            className="absolute inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 md:p-6"
           >
-            <div className="absolute top-4 right-4 z-[90]">
-              <button onClick={handleCloseMemo} className="w-10 h-10 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-900 flex items-center justify-center transition-colors">
-                <X size={20} />
-              </button>
-            </div>
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-xl lg:max-w-2xl bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden max-h-[85vh] md:max-h-[76vh]"
+            >
+              <div className="absolute top-4 right-4 z-[90]">
+                <button onClick={handleCloseMemo} className="w-10 h-10 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-900 flex items-center justify-center transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
 
             <div className="flex-1 overflow-y-auto no-scrollbar">
               <div className="p-6 max-w-2xl mx-auto space-y-6">
@@ -389,6 +404,7 @@ const SwipeDeck: React.FC<SwipeDeckProps> = React.memo(({ onMatch, userProfile }
                 </div>
               </div>
             </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -467,6 +483,7 @@ const SwipeCard = ({
   card, 
   isTop, 
   isSecond,
+  isOverlayOpen = false,
   isSwipingNext,
   onSwiping,
   isMuted, 
@@ -478,6 +495,7 @@ const SwipeCard = ({
   card: Startup, 
   isTop: boolean, 
   isSecond?: boolean,
+  isOverlayOpen?: boolean,
   isSwipingNext?: boolean,
   onSwiping?: (swiping: boolean) => void,
   isMuted: boolean, 
@@ -488,8 +506,57 @@ const SwipeCard = ({
 }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [isPaused, setIsPaused] = useState(!isTop);
+  const [hasSwiped, setHasSwiped] = useState(false);
   const [flashIcon, setFlashIcon] = useState<'play' | 'pause' | null>(null);
-  const flashTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const flashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setIsPaused(!isTop);
+    if (isTop) {
+      setHasSwiped(false);
+    }
+  }, [isTop]);
+
+  useLayoutEffect(() => {
+    const cardEl = cardRef.current;
+    return () => {
+      if (flashTimeoutRef.current) clearTimeout(flashTimeoutRef.current);
+      cardEl?.querySelectorAll('video').forEach((video) => {
+        try {
+          video.pause();
+          video.muted = true;
+        } catch {
+          // Ignore
+        }
+        queueMicrotask(() => {
+          if (!video.isConnected) {
+            try {
+              video.pause();
+              video.muted = true;
+              video.removeAttribute('src');
+              video.load();
+            } catch {
+              // Ignore
+            }
+          }
+        });
+      });
+    };
+  }, []);
+
+  const stopCardVideoImmediately = useCallback(() => {
+    setHasSwiped(true);
+    setIsPaused(true);
+    cardRef.current?.querySelectorAll('video').forEach((video) => {
+      try {
+        video.pause();
+        video.muted = true;
+      } catch {
+        // Ignore
+      }
+    });
+  }, []);
 
   const triggerFlash = (type: 'play' | 'pause') => {
     if (flashTimeoutRef.current) clearTimeout(flashTimeoutRef.current);
@@ -508,7 +575,7 @@ const SwipeCard = ({
   const lastDownTimeRef = useRef<number>(0);
 
   const startTap = (e: React.PointerEvent) => {
-    if (!isTop) return;
+    if (!isTop || hasSwiped || isOverlayOpen) return;
     if (e.button !== 0) return; // Only primary clicks
     
     startPosRef.current = { x: e.clientX, y: e.clientY };
@@ -516,9 +583,10 @@ const SwipeCard = ({
   };
 
   const handleRelease = (e: React.PointerEvent) => {
-    if (!isTop) return;
+    if (!isTop || hasSwiped || isOverlayOpen || lastDownTimeRef.current === 0) return;
     
     const elapsed = Date.now() - lastDownTimeRef.current;
+    lastDownTimeRef.current = 0;
     // Check if it's a quick release and they haven't dragged away
     if (elapsed < 250) {
       const dx = Math.abs(e.clientX - startPosRef.current.x);
@@ -534,9 +602,11 @@ const SwipeCard = ({
   };
 
   const isVideo = !!card.videoUrl && isTop;
+  const shouldPlayVideo = isTop && !isPaused && !hasSwiped && !isOverlayOpen;
 
   return (
     <motion.div
+      ref={cardRef}
       style={{ 
         x: isTop ? x : 0, 
         rotate: isTop ? rotate : 0, 
@@ -551,23 +621,29 @@ const SwipeCard = ({
         stiffness: 300,
         damping: 25
       }}
-      drag={isTop ? "x" : undefined}
+      drag={isTop && !isOverlayOpen ? "x" : false}
       dragConstraints={{ left: 0, right: 0 }}
       dragElastic={0.4}
       dragMomentum={false}
       dragTransition={{ bounceStiffness: 500, bounceDamping: 32 }}
       onDragStart={() => {
-        if (isTop && onSwiping) onSwiping(true);
+        lastDownTimeRef.current = 0;
+        if (isTop && !isOverlayOpen && onSwiping) onSwiping(true);
       }}
-      onDragEnd={isTop ? (_, info) => {
+      onDragEnd={isTop && !isOverlayOpen ? (_, info) => {
         if (onSwiping) onSwiping(false);
-        if (info.offset.x > 100) onSwipe('right');
-        else if (info.offset.x < -100) onSwipe('left');
+        if (info.offset.x > 100) {
+          stopCardVideoImmediately();
+          onSwipe('right');
+        } else if (info.offset.x < -100) {
+          stopCardVideoImmediately();
+          onSwipe('left');
+        }
       } : undefined}
-      onPointerDown={isTop ? startTap : undefined}
-      onPointerUp={isTop ? handleRelease : undefined}
+      onPointerDown={isTop && !isOverlayOpen ? startTap : undefined}
+      onPointerUp={isTop && !isOverlayOpen ? handleRelease : undefined}
       className={`absolute inset-0 w-full h-full bg-zinc-900 overflow-hidden select-none shadow-lg ${
-        isTop ? 'cursor-grab active:cursor-grabbing touch-none z-20' : 'pointer-events-none z-10'
+        isTop && !isOverlayOpen ? 'cursor-grab active:cursor-grabbing touch-none z-20' : isTop ? 'pointer-events-none z-20' : 'pointer-events-none z-10'
       }`}
     >
       <div className="absolute inset-0 w-full h-full bg-zinc-900">
@@ -577,14 +653,16 @@ const SwipeCard = ({
             src={card.videoUrl} 
             className="w-full h-full object-cover" 
             autoPlay={false} 
-            playing={isTop && !isPaused}
+            playing={shouldPlayVideo}
             muted={isMuted} 
             loop 
             controls={true} 
             disableIntersectionObserver={true}
             preload="metadata"
             onPlayingChange={(isPlayingNow) => {
-              setIsPaused(!isPlayingNow);
+              if (!hasSwiped && !isOverlayOpen) {
+                setIsPaused(!isPlayingNow);
+              }
             }}
           />
         ) : card.imageUrl ? (
@@ -630,6 +708,7 @@ const SwipeCard = ({
           <div className="flex flex-col gap-4 shrink-0">
             <button 
               onPointerDown={(e) => { e.stopPropagation(); isTop && onToggleMute(); }} 
+              onPointerUp={(e) => e.stopPropagation()}
               className="flex flex-col items-center group cursor-pointer text-white hover:text-white/85 transition-colors animate-in fade-in zoom-in duration-350"
               title={isMuted ? "Unmute" : "Mute"}
             >
@@ -640,6 +719,7 @@ const SwipeCard = ({
 
             <button 
               onPointerDown={(e) => { e.stopPropagation(); isTop && onOpenMemo(); }} 
+              onPointerUp={(e) => e.stopPropagation()}
               className="flex flex-col items-center group cursor-pointer text-white hover:text-white/85 transition-colors"
               title="Memo"
             >
@@ -650,6 +730,7 @@ const SwipeCard = ({
 
             <button 
               onPointerDown={(e) => { e.stopPropagation(); isTop && onReport(card); }} 
+              onPointerUp={(e) => e.stopPropagation()}
               className="flex flex-col items-center group cursor-pointer text-white hover:text-white/85 transition-colors"
               title="Report Profile"
             >

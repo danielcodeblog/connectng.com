@@ -153,23 +153,6 @@ export const SideNav: React.FC<SideNavProps> = ({ currentView, onViewChange, onP
             );
           })}
 
-          {/* New Post Button */}
-          {onPostClick && (
-            <div className="pt-2">
-              <button
-                onClick={onPostClick}
-                className={`w-full flex items-center ${isCollapsed ? 'justify-center' : 'justify-start'} gap-2.5 py-2.5 px-3 rounded-2xl font-bold text-sm transition-all duration-200 shadow-xs hover:scale-[1.02] active:scale-95 cursor-pointer bg-amber-400 hover:bg-amber-300 text-zinc-950`}
-              >
-                <Plus size={20} strokeWidth={2.5} className="shrink-0" />
-                {!isCollapsed && (
-                  <span className="block font-bold tracking-tight">
-                    New Post
-                  </span>
-                )}
-              </button>
-            </div>
-          )}
-
           {/* Theme Toggle Button */}
           {onToggleTheme && (
             <div className="pt-2">

@@ -1134,7 +1134,7 @@ const App = () => {
     if (currentView === 'home') return 0;
     if (currentView === 'community' || currentView === 'bookmarks') return 1;
     if (currentView === 'messages') return 2;
-    if (currentView === 'settings') return 4;
+    if (currentView === 'settings') return 3;
     return 0;
   }, [currentView]);
 
@@ -1893,12 +1893,6 @@ const App = () => {
                           label: 'Chat', 
                           onClick: () => handleNavClick('messages'),
                           badge: hasUnreadMessages
-                        },
-                        { 
-                          id: 'plus', 
-                          icon: <Plus className={userProfile?.plan === 'pro' ? 'text-brand-primary' : 'opacity-20'} />, 
-                          label: 'Create', 
-                          onClick: () => handleOpenCreatePost() 
                         },
                         { id: 'settings', icon: <Settings />, label: 'Settings', onClick: () => handleNavClick('settings') },
                       ]}

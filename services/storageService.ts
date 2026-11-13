@@ -104,6 +104,48 @@ export const normalizeVideoUrl = (url: string | null): string => {
     return trimmedUrl;
 };
 
+const extractStorageObjectFromUrl = (
+    url?: string | null
+): { bucket: 'videos' | 'images' | 'avatars'; path: string } | null => {
+    if (!url || typeof url !== 'string') return null;
+    const trimmed = url.trim();
+    if (!trimmed || trimmed.startsWith('blob:') || trimmed.startsWith('data:')) return null;
+
+    const match = trimmed.match(/\/storage\/v1\/object\/(?:public|sign|authenticated)\/(videos|images|avatars)\/([^?#]+)/i);
+    if (match && match[1] && match[2]) {
+        const bucket = match[1].toLowerCase() as 'videos' | 'images' | 'avatars';
+        return { bucket, path: decodeURIComponent(match[2]) };
+    }
+
+    if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+        return { bucket: 'videos', path: trimmed.replace(/^\/+/, '') };
+    }
+
+    return null;
+};
+
+const deleteStorageVideoByUrl = async (videoUrl?: string | null): Promise<void> => {
+    if (!videoUrl) return;
+    if (videoUrl.startsWith('blob:') && typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
+        try {
+            URL.revokeObjectURL(videoUrl);
+        } catch {}
+        return;
+    }
+
+    const storageTarget = extractStorageObjectFromUrl(videoUrl);
+    if (!storageTarget) return;
+
+    try {
+        const { error } = await supabase.storage.from(storageTarget.bucket).remove([storageTarget.path]);
+        if (error) {
+            console.warn(`Could not remove video from ${storageTarget.bucket}:`, error.message);
+        }
+    } catch (e) {
+        console.warn("Storage video removal warning:", e);
+    }
+};
+
 const MOCK_PROFILE = {
     name: '',
     title: '',
@@ -1046,33 +1088,39 @@ export const StorageService = {
                       .eq('user_id', user.id)
                       .order('created_at', { ascending: true });
 
-                  if (!error && data && data.length > 0) {
-                      const profile = await StorageService.getUserProfile(user.id);
-                      const pitchesFromDb: Startup[] = data.map((row: any) => ({
-                          id: row.id,
-                          name: row.name || 'Startup Pitch',
-                          oneLiner: row.one_liner || '',
-                          description: row.description || '',
-                          industry: row.industry || '',
-                          fundingStage: row.funding_stage || '',
-                          askAmount: row.ask_amount || 0,
-                          valuationCap: row.valuation_cap || 0,
-                          imageUrl: row.image_url || '',
-                          videoUrl: row.video_url || '',
-                          tags: row.tags || [],
-                          socialMediaUrl: row.social_media_url || row.socialMediaUrl || '',
-                          websiteUrl: row.website_url || row.websiteUrl || '',
-                          wins: row.wins || [],
-                          founder: {
-                              name: profile?.name || 'Founder',
-                              role: profile?.title || 'Founder',
-                              avatarUrl: profile?.avatarUrl || '',
-                              location: profile?.location
-                          },
-                          metrics: { views: 0, likes: 0 }
-                      }));
-                      localStorage.setItem(`connectup_pitches_${uid}`, JSON.stringify(pitchesFromDb));
-                      return pitchesFromDb;
+                  if (!error && Array.isArray(data)) {
+                      if (data.length > 0) {
+                          const profile = await StorageService.getUserProfile(user.id);
+                          const pitchesFromDb: Startup[] = data.map((row: any) => ({
+                              id: row.id,
+                              name: row.name || 'Startup Pitch',
+                              oneLiner: row.one_liner || '',
+                              description: row.description || '',
+                              industry: row.industry || '',
+                              fundingStage: row.funding_stage || '',
+                              askAmount: row.ask_amount || 0,
+                              valuationCap: row.valuation_cap || 0,
+                              imageUrl: row.image_url || '',
+                              videoUrl: row.video_url || '',
+                              tags: row.tags || [],
+                              socialMediaUrl: row.social_media_url || row.socialMediaUrl || '',
+                              websiteUrl: row.website_url || row.websiteUrl || '',
+                              wins: row.wins || [],
+                              founder: {
+                                  name: profile?.name || 'Founder',
+                                  role: profile?.title || 'Founder',
+                                  avatarUrl: profile?.avatarUrl || '',
+                                  location: profile?.location
+                              },
+                              metrics: { views: 0, likes: 0 }
+                          }));
+                          localStorage.setItem(`connectup_pitches_${uid}`, JSON.stringify(pitchesFromDb));
+                          return pitchesFromDb;
+                      }
+                      const cachedEmptyCheck = localStorage.getItem(`connectup_pitches_${uid}`);
+                      if (cachedEmptyCheck !== null) {
+                          return [];
+                      }
                   }
               } catch (e) {
                   console.warn("Error loading pitches from Supabase:", e);
@@ -1083,7 +1131,7 @@ export const StorageService = {
           if (cached !== null) {
               try {
                   const parsed = JSON.parse(cached);
-                  if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+                  if (Array.isArray(parsed)) return parsed;
               } catch (e) {}
           }
           const single = await StorageService.getMyStartup();
@@ -1202,27 +1250,69 @@ export const StorageService = {
           const user = await getAuthenticatedUser();
           const uid = user?.id || 'guest';
           let pitches = await StorageService.getMyPitches();
+          let deletedPitch: Startup | null = null;
           let deletedPitchId: string | null = null;
 
           if (typeof pitchIdOrIndex === 'number') {
               if (pitchIdOrIndex >= 0 && pitchIdOrIndex < pitches.length) {
-                  deletedPitchId = pitches[pitchIdOrIndex].id || null;
+                  deletedPitch = pitches[pitchIdOrIndex];
+                  deletedPitchId = deletedPitch.id || null;
               }
               pitches = pitches.filter((_, idx) => idx !== pitchIdOrIndex);
           } else {
+              deletedPitch = pitches.find(p => p.id === pitchIdOrIndex) || null;
               deletedPitchId = pitchIdOrIndex;
               pitches = pitches.filter(p => p.id !== pitchIdOrIndex);
           }
 
           localStorage.setItem(`connectup_pitches_${uid}`, JSON.stringify(pitches));
 
-          if (!_isMock && user?.id && deletedPitchId && deletedPitchId.includes('-')) {
+          const deletedVideoUrl = deletedPitch?.videoUrl || '';
+          const videoStillReferenced = Boolean(
+              deletedVideoUrl && pitches.some(p => p.videoUrl === deletedVideoUrl)
+          );
+
+          if (deletedVideoUrl && !videoStillReferenced) {
+              if (deletedVideoUrl.startsWith('blob:') || !_isMock) {
+                  await deleteStorageVideoByUrl(deletedVideoUrl);
+              }
+          }
+
+          if (!_isMock && user?.id) {
               try {
-                  await supabase
-                      .from('pitches')
-                      .delete()
-                      .eq('id', deletedPitchId)
-                      .eq('user_id', user.id);
+                  if (deletedPitchId && deletedPitchId.includes('-')) {
+                      // Fetch DB video_url as well in case local cache lacked it
+                      const { data: dbPitch } = await supabase
+                          .from('pitches')
+                          .select('video_url')
+                          .eq('id', deletedPitchId)
+                          .eq('user_id', user.id)
+                          .maybeSingle();
+
+                      await supabase
+                          .from('pitches')
+                          .delete()
+                          .eq('id', deletedPitchId)
+                          .eq('user_id', user.id);
+
+                      if (
+                          dbPitch?.video_url &&
+                          dbPitch.video_url !== deletedVideoUrl &&
+                          !pitches.some(p => p.videoUrl === dbPitch.video_url)
+                      ) {
+                          await deleteStorageVideoByUrl(dbPitch.video_url);
+                      }
+                  }
+
+                  // Keep startups table synced so deleted pitch videos do not linger on startups.video_url
+                  if (pitches.length > 0) {
+                      await StorageService.saveStartup(pitches[0]);
+                  } else {
+                      await supabase
+                          .from('startups')
+                          .update({ video_url: '' })
+                          .eq('id', user.id);
+                  }
               } catch (e) {
                   console.warn("Could not delete pitch from DB:", e);
               }

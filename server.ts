@@ -1474,19 +1474,50 @@ async function startServer() {
     }
   });
 
-  // Admin DELETE pitches
+  // Admin DELETE pitches (also deletes attached storage video and clears/syncs startup video_url)
   app.delete('/api/admin/pitches/:id', requireAdmin, async (req, res) => {
     try {
-      const adminSupabase = getAdminSupabase();
-      if (!adminSupabase) {
+      const dbClient = getAdminSupabase() || getUserScopedSupabase((req as any).accessToken);
+      if (!dbClient) {
         return res.status(500).json({ error: 'Supabase client not initialized' });
       }
-      const { error } = await adminSupabase
+
+      const { data: pitchRow } = await dbClient
+        .from('pitches')
+        .select('id, user_id, video_url')
+        .eq('id', req.params.id)
+        .maybeSingle();
+
+      const { error } = await dbClient
         .from('pitches')
         .delete()
         .eq('id', req.params.id);
 
       if (error) throw error;
+
+      if (pitchRow?.video_url) {
+        const match = String(pitchRow.video_url).match(/\/storage\/v1\/object\/(?:public|sign|authenticated)\/(videos|images)\/([^?#]+)/i);
+        if (match && match[1] && match[2]) {
+          await dbClient.storage.from(match[1].toLowerCase()).remove([decodeURIComponent(match[2])]).catch(() => {});
+        }
+      }
+
+      if (pitchRow?.user_id) {
+        const { data: remainingPitches } = await dbClient
+          .from('pitches')
+          .select('video_url')
+          .eq('user_id', pitchRow.user_id)
+          .order('created_at', { ascending: true });
+
+        const nextVideoUrl = Array.isArray(remainingPitches) && remainingPitches.length > 0
+          ? (remainingPitches[0].video_url || '')
+          : '';
+        await dbClient
+          .from('startups')
+          .update({ video_url: nextVideoUrl })
+          .eq('id', pitchRow.user_id);
+      }
+
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });

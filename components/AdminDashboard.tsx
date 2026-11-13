@@ -1299,16 +1299,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
   }, [reports, proSubscribersCount, subMetrics.mrr, auditLogs, requireEmailVerification]);
 
   const filteredNotifications = useMemo(() => {
-    if (notificationsFilter === 'all') return liveAdminNotifications;
-    return liveAdminNotifications.filter(n => n.category === notificationsFilter);
-  }, [liveAdminNotifications, notificationsFilter]);
+    return liveAdminNotifications.filter(n => {
+      if (readNotificationIds.includes(n.id)) return false;
+      if (notificationsFilter === 'all') return true;
+      return n.category === notificationsFilter;
+    });
+  }, [liveAdminNotifications, notificationsFilter, readNotificationIds]);
 
   const unreadCount = useMemo(() => {
     return liveAdminNotifications.filter(n => !readNotificationIds.includes(n.id)).length;
   }, [liveAdminNotifications, readNotificationIds]);
 
   const markAllNotificationsAsRead = () => {
-    setReadNotificationIds(liveAdminNotifications.map(n => n.id));
+    setReadNotificationIds(prev => Array.from(new Set([...prev, ...liveAdminNotifications.map(n => n.id)])));
     showToast('All notifications marked as read', 'info', 'Notifications');
   };
 

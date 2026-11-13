@@ -1322,7 +1322,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
   };
 
   return (
-    <div className="h-screen w-full bg-[#f4f7fc] dark:bg-[#09090b] text-zinc-900 dark:text-zinc-100 flex flex-col font-sans transition-colors duration-300 overflow-hidden">
+    <div className="h-[100dvh] w-full bg-[#f4f7fc] dark:bg-[#09090b] text-zinc-900 dark:text-zinc-100 flex flex-col font-sans transition-colors duration-300 overflow-hidden">
       
       {/* SaaS-Grade Floating Toast Notification */}
       <AnimatePresence>
@@ -1334,7 +1334,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
             transition={{ type: "spring", stiffness: 450, damping: 32 }}
             onMouseEnter={() => setIsToastPaused(true)}
             onMouseLeave={() => setIsToastPaused(false)}
-            className="fixed top-5 right-5 z-[9999] w-[390px] max-w-[calc(100vw-2.5rem)] rounded-2xl bg-white/95 dark:bg-[#121216]/95 backdrop-blur-xl border border-zinc-200/90 dark:border-zinc-800/90 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.18)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)] overflow-hidden pointer-events-auto select-none"
+            className="fixed top-3 inset-x-3 sm:inset-x-auto sm:top-5 sm:right-5 z-[9999] sm:w-[390px] rounded-2xl bg-white/95 dark:bg-[#121216]/95 backdrop-blur-xl border border-zinc-200/90 dark:border-zinc-800/90 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.18)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)] overflow-hidden pointer-events-auto select-none"
           >
             <div className="p-4">
               <div className="flex items-start gap-3">
@@ -1549,15 +1549,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
         </aside>
 
         {/* MAIN CANVASES */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-y-auto custom-scrollbar scroll-smooth overscroll-contain">
+        <div className="flex-1 flex flex-col min-w-0 overflow-y-auto overflow-x-hidden custom-scrollbar scroll-smooth overscroll-contain">
           
           {/* SAAS TOP BAR CONTRACT */}
-          <header className="sticky top-0 z-10 bg-white/95 dark:bg-[#0B0B0E]/95 backdrop-blur-xl border-b border-zinc-200/90 dark:border-zinc-800/90 w-full shrink-0 shadow-xs">
-            <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3 flex items-center justify-between gap-3 sm:gap-4 transition-all duration-200">
+          <header className="sticky top-0 z-30 bg-white/95 dark:bg-[#0B0B0E]/95 backdrop-blur-xl border-b border-zinc-200/90 dark:border-zinc-800/90 w-full shrink-0 shadow-xs">
+            <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 sm:py-3 flex items-center justify-between gap-2 sm:gap-4 transition-all duration-200">
             
             {/* Zone 1: Contextual Breadcrumb */}
-            <div className="flex items-center gap-3 shrink-0">
-              <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
                 <div className="w-8 h-8 rounded-xl bg-amber-400/15 border border-amber-400/30 text-amber-500 flex items-center justify-center shrink-0">
                   {activeTab === 'dashboards' ? <LayoutGrid size={16} /> :
                    activeTab === 'users' ? <Users size={16} /> :
@@ -1568,18 +1568,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                    activeTab === 'logs' ? <Clock size={16} /> :
                    <Settings size={16} />}
                 </div>
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-1.5 text-xs">
+                <div className="flex flex-col min-w-0">
+                  <div className="flex items-center gap-1.5 text-xs min-w-0">
                     <span className="text-zinc-400 font-medium hidden sm:inline">Admin</span>
                     <span className="text-zinc-300 dark:text-zinc-700 hidden sm:inline">/</span>
-                    <span className="text-zinc-950 dark:text-zinc-100 font-bold text-sm tracking-tight capitalize">
-                      {activeTab === 'dashboards' ? 'Executive Overview' :
-                       activeTab === 'subscriptions' ? 'Transaction History' :
-                       activeTab === 'users' ? 'User Directory' :
-                       activeTab === 'reports' ? 'Safety & Moderation' :
-                       activeTab === 'townhall' ? 'Town Hall Boards' :
-                       activeTab === 'blogs' ? 'Editorial & Blogs' :
-                       activeTab === 'logs' ? 'Audit & Security Logs' : 'Workspace Settings'}
+                    <span className="text-zinc-950 dark:text-zinc-100 font-bold text-xs sm:text-sm tracking-tight capitalize truncate">
+                      {activeTab === 'dashboards' ? 'Overview' :
+                       activeTab === 'subscriptions' ? 'Transactions' :
+                       activeTab === 'users' ? 'Users' :
+                       activeTab === 'reports' ? 'Safety' :
+                       activeTab === 'townhall' ? 'Town Hall' :
+                       activeTab === 'blogs' ? 'Editorial' :
+                       activeTab === 'logs' ? 'Audit Logs' : 'Settings'}
                     </span>
                   </div>
                 </div>
@@ -1616,13 +1616,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
             </div>
 
             {/* Zone 3: Primary Actions, Theme Toggle & Notification Center */}
-            <div className="flex items-center gap-2 sm:gap-2.5 relative">
+            <div className="flex items-center gap-1.5 sm:gap-2.5 relative shrink-0">
 
               {/* Theme Toggle (Dark / Light) */}
               <button
                 onClick={toggleAdminTheme}
                 title={isDarkTheme ? "Switch to Light Mode" : "Switch to Dark Mode"}
-                className="w-9 h-9 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 flex items-center justify-center transition-all cursor-pointer shadow-2xs"
+                className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 flex items-center justify-center transition-all cursor-pointer shadow-2xs shrink-0"
               >
                 {isDarkTheme ? <Sun size={15} className="text-amber-400" /> : <Moon size={15} />}
               </button>
@@ -1632,7 +1632,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                 onClick={refreshAllData}
                 disabled={isRefreshing}
                 title="Refresh dashboard data"
-                className="w-9 h-9 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 flex items-center justify-center transition-all cursor-pointer disabled:opacity-50 shadow-2xs"
+                className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 flex items-center justify-center transition-all cursor-pointer disabled:opacity-50 shadow-2xs shrink-0"
               >
                 <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
               </button>
@@ -1642,7 +1642,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                 <button
                   onClick={() => setIsNotificationsOpen(prev => !prev)}
                   title="Notifications"
-                  className={`relative w-9 h-9 rounded-xl border transition-all flex items-center justify-center cursor-pointer shadow-2xs ${
+                  className={`relative w-8 h-8 sm:w-9 sm:h-9 rounded-xl border transition-all flex items-center justify-center cursor-pointer shadow-2xs shrink-0 ${
                     isNotificationsOpen 
                       ? 'border-amber-400 bg-amber-400/15 text-amber-500 shadow-xs' 
                       : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300'
@@ -1671,7 +1671,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 8, scale: 0.95 }}
                         transition={{ type: "spring", stiffness: 450, damping: 32 }}
-                        className="absolute right-0 top-11 mt-2 z-50 w-80 sm:w-96 rounded-2xl bg-white dark:bg-[#121216] border border-zinc-200 dark:border-zinc-800 shadow-[0_20px_50px_rgba(0,0,0,0.2)] overflow-hidden font-sans"
+                        className="fixed inset-x-3 top-14 sm:inset-x-auto sm:absolute sm:right-0 sm:top-11 sm:mt-2 z-50 sm:w-96 rounded-2xl bg-white dark:bg-[#121216] border border-zinc-200 dark:border-zinc-800 shadow-[0_20px_50px_rgba(0,0,0,0.2)] overflow-hidden font-sans"
                       >
                         {/* Header */}
                         <div className="p-3.5 border-b border-zinc-150 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-900/30 flex items-center justify-between">
@@ -1802,7 +1802,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
 
               <button
                 onClick={() => setIsAddUserModalOpen(true)}
-                className="h-9 px-4 rounded-xl bg-[#FACC15] hover:bg-amber-400 active:scale-95 text-zinc-950 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm whitespace-nowrap"
+                title="Add User"
+                className="h-8 w-8 sm:w-auto sm:h-9 sm:px-4 rounded-xl bg-[#FACC15] hover:bg-amber-400 active:scale-95 text-zinc-950 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm whitespace-nowrap shrink-0"
               >
                 <Plus size={15} strokeWidth={2.5} />
                 <span className="hidden sm:inline">Add User</span>
@@ -1813,10 +1814,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                 <button
                   onClick={onNavigateHome}
                   title="Exit Admin Panel & Return to App"
-                  className="h-9 px-3.5 rounded-xl border border-rose-200/80 dark:border-rose-900/50 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs active:scale-95 whitespace-nowrap"
+                  className="h-8 sm:h-9 px-2.5 sm:px-3.5 rounded-xl border border-rose-200/80 dark:border-rose-900/50 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs active:scale-95 whitespace-nowrap shrink-0"
                 >
                   <LogOut size={14} className="stroke-[2.5]" />
-                  <span>Exit Admin</span>
+                  <span className="hidden sm:inline">Exit Admin</span>
+                  <span className="sm:hidden text-[11px]">Exit</span>
                 </button>
               )}
             </div>
@@ -1824,7 +1826,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
           </header>
 
           {/* MOBILE TABS NAVIGATION BAR (md:hidden) */}
-          <div className="md:hidden flex items-center gap-1.5 overflow-x-auto px-4 py-2.5 bg-white dark:bg-[#0B0B0E] border-b border-zinc-200 dark:border-zinc-800 shrink-0 no-scrollbar select-none">
+          <div className="md:hidden flex items-center gap-1.5 overflow-x-auto px-3 sm:px-4 py-2 bg-white dark:bg-[#0B0B0E] border-b border-zinc-200 dark:border-zinc-800 shrink-0 no-scrollbar select-none scroll-px-3">
             {[
               { id: 'dashboards', label: 'Overview', icon: LayoutGrid, count: null },
               { id: 'users', label: 'Users', icon: Users, count: users.length },
@@ -1841,7 +1843,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer shrink-0 ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 min-h-[34px] rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer shrink-0 ${
                     isActive
                       ? 'bg-[#FACC15] text-zinc-950 font-bold shadow-xs'
                       : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
@@ -1862,20 +1864,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
           </div>
 
           {/* TAB CONTENT VIEWPORT - COMPACT DASHBOARD */}
-          <main className="flex-1 p-4 sm:p-5 pb-20 space-y-4 max-w-7xl w-full mx-auto transition-all duration-200">
+          <main className="flex-1 p-3 sm:p-5 pb-24 sm:pb-20 space-y-3.5 sm:space-y-4 max-w-7xl w-full mx-auto transition-all duration-200">
             
             {/* TAB 1: OVERVIEW & BENTO METRICS */}
             {activeTab === 'dashboards' && (
-              <div className="space-y-4">
+              <div className="space-y-3.5 sm:space-y-4">
                 
                 {/* Executive KPI Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
                   
                   {/* Metric 1: Total Users */}
-                  <div className="p-3.5 sm:p-4 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
-                    <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 mb-1">
-                      <span>Total Users</span>
-                      <Users size={14} className="text-zinc-400" />
+                  <div className="p-3 sm:p-4 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
+                    <div className="flex items-center justify-between text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 mb-1">
+                      <span className="truncate">Total Users</span>
+                      <Users size={14} className="text-zinc-400 shrink-0" />
                     </div>
                     <div className="text-lg sm:text-xl font-bold font-mono tabular-nums text-zinc-950 dark:text-white">
                       {users.length}
@@ -1887,15 +1889,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                   </div>
 
                   {/* Metric 2: MRR */}
-                  <div className="p-3.5 sm:p-4 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
-                    <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 mb-1">
-                      <span>Monthly Revenue (MRR)</span>
-                      <CreditCard size={14} className="text-zinc-400" />
+                  <div className="p-3 sm:p-4 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
+                    <div className="flex items-center justify-between text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 mb-1">
+                      <span className="truncate">Monthly Revenue</span>
+                      <CreditCard size={14} className="text-zinc-400 shrink-0" />
                     </div>
-                    <div className="text-lg sm:text-xl font-bold font-mono tabular-nums text-zinc-950 dark:text-white">
+                    <div className="text-lg sm:text-xl font-bold font-mono tabular-nums text-zinc-950 dark:text-white truncate">
                       ${subMetrics.mrr.toLocaleString()}
                     </div>
-                    <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
+                    <div className="mt-1 text-[10px] sm:text-[11px] text-zinc-500 dark:text-zinc-400 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                       <span className="font-mono tabular-nums text-zinc-700 dark:text-zinc-300 font-medium">ARR ~${subMetrics.arr.toLocaleString()}</span>
                       <span>·</span>
                       <span className="font-mono tabular-nums text-amber-600 dark:text-amber-400 font-semibold">{proSubscribersCount} Pro</span>
@@ -1903,15 +1905,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                   </div>
 
                   {/* Metric 3: Deal Engine Velocity */}
-                  <div className="p-3.5 sm:p-4 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
-                    <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 mb-1">
-                      <span>Total Swipes</span>
-                      <TrendingUp size={14} className="text-zinc-400" />
+                  <div className="p-3 sm:p-4 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
+                    <div className="flex items-center justify-between text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 mb-1">
+                      <span className="truncate">Total Swipes</span>
+                      <TrendingUp size={14} className="text-zinc-400 shrink-0" />
                     </div>
                     <div className="text-lg sm:text-xl font-bold font-mono tabular-nums text-zinc-950 dark:text-white">
                       {swipesCount}
                     </div>
-                    <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
+                    <div className="mt-1 text-[10px] sm:text-[11px] text-zinc-500 dark:text-zinc-400 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                       <span className="font-mono tabular-nums text-zinc-700 dark:text-zinc-300 font-medium">{startupsCount} Startups</span>
                       <span>·</span>
                       <span className="font-mono tabular-nums">{pitchesCount} Pitches</span>
@@ -1919,17 +1921,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                   </div>
 
                   {/* Metric 4: Moderation Health */}
-                  <div className="p-3.5 sm:p-4 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
-                    <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 mb-1">
-                      <span>Pending Reports</span>
-                      <ShieldCheck size={14} className="text-zinc-400" />
+                  <div className="p-3 sm:p-4 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
+                    <div className="flex items-center justify-between text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 mb-1">
+                      <span className="truncate">Pending Reports</span>
+                      <ShieldCheck size={14} className="text-zinc-400 shrink-0" />
                     </div>
-                    <div className="text-lg sm:text-xl font-bold font-mono tabular-nums text-zinc-950 dark:text-white">
+                    <div className="text-base sm:text-xl font-bold font-mono tabular-nums text-zinc-950 dark:text-white truncate">
                       {reports.filter(r => r.status === 'pending').length === 0 ? 'All clear' : `${reports.filter(r => r.status === 'pending').length} Pending`}
                     </div>
-                    <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                      <span>{reports.length} total reports</span>
+                    <div className="mt-1 text-[10px] sm:text-[11px] text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                      <span className="truncate">{reports.length} total reports</span>
                     </div>
                   </div>
 
@@ -2124,7 +2126,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                       </div>
 
                       {/* Financial Ticker Strip */}
-                      <div className="px-3.5 py-1.5 bg-zinc-50/70 dark:bg-zinc-900/40 border-b border-zinc-150 dark:border-zinc-800/80 flex items-center justify-between text-[11px] text-zinc-500">
+                      <div className="px-3.5 py-2 bg-zinc-50/70 dark:bg-zinc-900/40 border-b border-zinc-150 dark:border-zinc-800/80 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px] text-zinc-500">
                         <div>
                           <span className="text-zinc-400">Total: </span>
                           <span className="font-mono font-bold text-zinc-900 dark:text-white">
@@ -2239,7 +2241,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                                     {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                   </span>
                                 </div>
-                                <p className="text-zinc-700 dark:text-zinc-300 text-[11px] truncate leading-tight">
+                                <p className="text-zinc-700 dark:text-zinc-300 text-[11px] line-clamp-2 sm:truncate leading-snug">
                                   {log.details}
                                 </p>
                               </div>
@@ -2257,19 +2259,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
 
             {/* TAB 2: USER DIRECTORY (HIGH DENSITY ENTERPRISE GRID) */}
             {activeTab === 'users' && (
-              <div className="space-y-4">
+              <div className="space-y-3.5 sm:space-y-4">
                 
                 {/* Control bar */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-[#121215] p-4 border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#121215] p-3 sm:p-4 border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl">
                   
-                  <div className="flex flex-wrap items-center gap-2">
+                  {/* Mobile Search Input */}
+                  <div className="relative sm:hidden">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="Search users, emails, startups..."
+                      value={userSearch}
+                      onChange={(e) => setUserSearch(e.target.value)}
+                      className="w-full h-9 pl-9 pr-8 text-xs bg-zinc-100/90 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-xl text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-amber-400"
+                    />
+                    {userSearch && (
+                      <button
+                        onClick={() => setUserSearch('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 p-1 cursor-pointer"
+                      >
+                        <X size={13} />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2 min-w-0">
                     {/* Role Filter Tabs */}
-                    <div className="flex items-center p-1 bg-zinc-100 dark:bg-zinc-800/80 rounded-lg">
+                    <div className="flex items-center p-1 bg-zinc-100 dark:bg-zinc-800/80 rounded-lg overflow-x-auto no-scrollbar">
                       {(['all', 'FOUNDER', 'INVESTOR', 'ADMIN'] as const).map(r => (
                         <button
                           key={r}
                           onClick={() => setRoleFilter(r)}
-                          className={`px-3 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+                          className={`px-2.5 sm:px-3 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                             roleFilter === r
                               ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-xs font-semibold'
                               : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
@@ -2281,12 +2303,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                     </div>
 
                     {/* Plan Filter */}
-                    <div className="flex items-center p-1 bg-zinc-100 dark:bg-zinc-800/80 rounded-lg">
+                    <div className="flex items-center p-1 bg-zinc-100 dark:bg-zinc-800/80 rounded-lg overflow-x-auto no-scrollbar">
                       {(['all', 'pro', 'free'] as const).map(p => (
                         <button
                           key={p}
                           onClick={() => setPlanFilter(p)}
-                          className={`px-3 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer capitalize ${
+                          className={`px-2.5 sm:px-3 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer capitalize whitespace-nowrap shrink-0 ${
                             planFilter === p
                               ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-xs font-semibold'
                               : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
@@ -2298,15 +2320,102 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between sm:justify-end gap-2">
                     <span className="text-xs text-zinc-500 dark:text-zinc-400 font-mono tabular-nums">
                       Showing {filteredUsers.length} of {users.length}
                     </span>
                   </div>
                 </div>
 
-                {/* Users Table */}
-                <div className="bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl overflow-hidden shadow-xs">
+                {/* Mobile User Cards (md:hidden) */}
+                <div className="md:hidden bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl overflow-hidden shadow-xs divide-y divide-zinc-100 dark:divide-zinc-800/70">
+                  {filteredUsers.map(u => (
+                    <div key={u.id} className="p-3.5 space-y-2.5">
+                      <div className="flex items-start justify-between gap-2.5">
+                        <div
+                          onClick={() => handleViewProfile(u)}
+                          className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer"
+                        >
+                          <img
+                            src={u.avatarUrl}
+                            alt={u.name}
+                            className="w-9 h-9 rounded-full object-cover bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shrink-0"
+                          />
+                          <div className="min-w-0">
+                            <div className="font-semibold text-sm text-zinc-950 dark:text-white flex items-center gap-1.5 leading-tight">
+                              <span className="truncate">{u.name}</span>
+                              {u.plan === 'pro' && (
+                                <span className="text-[9px] font-mono text-amber-600 dark:text-amber-400 font-bold px-1.5 py-0.5 rounded bg-amber-500/10 shrink-0">PRO</span>
+                              )}
+                            </div>
+                            <div className="font-mono text-[11px] text-zinc-400 truncate mt-0.5">{u.email}</div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => handleViewProfile(u)}
+                            title="View User"
+                            className="p-2 rounded-lg bg-zinc-100/80 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white transition-colors cursor-pointer"
+                          >
+                            <Eye size={15} />
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (!confirm(`Are you sure you want to delete ${u.name} (${u.email})?`)) return;
+                              try {
+                                try {
+                                  await adminApiCall(`/api/admin/users/${u.id}`, { method: 'DELETE' });
+                                } catch (apiErr) {
+                                  console.warn("API delete fallback:", apiErr);
+                                  await supabase.from('profiles').delete().eq('id', u.id);
+                                }
+                                setUsers(prev => prev.filter(item => item.id !== u.id));
+                                await recordLog('USER_DELETION', `Deleted user account ${u.name} (${u.email})`);
+                                showToast(`Deleted user ${u.name}`, 'success', 'User Deleted');
+                                fetchLogs();
+                              } catch (err: any) {
+                                setUsers(prev => prev.filter(item => item.id !== u.id));
+                                showToast(`User ${u.name} removed`, 'info', 'User Removed');
+                              }
+                            }}
+                            title="Delete User"
+                            className="p-2 rounded-lg bg-rose-500/10 text-rose-500 hover:text-rose-600 transition-colors cursor-pointer"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                        <span className={`text-[10px] font-mono px-2 py-0.5 rounded ${
+                          u.role === 'FOUNDER' ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20' :
+                          u.role === 'INVESTOR' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20' :
+                          'bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/20'
+                        }`}>
+                          {u.role}
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 capitalize font-medium">
+                          <span className={`w-1.5 h-1.5 rounded-full ${u.plan === 'pro' ? 'bg-amber-400' : 'bg-zinc-400'}`} />
+                          {u.plan}
+                          {u.billingCycle ? ` (${u.billingCycle})` : ''}
+                        </span>
+                        <span className="text-zinc-400 font-mono">
+                          {u.age ? `${u.age} yrs` : 'Age N/A'} · {u.location} · Joined {u.joinedDate}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+
+                  {filteredUsers.length === 0 && (
+                    <div className="py-10 text-center text-xs text-zinc-400 font-medium">
+                      No users found.
+                    </div>
+                  )}
+                </div>
+
+                {/* Desktop Users Table (hidden md:block) */}
+                <div className="hidden md:block bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl overflow-hidden shadow-xs">
                   <div className="overflow-x-auto max-h-[480px] overflow-y-auto custom-scrollbar scroll-smooth overscroll-contain">
                     <table className="w-full text-left text-xs whitespace-nowrap">
                       <thead className="sticky top-0 z-20 bg-white dark:bg-[#121215] shadow-xs">
@@ -2415,7 +2524,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
 
                         {filteredUsers.length === 0 && (
                           <tr>
-                            <td colSpan={6} className="py-12 text-center text-zinc-400 font-medium">
+                            <td colSpan={7} className="py-12 text-center text-zinc-400 font-medium">
                               No users found.
                             </td>
                           </tr>
@@ -2430,15 +2539,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
 
             {/* TAB 3: BILLING & SUBSCRIPTIONS */}
             {activeTab === 'subscriptions' && (
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 
                 {/* Header with Grant Premium Trigger */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
                   <div>
-                    <h2 className="text-lg font-bold text-zinc-950 dark:text-white">Transaction History & Subscriptions</h2>
+                    <h2 className="text-base sm:text-lg font-bold text-zinc-950 dark:text-white">Transaction History &amp; Subscriptions</h2>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400">Complete settlement audit trail, customer payment receipts, and revenue ledger</p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
                       onClick={() => fetchSubscriptions()}
                       disabled={isFetchingSubscriptions}
@@ -2453,7 +2562,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                       className="h-8 px-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
                     >
                       <Download size={13} />
-                      <span className="hidden sm:inline">Export CSV</span>
+                      <span>Export CSV</span>
                     </button>
                     <button
                       onClick={() => setIsGrantSubModalOpen(true)}
@@ -2466,44 +2575,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                 </div>
 
                 {/* Metrics */}
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                  <div className="p-5 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
-                    <span className="text-xs text-zinc-500 dark:text-zinc-400 block mb-1">Total Settled</span>
-                    <span className="text-2xl font-bold font-mono tabular-nums text-zinc-950 dark:text-white">{formatCurrency(subMetrics.totalRevenue, subMetrics.primaryCurrency)}</span>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
+                  <div className="p-3.5 sm:p-5 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
+                    <span className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 block mb-1 truncate">Total Settled</span>
+                    <span className="text-lg sm:text-2xl font-bold font-mono tabular-nums text-zinc-950 dark:text-white truncate block">{formatCurrency(subMetrics.totalRevenue, subMetrics.primaryCurrency)}</span>
                   </div>
-                  <div className="p-5 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
-                    <span className="text-xs text-zinc-500 dark:text-zinc-400 block mb-1">Monthly Recurring (MRR)</span>
-                    <span className="text-2xl font-bold font-mono tabular-nums text-emerald-600 dark:text-emerald-400">{formatCurrency(subMetrics.mrr, subMetrics.primaryCurrency)}</span>
+                  <div className="p-3.5 sm:p-5 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
+                    <span className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 block mb-1 truncate">Monthly Recurring</span>
+                    <span className="text-lg sm:text-2xl font-bold font-mono tabular-nums text-emerald-600 dark:text-emerald-400 truncate block">{formatCurrency(subMetrics.mrr, subMetrics.primaryCurrency)}</span>
                   </div>
-                  <div className="p-5 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
-                    <span className="text-xs text-zinc-500 dark:text-zinc-400 block mb-1">Recorded Transactions</span>
-                    <span className="text-2xl font-bold font-mono tabular-nums text-zinc-950 dark:text-white">{subscriptions.length}</span>
+                  <div className="p-3.5 sm:p-5 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
+                    <span className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 block mb-1 truncate">Transactions</span>
+                    <span className="text-lg sm:text-2xl font-bold font-mono tabular-nums text-zinc-950 dark:text-white block">{subscriptions.length}</span>
                   </div>
-                  <div className="p-5 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
-                    <span className="text-xs text-zinc-500 dark:text-zinc-400 block mb-1">Active Pro Subscribers</span>
-                    <span className="text-2xl font-bold font-mono tabular-nums text-amber-500">{proSubscribersCount}</span>
+                  <div className="p-3.5 sm:p-5 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
+                    <span className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 block mb-1 truncate">Active Pro</span>
+                    <span className="text-lg sm:text-2xl font-bold font-mono tabular-nums text-amber-500 block">{proSubscribersCount}</span>
                   </div>
                 </div>
 
                 {/* Search & Filter Controls */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="relative flex-1 max-w-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3">
+                  <div className="relative flex-1 sm:max-w-sm">
                     <Search size={13} className="absolute left-3 top-2.5 text-zinc-400" />
                     <input
                       type="text"
                       placeholder="Search transactions by user, email, ID, provider..."
                       value={subscriptionSearch}
                       onChange={(e) => setSubscriptionSearch(e.target.value)}
-                      className="w-full h-8 pl-8 pr-3 text-xs bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-amber-400"
+                      className="w-full h-9 sm:h-8 pl-8 pr-3 text-xs bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-amber-400"
                     />
                   </div>
                   
-                  <div className="flex items-center gap-1.5 flex-wrap">
+                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5 sm:pb-0">
                     {(['all', 'completed', 'refunded', 'trial', 'cancelled'] as const).map((filter) => (
                       <button
                         key={filter}
                         onClick={() => setSubscriptionFilter(filter)}
-                        className={`h-8 px-3 rounded-lg text-xs font-medium capitalize transition-colors cursor-pointer ${
+                        className={`h-8 px-3 rounded-lg text-xs font-medium capitalize transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                           subscriptionFilter === filter
                             ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 font-semibold'
                             : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800'
@@ -2515,8 +2624,131 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                   </div>
                 </div>
 
-                {/* Subscriptions Table */}
-                <div className="bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl overflow-hidden shadow-xs">
+                {/* Mobile Transaction Cards (md:hidden) */}
+                <div className="md:hidden bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl overflow-hidden shadow-xs divide-y divide-zinc-100 dark:divide-zinc-800/70">
+                  {isFetchingSubscriptions && filteredSubscriptions.length === 0 ? (
+                    <div className="py-10 text-center text-zinc-400 text-xs flex items-center justify-center gap-2">
+                      <RefreshCw size={15} className="animate-spin text-amber-500" />
+                      <span>Loading transaction history...</span>
+                    </div>
+                  ) : filteredSubscriptions.length === 0 ? (
+                    <div className="py-10 text-center text-xs text-zinc-400 font-medium">
+                      No subscription records found.
+                    </div>
+                  ) : (
+                    filteredSubscriptions.map(s => (
+                      <div key={s.id} className="p-3.5 space-y-2.5">
+                        <div className="flex items-start justify-between gap-2.5">
+                          <div
+                            onClick={() => {
+                              const u = users.find(user => user.id === s.userId);
+                              if (u) {
+                                handleViewProfile(u);
+                              } else {
+                                handleViewProfile({
+                                  id: s.userId,
+                                  name: s.userName,
+                                  email: s.userEmail,
+                                  role: 'FOUNDER',
+                                  plan: s.plan,
+                                  billingCycle: s.billingCycle,
+                                  status: 'active',
+                                  avatarUrl: s.userAvatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(s.userName)}`,
+                                  location: 'Remote',
+                                  joinedDate: s.createdAt,
+                                  lastActive: 'Recently'
+                                });
+                              }
+                            }}
+                            className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer"
+                          >
+                            <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center font-bold text-xs uppercase text-zinc-700 dark:text-zinc-300 shrink-0 border border-zinc-200/60 dark:border-zinc-700/60">
+                              {s.userName ? s.userName.charAt(0) : 'U'}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-semibold text-sm text-zinc-950 dark:text-white truncate leading-tight">{s.userName}</div>
+                              <div className="font-mono text-[10px] text-zinc-400 truncate mt-0.5">{s.userEmail}</div>
+                            </div>
+                          </div>
+
+                          <div className="text-right shrink-0">
+                            <div className="font-mono tabular-nums font-bold text-sm text-zinc-950 dark:text-white">
+                              {formatCurrency(s.amount, s.currency)} <span className="text-[10px] font-normal text-zinc-400 font-sans">{s.currency || 'USD'}</span>
+                            </div>
+                            <span className={`inline-flex items-center gap-1 text-[10px] font-semibold capitalize ${
+                              s.status === 'completed' ? 'text-emerald-600 dark:text-emerald-400' :
+                              s.status === 'refunded' ? 'text-amber-600 dark:text-amber-400' :
+                              'text-zinc-500'
+                            }`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${
+                                s.status === 'completed' ? 'bg-emerald-500' :
+                                s.status === 'refunded' ? 'bg-amber-500' : 'bg-zinc-400'
+                              }`} />
+                              {s.status || 'completed'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="font-bold text-amber-500 uppercase text-[10px] font-mono">{s.plan}</span>
+                            <span>·</span>
+                            <span className="capitalize">{s.billingCycle}</span>
+                            <span>·</span>
+                            <span className="font-mono">{s.provider || 'Paystack'}</span>
+                          </div>
+                          <span className="font-mono text-[10px] text-zinc-400">{s.createdAt}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/60">
+                          <button
+                            onClick={() => handleCopyText(s.id, 'Transaction ID')}
+                            className="inline-flex items-center gap-1 text-[10px] font-mono text-zinc-400 hover:text-zinc-900 dark:hover:text-white cursor-pointer"
+                          >
+                            <span>ID: {s.id.length > 14 ? `${s.id.substring(0, 12)}...` : s.id}</span>
+                            {copiedTxId === s.id ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
+                          </button>
+
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => setSelectedTransactionDetail(s)}
+                              className="px-2.5 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
+                            >
+                              <Receipt size={12} />
+                              <span>Receipt</span>
+                            </button>
+                            {s.status === 'completed' && (
+                              <button
+                                onClick={async () => {
+                                  if (!confirm("Confirm refund for this transaction?")) return;
+                                  try {
+                                    await adminApiCall(`/api/admin/subscriptions/${s.id}/refund`, {
+                                      method: 'POST',
+                                      body: JSON.stringify({ userId: s.userId })
+                                    });
+                                    setSubscriptions(prev => prev.map(item => item.id === s.id ? { ...item, status: 'refunded' } : item));
+                                    await recordLog('SUBSCRIPTION_REFUND', `Refunded transaction ${s.id.substring(0, 10)} for ${s.userName} (${s.userEmail})`);
+                                    showToast("Transaction refunded and seat adjusted");
+                                    fetchSubscriptions();
+                                    fetchUsers();
+                                  } catch (e: any) {
+                                    showToast(`Failed to process refund: ${e.message || 'Server error'}`);
+                                  }
+                                }}
+                                className="px-2.5 py-1.5 text-[11px] font-semibold text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 rounded-lg border border-amber-500/30 transition-colors cursor-pointer"
+                              >
+                                Refund
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Desktop Subscriptions Table (hidden md:block) */}
+                <div className="hidden md:block bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl overflow-hidden shadow-xs">
                   <div className="overflow-x-auto max-h-[480px] overflow-y-auto custom-scrollbar scroll-smooth overscroll-contain">
                     <table className="w-full text-left text-xs whitespace-nowrap">
                       <thead className="sticky top-0 z-20 bg-white dark:bg-[#121215] shadow-xs">
@@ -2676,10 +2908,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
 
             {/* TAB 4: TRUST & SAFETY REPORTS */}
             {activeTab === 'reports' && (
-              <div className="space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-4 sm:space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
                   <div>
-                    <h2 className="text-lg font-bold text-zinc-950 dark:text-white">User Reports</h2>
+                    <h2 className="text-base sm:text-lg font-bold text-zinc-950 dark:text-white">User Reports</h2>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400">Review reported users, pitches, and content</p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -2693,11 +2925,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                   {filteredReports.map(r => (
                     <div 
                       key={r.id}
-                      className="p-4 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors"
+                      className="p-3.5 sm:p-4 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors"
                     >
-                      <div className="flex items-start gap-4 min-w-0">
+                      <div className="flex items-start gap-3 sm:gap-4 min-w-0">
                         {r.videoUrl ? (
-                          <div className="w-16 h-16 rounded-lg bg-zinc-900 shrink-0 relative overflow-hidden flex items-center justify-center border border-zinc-800">
+                          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg bg-zinc-900 shrink-0 relative overflow-hidden flex items-center justify-center border border-zinc-800">
                             <Play size={16} className="text-white" />
                           </div>
                         ) : (
@@ -2706,8 +2938,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                           </div>
                         )}
 
-                        <div className="space-y-1 min-w-0">
-                          <div className="flex items-center gap-2 text-xs">
+                        <div className="space-y-1 min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
                             <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono uppercase font-bold ${
                               r.severity === 'high' ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20' :
                               r.severity === 'medium' ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' :
@@ -2720,7 +2952,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                             <span className="text-zinc-500 text-[11px]">By {r.reporterName}</span>
                           </div>
 
-                          <p className="text-xs font-semibold text-zinc-950 dark:text-zinc-100 truncate max-w-xl">
+                          <p className="text-xs font-semibold text-zinc-950 dark:text-zinc-100 line-clamp-2 sm:truncate max-w-xl break-words">
                             {r.targetContent}
                           </p>
 
@@ -2730,7 +2962,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                      <div className="flex items-center justify-end gap-2 shrink-0 w-full md:w-auto pt-2.5 md:pt-0 border-t md:border-t-0 border-zinc-100 dark:border-zinc-800/60">
                         <button
                           onClick={() => setSelectedReport(r)}
                           className="px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 text-xs font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
@@ -2776,13 +3008,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
 
             {/* TAB: TOWN HALL BOARDS MANAGEMENT (ADMIN EXCLUSIVE) */}
             {activeTab === 'townhall' && (
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 
                 {/* Header & Controls */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
                   <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-lg font-bold text-zinc-950 dark:text-white">Town Hall Stage &amp; Salon Boards</h2>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-base sm:text-lg font-bold text-zinc-950 dark:text-white">Town Hall Stage &amp; Salon Boards</h2>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-amber-400 text-zinc-950">
                         Admin Exclusive
                       </span>
@@ -2804,15 +3036,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                 </div>
 
                 {/* Filter and Search Bar */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
-                  <div className="relative flex-1 max-w-sm">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 sm:p-4 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
+                  <div className="relative flex-1 sm:max-w-sm">
                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
                     <input
                       type="text"
                       placeholder="Search boards by title, episode, or speaker..."
                       value={boardSearch}
                       onChange={(e) => setBoardSearch(e.target.value)}
-                      className="w-full h-8 pl-8 pr-3 text-xs bg-zinc-100 dark:bg-zinc-900 border border-transparent focus:border-zinc-300 dark:focus:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none transition-all"
+                      className="w-full h-9 sm:h-8 pl-8 pr-3 text-xs bg-zinc-100 dark:bg-zinc-900 border border-transparent focus:border-zinc-300 dark:focus:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none transition-all"
                     />
                   </div>
 
@@ -2821,7 +3053,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                       <button
                         key={status}
                         onClick={() => setBoardStatusFilter(status)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize cursor-pointer transition-colors ${
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
                           boardStatusFilter === status
                             ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 font-bold'
                             : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
@@ -2834,7 +3066,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                 </div>
 
                 {/* Grid of Town Hall Boards */}
-                <div className="space-y-4">
+                <div className="space-y-3.5 sm:space-y-4">
                   {townhallBoards
                     .filter(b => {
                       if (boardStatusFilter !== 'all' && b.status !== boardStatusFilter) return false;
@@ -2852,14 +3084,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                     .map(board => (
                       <div
                         key={board.id}
-                        className={`p-5 rounded-2xl bg-white dark:bg-[#121215] border transition-all shadow-xs ${
+                        className={`p-3.5 sm:p-5 rounded-2xl bg-white dark:bg-[#121215] border transition-all shadow-xs ${
                           board.isActiveStage
                             ? 'border-amber-400/80 ring-2 ring-amber-400/20'
                             : 'border-zinc-200/80 dark:border-zinc-800/80 hover:border-zinc-300 dark:hover:border-zinc-700'
                         }`}
                       >
-                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                          <div className="space-y-2 max-w-2xl">
+                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4">
+                          <div className="space-y-2 max-w-2xl min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                               {board.isActiveStage && (
                                 <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-amber-400 text-zinc-950 shadow-xs">
@@ -2917,8 +3149,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                           </div>
 
                           {/* Board Actions */}
-                          <div className="flex flex-wrap lg:flex-col items-center lg:items-end gap-2 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-zinc-100 dark:border-zinc-800">
-                            <div className="flex items-center gap-1.5">
+                          <div className="flex flex-wrap lg:flex-col items-center lg:items-end gap-2 shrink-0 pt-2.5 lg:pt-0 border-t lg:border-t-0 border-zinc-100 dark:border-zinc-800 w-full lg:w-auto">
+                            <div className="flex flex-wrap items-center gap-1.5 w-full lg:w-auto justify-end">
                               {!board.isActiveStage && (
                                 <button
                                   onClick={() => handleToggleBoardActiveStage(board.id)}
@@ -2977,8 +3209,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                 </div>
 
                 {/* Town Hall Question Queue Moderation */}
-                <div className="p-5 rounded-2xl bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 space-y-4">
-                  <div className="flex items-center justify-between">
+                <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
                       <h3 className="text-sm font-bold text-zinc-950 dark:text-white flex items-center gap-2">
                         <MessageSquare size={16} className="text-amber-500" />
@@ -3047,12 +3279,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
             {/* TAB 5: AUDIT LOGS */}
             {activeTab === 'logs' && (
               <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
                   <div>
-                    <h2 className="text-lg font-bold text-zinc-950 dark:text-white">Audit Logs</h2>
+                    <h2 className="text-base sm:text-lg font-bold text-zinc-950 dark:text-white">Audit Logs</h2>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400">Chronicle of admin operations, telemetry, and security events</p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
                       onClick={() => fetchLogs()}
                       disabled={isFetchingLogs}
@@ -3089,15 +3321,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                 </div>
 
                 {/* Filter and Search Bar */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="relative flex-1 max-w-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3">
+                  <div className="relative flex-1 sm:max-w-sm">
                     <Search size={13} className="absolute left-3 top-2.5 text-zinc-400" />
                     <input
                       type="text"
                       placeholder="Search logs by action, admin, or detail..."
                       value={auditLogSearch}
                       onChange={(e) => setAuditLogSearch(e.target.value)}
-                      className="w-full h-8 pl-8 pr-3 text-xs bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-amber-400"
+                      className="w-full h-9 sm:h-8 pl-8 pr-3 text-xs bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-amber-400"
                     />
                   </div>
 
@@ -3105,7 +3337,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                     <select
                       value={auditLogTypeFilter}
                       onChange={(e) => setAuditLogTypeFilter(e.target.value)}
-                      className="h-8 px-2.5 text-xs bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-700 dark:text-zinc-300 focus:outline-none focus:border-amber-400 font-mono"
+                      className="w-full sm:w-auto h-9 sm:h-8 px-2.5 text-xs bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-700 dark:text-zinc-300 focus:outline-none focus:border-amber-400 font-mono"
                     >
                       <option value="all">All Actions ({auditLogs.length})</option>
                       <option value="SYSTEM_BOOT">SYSTEM_BOOT</option>
@@ -3129,8 +3361,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                   ) : (
                     filteredAuditLogs.map(log => (
                       <div key={log.id} className="py-2.5 px-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
-                        <div className="flex items-center gap-2.5">
-                          <span className={`px-2 py-0.5 text-[10px] font-bold rounded ${
+                        <div className="flex flex-wrap sm:flex-nowrap items-start sm:items-center gap-2 min-w-0">
+                          <span className={`px-2 py-0.5 text-[10px] font-bold rounded shrink-0 ${
                             log.action === 'USER_DELETION' ? 'bg-rose-500/10 text-rose-600' :
                             log.action.includes('ROLE') || log.action.includes('USER') ? 'bg-purple-500/10 text-purple-600' :
                             log.action.includes('SUBSCRIPTION') ? 'bg-emerald-500/10 text-emerald-600' :
@@ -3139,16 +3371,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                           }`}>
                             {log.action}
                           </span>
-                          <span className="font-sans text-xs text-zinc-800 dark:text-zinc-200">{log.details}</span>
+                          <span className="font-sans text-xs text-zinc-800 dark:text-zinc-200 break-words">{log.details}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-[11px] text-zinc-400 tabular-nums self-end sm:self-auto">
-                          <span className="text-[10px] text-zinc-500 font-sans">{log.adminEmail}</span>
-                          <span>·</span>
-                          <span>{new Date(log.timestamp).toLocaleString()}</span>
+                        <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 text-[11px] text-zinc-400 tabular-nums w-full sm:w-auto shrink-0">
+                          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                            <span className="text-[10px] text-zinc-500 font-sans truncate max-w-[140px]">{log.adminEmail}</span>
+                            <span>·</span>
+                            <span className="text-[10px] sm:text-[11px]">{new Date(log.timestamp).toLocaleString()}</span>
+                          </div>
                           <button
                             onClick={() => handleDeleteLog(log.id)}
                             title="Remove log entry"
-                            className="p-1 rounded text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer ml-1"
+                            className="p-1.5 rounded text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
                           >
                             <Trash2 size={13} />
                           </button>
@@ -3168,20 +3402,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
 
             {/* TAB 6: SETTINGS */}
             {activeTab === 'settings' && (
-              <div className="space-y-6 max-w-5xl">
+              <div className="space-y-4 sm:space-y-6 max-w-5xl">
                 <div>
-                  <h2 className="text-lg font-bold text-zinc-950 dark:text-white">Settings</h2>
+                  <h2 className="text-base sm:text-lg font-bold text-zinc-950 dark:text-white">Settings</h2>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">Manage authentication and system preferences</p>
                 </div>
 
-                <div className="bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl p-6 space-y-6 shadow-xs">
+                <div className="bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl p-4 sm:p-6 space-y-6 shadow-xs">
                   
                   {/* General Configuration */}
                   <div className="space-y-4">
                     <h3 className="text-xs font-mono uppercase tracking-wider text-zinc-400">Authentication</h3>
                     
-                    <div className="flex items-center justify-between py-2 border-b border-zinc-150 dark:border-zinc-800/60">
-                      <div>
+                    <div className="flex items-center justify-between gap-4 py-2 border-b border-zinc-150 dark:border-zinc-800/60">
+                      <div className="min-w-0">
                         <div className="text-xs font-semibold text-zinc-950 dark:text-white">Require Email Verification</div>
                         <div className="text-xs text-zinc-500 dark:text-zinc-400">Require users to verify their email address before accessing the platform</div>
                       </div>
@@ -3190,7 +3424,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                           setRequireEmailVerification(prev => !prev);
                           showToast("Email verification setting updated");
                         }}
-                        className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer ${
+                        className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer shrink-0 ${
                           requireEmailVerification ? 'bg-amber-400' : 'bg-zinc-200 dark:bg-zinc-800'
                         }`}
                       >
@@ -3200,8 +3434,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                       </button>
                     </div>
 
-                    <div className="flex items-center justify-between py-2 border-b border-zinc-150 dark:border-zinc-800/60">
-                      <div>
+                    <div className="flex items-center justify-between gap-4 py-2 border-b border-zinc-150 dark:border-zinc-800/60">
+                      <div className="min-w-0">
                         <div className="text-xs font-semibold text-zinc-950 dark:text-white">Clear Cache</div>
                         <div className="text-xs text-zinc-500 dark:text-zinc-400">Clear stored local data to refresh latest content</div>
                       </div>
@@ -3210,7 +3444,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                           localStorage.removeItem('connectup_startups_cache');
                           showToast("Cache cleared");
                         }}
-                        className="px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 text-xs font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                        className="px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 text-xs font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
                       >
                         Clear Cache
                       </button>
@@ -3277,17 +3511,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
       {/* MODAL 1: ADD USER */}
       <AnimatePresence>
         {isAddUserModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setIsAddUserModalOpen(false)} />
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-md bg-white dark:bg-[#121215] border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-2xl z-10 space-y-4"
+              className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto bg-white dark:bg-[#121215] border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-2xl z-10 space-y-4"
             >
               <div className="flex items-center justify-between pb-3 border-b border-zinc-150 dark:border-zinc-800">
                 <h3 className="text-base font-bold text-zinc-950 dark:text-white">Add New User</h3>
-                <button onClick={() => setIsAddUserModalOpen(false)} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200">
+                <button onClick={() => setIsAddUserModalOpen(false)} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1">
                   <X size={18} />
                 </button>
               </div>
@@ -3329,7 +3563,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                       email: email,
                       role: role,
                       plan: 'free',
-                      created_at: new Date().toISOString()
+                      updated_at: new Date().toISOString()
                     });
                   }
 
@@ -3380,17 +3614,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
       {/* MODAL 2: GRANT PRO SUBSCRIPTION */}
       <AnimatePresence>
         {isGrantSubModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setIsGrantSubModalOpen(false)} />
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-md bg-white dark:bg-[#121215] border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-2xl z-10 space-y-4"
+              className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto bg-white dark:bg-[#121215] border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-2xl z-10 space-y-4"
             >
               <div className="flex items-center justify-between pb-3 border-b border-zinc-150 dark:border-zinc-800">
                 <h3 className="text-base font-bold text-zinc-950 dark:text-white">Grant Pro Access</h3>
-                <button onClick={() => setIsGrantSubModalOpen(false)} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200">
+                <button onClick={() => setIsGrantSubModalOpen(false)} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1">
                   <X size={18} />
                 </button>
               </div>
@@ -3462,33 +3696,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
       {/* MODAL 3: USER PROFILE */}
       <AnimatePresence>
         {selectedUserProfile && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setSelectedUserProfile(null)} />
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-2xl bg-white dark:bg-[#121215] border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 sm:p-8 shadow-2xl z-10 max-h-[85vh] overflow-y-auto space-y-6"
+              className="relative w-full max-w-2xl bg-white dark:bg-[#121215] border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-8 shadow-2xl z-10 max-h-[90dvh] overflow-y-auto space-y-5 sm:space-y-6"
             >
-              <div className="flex items-start justify-between pb-4 border-b border-zinc-150 dark:border-zinc-800">
-                <div className="flex items-center gap-3">
+              <div className="flex items-start justify-between gap-3 pb-4 border-b border-zinc-150 dark:border-zinc-800">
+                <div className="flex items-center gap-3 min-w-0">
                   <img
                     src={selectedUserProfile.avatarUrl}
                     alt={selectedUserProfile.name}
-                    className="w-12 h-12 rounded-xl object-cover border border-zinc-200 dark:border-zinc-700"
+                    className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl object-cover border border-zinc-200 dark:border-zinc-700 shrink-0"
                   />
-                  <div>
-                    <h3 className="text-base font-bold text-zinc-950 dark:text-white flex items-center gap-2">
-                      <span>{selectedUserProfile.name}</span>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 uppercase">
+                  <div className="min-w-0">
+                    <h3 className="text-sm sm:text-base font-bold text-zinc-950 dark:text-white flex flex-wrap items-center gap-1.5 sm:gap-2">
+                      <span className="truncate">{selectedUserProfile.name}</span>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 uppercase shrink-0">
                         {selectedUserProfile.role}
                       </span>
                     </h3>
-                    <div className="text-xs font-mono text-zinc-400">{selectedUserProfile.email}</div>
+                    <div className="text-xs font-mono text-zinc-400 truncate">{selectedUserProfile.email}</div>
                   </div>
                 </div>
 
-                <button onClick={() => setSelectedUserProfile(null)} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200">
+                <button onClick={() => setSelectedUserProfile(null)} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1 shrink-0">
                   <X size={20} />
                 </button>
               </div>
@@ -3684,17 +3918,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
       {/* MODAL 4: REPORT EVIDENCE REVIEW */}
       <AnimatePresence>
         {selectedReport && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setSelectedReport(null)} />
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-lg bg-white dark:bg-[#121215] border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-2xl z-10 space-y-4"
+              className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto bg-white dark:bg-[#121215] border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-2xl z-10 space-y-4"
             >
               <div className="flex items-center justify-between pb-3 border-b border-zinc-150 dark:border-zinc-800">
                 <h3 className="text-base font-bold text-zinc-950 dark:text-white">Moderation Case Evidence</h3>
-                <button onClick={() => setSelectedReport(null)} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200">
+                <button onClick={() => setSelectedReport(null)} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1">
                   <X size={18} />
                 </button>
               </div>
@@ -3708,10 +3942,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
 
                 <div className="p-3 bg-zinc-50 dark:bg-zinc-900/60 rounded-xl border border-zinc-200 dark:border-zinc-800">
                   <div className="text-[10px] font-mono uppercase text-zinc-400 mb-1">Target Statement / Payload</div>
-                  <p className="text-zinc-900 dark:text-zinc-100 leading-relaxed">{selectedReport.targetContent}</p>
+                  <p className="text-zinc-900 dark:text-zinc-100 leading-relaxed break-words">{selectedReport.targetContent}</p>
                 </div>
 
-                <div className="flex items-center justify-between text-zinc-500 font-mono text-[11px]">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-zinc-500 font-mono text-[11px]">
                   <span>Reporter: {selectedReport.reporterName}</span>
                   <span>Severity: {selectedReport.severity}</span>
                 </div>
@@ -3755,7 +3989,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
       {/* MODAL: TRANSACTION RECEIPT & AUDIT DOSSIER */}
       <AnimatePresence>
         {selectedTransactionDetail && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
             <div 
               className="absolute inset-0 bg-black/60 backdrop-blur-xs" 
               onClick={() => setSelectedTransactionDetail(null)} 
@@ -3764,32 +3998,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-md bg-white dark:bg-[#121215] border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-2xl z-10 space-y-5"
+              className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto bg-white dark:bg-[#121215] border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-2xl z-10 space-y-5"
             >
               {/* Header */}
               <div className="flex items-start justify-between pb-4 border-b border-zinc-150 dark:border-zinc-800">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 min-w-0">
                   <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 shrink-0">
                     <Receipt size={18} />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <h3 className="text-sm font-bold text-zinc-950 dark:text-white">Transaction Receipt</h3>
-                    <p className="font-mono text-[11px] text-zinc-400">Ref: {selectedTransactionDetail.id.substring(0, 16)}...</p>
+                    <p className="font-mono text-[11px] text-zinc-400 truncate">Ref: {selectedTransactionDetail.id.substring(0, 16)}...</p>
                   </div>
                 </div>
                 <button 
                   onClick={() => setSelectedTransactionDetail(null)} 
-                  className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                  className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer shrink-0"
                 >
                   <X size={16} />
                 </button>
               </div>
 
               {/* Amount Banner */}
-              <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-between">
+              <div className="p-3.5 sm:p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block mb-0.5">Amount Settled</span>
-                  <div className="text-2xl font-bold font-mono tabular-nums text-zinc-950 dark:text-white">
+                  <div className="text-xl sm:text-2xl font-bold font-mono tabular-nums text-zinc-950 dark:text-white">
                     {formatCurrency(selectedTransactionDetail.amount, selectedTransactionDetail.currency)}
                     <span className="text-xs font-normal text-zinc-400 ml-1.5 font-sans">{selectedTransactionDetail.currency || 'USD'}</span>
                   </div>
@@ -3811,27 +4045,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
 
               {/* Transaction Metadata Grid */}
               <div className="space-y-2.5 text-xs">
-                <div className="flex items-center justify-between py-1.5 border-b border-zinc-100 dark:border-zinc-800/60">
-                  <span className="text-zinc-500 dark:text-zinc-400">Customer</span>
-                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">{selectedTransactionDetail.userName}</span>
+                <div className="flex items-center justify-between gap-3 py-1.5 border-b border-zinc-100 dark:border-zinc-800/60">
+                  <span className="text-zinc-500 dark:text-zinc-400 shrink-0">Customer</span>
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-100 truncate text-right">{selectedTransactionDetail.userName}</span>
                 </div>
-                <div className="flex items-center justify-between py-1.5 border-b border-zinc-100 dark:border-zinc-800/60">
-                  <span className="text-zinc-500 dark:text-zinc-400">Email</span>
-                  <span className="font-mono text-zinc-700 dark:text-zinc-300">{selectedTransactionDetail.userEmail}</span>
+                <div className="flex items-center justify-between gap-3 py-1.5 border-b border-zinc-100 dark:border-zinc-800/60">
+                  <span className="text-zinc-500 dark:text-zinc-400 shrink-0">Email</span>
+                  <span className="font-mono text-zinc-700 dark:text-zinc-300 truncate text-right">{selectedTransactionDetail.userEmail}</span>
                 </div>
-                <div className="flex items-center justify-between py-1.5 border-b border-zinc-100 dark:border-zinc-800/60">
-                  <span className="text-zinc-500 dark:text-zinc-400">Plan & Cadence</span>
-                  <span className="font-semibold text-amber-500 uppercase font-mono text-[11px]">
+                <div className="flex items-center justify-between gap-3 py-1.5 border-b border-zinc-100 dark:border-zinc-800/60">
+                  <span className="text-zinc-500 dark:text-zinc-400 shrink-0">Plan &amp; Cadence</span>
+                  <span className="font-semibold text-amber-500 uppercase font-mono text-[11px] text-right">
                     {selectedTransactionDetail.plan} · {selectedTransactionDetail.billingCycle}
                   </span>
                 </div>
-                <div className="flex items-center justify-between py-1.5 border-b border-zinc-100 dark:border-zinc-800/60">
-                  <span className="text-zinc-500 dark:text-zinc-400">Payment Gateway</span>
-                  <span className="font-mono text-zinc-700 dark:text-zinc-300">{selectedTransactionDetail.provider || 'Paystack'}</span>
+                <div className="flex items-center justify-between gap-3 py-1.5 border-b border-zinc-100 dark:border-zinc-800/60">
+                  <span className="text-zinc-500 dark:text-zinc-400 shrink-0">Payment Gateway</span>
+                  <span className="font-mono text-zinc-700 dark:text-zinc-300 text-right">{selectedTransactionDetail.provider || 'Paystack'}</span>
                 </div>
-                <div className="flex items-center justify-between py-1.5">
-                  <span className="text-zinc-500 dark:text-zinc-400">Settled Timestamp</span>
-                  <span className="font-mono text-[11px] text-zinc-700 dark:text-zinc-300">{selectedTransactionDetail.createdAt}</span>
+                <div className="flex items-center justify-between gap-3 py-1.5">
+                  <span className="text-zinc-500 dark:text-zinc-400 shrink-0">Settled Timestamp</span>
+                  <span className="font-mono text-[11px] text-zinc-700 dark:text-zinc-300 text-right">{selectedTransactionDetail.createdAt}</span>
                 </div>
               </div>
 
@@ -3861,13 +4095,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
       {/* MODAL 5: CREATE / EDIT TOWN HALL BOARD */}
       <AnimatePresence>
         {showCreateBoardModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setShowCreateBoardModal(false)} />
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-xl bg-white dark:bg-[#121215] border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-2xl z-10 space-y-4 max-h-[90vh] overflow-y-auto"
+              className="relative w-full max-w-xl bg-white dark:bg-[#121215] border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-2xl z-10 space-y-4 max-h-[90dvh] overflow-y-auto"
             >
               <div className="flex items-center justify-between pb-3 border-b border-zinc-150 dark:border-zinc-800">
                 <div>

@@ -396,22 +396,22 @@ export const AdminBlogManager: React.FC<AdminBlogManagerProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Top Banner & Header */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 sm:p-6 shadow-xs">
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-xs">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2.5">
-              <span className="p-2 bg-amber-400/20 text-amber-700 dark:text-amber-300 rounded-xl">
+              <span className="p-2 bg-amber-400/20 text-amber-700 dark:text-amber-300 rounded-xl shrink-0">
                 <FileText size={20} className="stroke-[2.5]" />
               </span>
-              <h2 className="text-xl font-black text-zinc-950 dark:text-white tracking-tight">
-                Editorial & Blog Management
+              <h2 className="text-lg sm:text-xl font-black text-zinc-950 dark:text-white tracking-tight">
+                Editorial &amp; Blog Management
               </h2>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
 
             {/* Refresh */}
             <button
@@ -550,11 +550,11 @@ export const AdminBlogManager: React.FC<AdminBlogManagerProps> = ({
             return (
               <div
                 key={post.id}
-                className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 rounded-2xl p-4 sm:p-5 transition-all shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 group"
+                className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 rounded-2xl p-3.5 sm:p-5 transition-all shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 group"
               >
                 {/* Left Info with Image */}
-                <div className="flex items-start gap-4 flex-1 min-w-0">
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden shrink-0 border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800 relative">
+                <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
+                  <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-xl overflow-hidden shrink-0 border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800 relative">
                     <img 
                       src={post.image} 
                       alt={post.title}
@@ -568,7 +568,7 @@ export const AdminBlogManager: React.FC<AdminBlogManagerProps> = ({
                   </div>
 
                   <div className="space-y-1.5 flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                       <span className="text-[10px] font-mono uppercase tracking-wider font-bold text-amber-600 dark:text-amber-400">
                         {post.company || 'CONNECTUP'}
                       </span>
@@ -587,15 +587,15 @@ export const AdminBlogManager: React.FC<AdminBlogManagerProps> = ({
                       </span>
                     </div>
 
-                    <h3 className="text-sm font-bold text-zinc-950 dark:text-white truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                    <h3 className="text-sm font-bold text-zinc-950 dark:text-white line-clamp-2 sm:truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
                       {post.title}
                     </h3>
 
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-1">
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2 sm:line-clamp-1">
                       {post.excerpt}
                     </p>
 
-                    <div className="flex flex-wrap items-center gap-3 text-[11px] text-zinc-400 font-mono pt-0.5">
+                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-zinc-400 font-mono pt-0.5">
                       <span className="flex items-center gap-1 text-zinc-600 dark:text-zinc-300 font-semibold">
                         <User size={11} /> {post.author}
                       </span>
@@ -616,7 +616,7 @@ export const AdminBlogManager: React.FC<AdminBlogManagerProps> = ({
                 </div>
 
                 {/* Right Actions Bar */}
-                <div className="flex items-center gap-1.5 shrink-0 self-end md:self-center border-t md:border-t-0 pt-3 md:pt-0 w-full md:w-auto justify-end">
+                <div className="flex flex-wrap items-center gap-1.5 shrink-0 self-end md:self-center border-t md:border-t-0 border-zinc-100 dark:border-zinc-800 pt-2.5 md:pt-0 w-full md:w-auto justify-end">
                   {/* Feature Toggle */}
                   <button
                     onClick={() => handleToggleFeatured(post)}
@@ -681,24 +681,24 @@ export const AdminBlogManager: React.FC<AdminBlogManagerProps> = ({
       {/* ====================================================================== */}
       <AnimatePresence>
         {isEditorOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto bg-black/60 backdrop-blur-xs">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-6 overflow-y-auto bg-black/60 backdrop-blur-xs">
             <motion.div 
               initial={{ opacity: 0, scale: 0.96 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.96 }}
-              className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden"
+              className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl sm:rounded-3xl w-full max-w-4xl max-h-[92dvh] flex flex-col shadow-2xl overflow-hidden"
             >
               {/* Modal Header */}
-              <div className="px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between shrink-0 bg-zinc-50 dark:bg-zinc-900/50">
-                <div className="flex items-center gap-2.5">
-                  <span className="p-2 bg-amber-400 text-zinc-950 rounded-xl">
+              <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-2 shrink-0 bg-zinc-50 dark:bg-zinc-900/50">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="p-2 bg-amber-400 text-zinc-950 rounded-xl shrink-0">
                     <Edit3 size={16} className="stroke-[2.5]" />
                   </span>
-                  <div>
-                    <h3 className="text-base font-extrabold text-zinc-950 dark:text-white">
+                  <div className="min-w-0">
+                    <h3 className="text-sm sm:text-base font-extrabold text-zinc-950 dark:text-white truncate">
                       {editingId ? 'Edit Blog Article' : 'Compose New Article'}
                     </h3>
-                    <p className="text-[11px] text-zinc-500 font-mono">
+                    <p className="text-[11px] text-zinc-500 font-mono truncate">
                       {editingId ? `Editing Post ID: ${editingId}` : 'Admin authoring for public ConnectUp Blog'}
                     </p>
                   </div>
@@ -706,14 +706,14 @@ export const AdminBlogManager: React.FC<AdminBlogManagerProps> = ({
 
                 <button
                   onClick={() => setIsEditorOpen(false)}
-                  className="p-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                  className="p-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors cursor-pointer shrink-0"
                 >
                   <X size={18} />
                 </button>
               </div>
 
               {/* Modal Body / Scrollable Form */}
-              <form onSubmit={handleSavePost} className="flex-1 overflow-y-auto p-6 space-y-5">
+              <form onSubmit={handleSavePost} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-5">
                 {/* Title */}
                 <div>
                   <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1.5">
@@ -895,11 +895,11 @@ export const AdminBlogManager: React.FC<AdminBlogManagerProps> = ({
 
                 {/* Article Content / HTML / Markdown Editor */}
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
                     <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300">
-                      Article Body (Supports HTML & Paragraphs)
+                      Article Body (Supports HTML &amp; Paragraphs)
                     </label>
-                    <div className="flex items-center gap-1">
+                    <div className="flex flex-wrap items-center gap-1">
                       <button
                         type="button"
                         onClick={() => setFormContent(prev => prev + '\n<h2>Section Heading</h2>')}
@@ -928,13 +928,13 @@ export const AdminBlogManager: React.FC<AdminBlogManagerProps> = ({
                     required
                     value={formContent}
                     onChange={(e) => setFormContent(e.target.value)}
-                    className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-mono text-zinc-900 dark:text-white focus:outline-none focus:border-amber-400"
+                    className="w-full px-3.5 sm:px-4 py-3 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-mono text-zinc-900 dark:text-white focus:outline-none focus:border-amber-400"
                   />
                 </div>
 
                 {/* Toggles: Featured & Published */}
-                <div className="p-4 bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-800 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-6">
+                <div className="p-3.5 sm:p-4 bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-800 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
                     {/* Published Switch */}
                     <label className="flex items-center gap-2.5 cursor-pointer">
                       <input
@@ -1090,14 +1090,14 @@ export const AdminBlogManager: React.FC<AdminBlogManagerProps> = ({
       {/* ====================================================================== */}
       <AnimatePresence>
         {previewPost && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto bg-black/60 backdrop-blur-xs">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-6 overflow-y-auto bg-black/60 backdrop-blur-xs">
             <motion.div
               initial={{ opacity: 0, scale: 0.96 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.96 }}
-              className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden"
+              className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl sm:rounded-3xl w-full max-w-3xl max-h-[92dvh] flex flex-col shadow-2xl overflow-hidden"
             >
-              <div className="px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between shrink-0">
+              <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-mono uppercase tracking-wider font-bold text-amber-600">
                     Reader Preview
@@ -1115,13 +1115,13 @@ export const AdminBlogManager: React.FC<AdminBlogManagerProps> = ({
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6">
-                <div className="w-full h-64 sm:h-80 rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-zinc-100">
+              <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-5 sm:space-y-6">
+                <div className="w-full h-48 sm:h-80 rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-zinc-100">
                   <img src={previewPost.image} alt={previewPost.title} className="w-full h-full object-cover" />
                 </div>
 
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-400/20 text-amber-800 dark:text-amber-300">
                       {previewPost.badge || previewPost.category}
                     </span>
@@ -1130,7 +1130,7 @@ export const AdminBlogManager: React.FC<AdminBlogManagerProps> = ({
                     <span className="text-xs text-zinc-400 font-mono">{previewPost.readTime}</span>
                   </div>
 
-                  <h1 className="text-2xl font-black text-zinc-950 dark:text-white leading-tight">
+                  <h1 className="text-xl sm:text-2xl font-black text-zinc-950 dark:text-white leading-tight">
                     {previewPost.title}
                   </h1>
 

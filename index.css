@@ -389,12 +389,34 @@ body:not(.auth-screen) textarea:not(.auth-input)::placeholder {
   opacity: 1;
 }
 
-/* Explicit exemption for dedicated auth screens */
+/* Explicit exemption for dedicated auth screens - strictly light mode */
+.auth-screen,
+.auth-screen * {
+  color-scheme: light !important;
+}
+
 .auth-screen input,
 .auth-screen textarea,
 .auth-screen select,
-.auth-input {
-  color: inherit;
+.auth-input,
+.dark .auth-screen input,
+.dark .auth-screen textarea,
+.dark .auth-screen select,
+.dark .auth-input {
+  color: #09090b !important;
+  background-color: #f9f9fb !important;
+  border-color: #d4d4d8 !important;
+  caret-color: #09090b !important;
+}
+
+.auth-screen input::placeholder,
+.auth-screen textarea::placeholder,
+.auth-input::placeholder,
+.dark .auth-screen input::placeholder,
+.dark .auth-screen textarea::placeholder,
+.dark .auth-input::placeholder {
+  color: #71717a !important;
+  opacity: 1 !important;
 }
 
 /* Focus Mode Targeted Element Styling (Settings / Dashboard Inputs) */

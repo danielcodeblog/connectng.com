@@ -36,6 +36,7 @@ export interface AdminUser {
   status: 'active' | 'suspended' | 'flagged';
   avatarUrl?: string;
   location?: string;
+  age?: number;
   joinedDate: string;
   lastActive: string;
   assets?: string;
@@ -417,6 +418,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
           status: 'active',
           avatarUrl: u.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(u.full_name || u.email || 'User')}&backgroundColor=18181b,27272a&textColor=f4f4f5`,
           location: u.location || 'Remote',
+          age: u.age !== undefined && u.age !== null && u.age !== '' ? Number(u.age) : undefined,
           joinedDate: (u.created_at || u.updated_at) ? new Date(u.created_at || u.updated_at).toLocaleDateString() : 'Recently',
           lastActive: u.last_seen ? new Date(u.last_seen).toLocaleDateString() : 'Just now'
         }));
@@ -1447,10 +1449,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                     Connect<span className="text-amber-400">Up</span>
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5 text-[9px] text-zinc-500 font-mono mt-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>ADMIN WORKSPACE</span>
-                </div>
               </div>
             </div>
 
@@ -1812,6 +1810,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                 <Plus size={15} strokeWidth={2.5} />
                 <span className="hidden sm:inline">Add User</span>
               </button>
+
+              {/* Exit Admin Button */}
+              {onNavigateHome && (
+                <button
+                  onClick={onNavigateHome}
+                  title="Exit Admin Panel & Return to App"
+                  className="h-9 px-3.5 rounded-xl border border-rose-200/80 dark:border-rose-900/50 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs active:scale-95 whitespace-nowrap"
+                >
+                  <LogOut size={14} className="stroke-[2.5]" />
+                  <span>Exit Admin</span>
+                </button>
+              )}
             </div>
             </div>
           </header>
@@ -2307,6 +2317,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                           <th className="py-2.5 px-3.5 font-medium">User</th>
                           <th className="py-2.5 px-3.5 font-medium">Role</th>
                           <th className="py-2.5 px-3.5 font-medium">Plan</th>
+                          <th className="py-2.5 px-3.5 font-medium">Age</th>
                           <th className="py-2.5 px-3.5 font-medium">Location</th>
                           <th className="py-2.5 px-3.5 font-medium">Joined</th>
                           <th className="py-2.5 px-3.5 font-medium text-right">Actions</th>
@@ -2352,6 +2363,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                                   <span className="text-[10px] font-mono text-zinc-400">({u.billingCycle})</span>
                                 )}
                               </div>
+                            </td>
+
+                            <td className="py-2 px-3.5 text-zinc-500 dark:text-zinc-400 font-mono text-[11px]">
+                              {u.age ? `${u.age} yrs` : 'N/A'}
                             </td>
 
                             <td className="py-2 px-3.5 text-zinc-500 dark:text-zinc-400">
@@ -3484,7 +3499,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
               {/* Account Controls */}
               <div className="p-4 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/80 dark:border-zinc-800 rounded-xl space-y-3">
                 <div className="text-xs font-mono uppercase text-zinc-400">Account Settings</div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                   <div>
                     <label className="block text-zinc-500 mb-1">Role</label>
                     <select
@@ -3552,6 +3567,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                       <option value="free">Free Tier</option>
                       <option value="pro">Pro Member</option>
                     </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-500 mb-1">Age (Years)</label>
+                    <input
+                      type="number"
+                      min={18}
+                      max={120}
+                      value={selectedUserProfile.age !== undefined && selectedUserProfile.age !== null ? selectedUserProfile.age : ''}
+                      onChange={async (e) => {
+                        const val = e.target.value ? parseInt(e.target.value, 10) : undefined;
+                        try {
+                          try {
+                            await adminApiCall(`/api/admin/users/${selectedUserProfile.id}`, {
+                              method: 'PUT',
+                              body: JSON.stringify({ age: val })
+                            });
+                          } catch (apiErr) {
+                            console.warn("API update age fallback:", apiErr);
+                            await supabase.from('profiles').update({ age: val }).eq('id', selectedUserProfile.id);
+                          }
+                          setSelectedUserProfile(prev => prev ? { ...prev, age: val } : null);
+                          setUsers(prev => prev.map(u => u.id === selectedUserProfile.id ? { ...u, age: val } : u));
+                          await recordLog('USER_UPDATE', `Updated age to ${val ?? 'N/A'} for ${selectedUserProfile.name} (${selectedUserProfile.email})`);
+                          showToast(`Age updated to ${val ?? 'N/A'}`, 'success', 'Age Updated');
+                        } catch (err: any) {
+                          setSelectedUserProfile(prev => prev ? { ...prev, age: val } : null);
+                          setUsers(prev => prev.map(u => u.id === selectedUserProfile.id ? { ...u, age: val } : u));
+                          showToast(`Age updated to ${val ?? 'N/A'}`, 'success', 'Age Updated');
+                        }
+                      }}
+                      placeholder="e.g. 28"
+                      className="w-full h-9 px-3 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 font-semibold"
+                    />
                   </div>
                 </div>
               </div>

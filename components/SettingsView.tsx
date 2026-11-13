@@ -5,7 +5,7 @@ import {
   ArrowRight, Globe, MapPin, BadgeCheck, Trash2, LogOut,
   AlertCircle, Briefcase, KeyRound, Sparkles, UserMinus, Mail,
   PauseCircle, PlayCircle, AlertTriangle, RefreshCw, X, ShieldAlert, CheckCircle2,
-  MessageCircle, Sun, Moon
+  MessageCircle, Sun, Moon, CalendarDays
 } from 'lucide-react';
 import { ContactPage } from './ContactPage';
 import { motion, AnimatePresence } from 'motion/react';
@@ -883,6 +883,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   value={localProfile.location || ''} 
                   onChange={(e) => setLocalProfile({...localProfile, location: e.target.value})}
                   placeholder="e.g. San Francisco, CA"
+                  className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl text-sm font-semibold text-zinc-900 dark:text-white focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 outline-none transition-all" 
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <CalendarDays size={13} className="text-amber-500" />
+                  Age
+                </label>
+                <input 
+                  type="number" 
+                  min={18}
+                  max={120}
+                  value={localProfile.age !== undefined && localProfile.age !== null ? localProfile.age : ''} 
+                  onChange={(e) => setLocalProfile({...localProfile, age: e.target.value ? parseInt(e.target.value, 10) : ''})}
+                  placeholder="e.g. 28"
                   className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl text-sm font-semibold text-zinc-900 dark:text-white focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 outline-none transition-all" 
                 />
               </div>

@@ -1045,7 +1045,8 @@ const App = () => {
         title: profileToSave.title,
         avatarUrl: profileToSave.avatarUrl,
         location: profileToSave.location,
-        email: profileToSave.email
+        email: profileToSave.email,
+        age: profileToSave.age !== undefined && profileToSave.age !== null && profileToSave.age !== '' ? Number(profileToSave.age) : null
       });
       if (updatedProfile) {
         setUserProfile(updatedProfile);

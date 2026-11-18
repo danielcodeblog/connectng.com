@@ -298,14 +298,11 @@ export const CommunityTownHall: React.FC<CommunityTownHallProps> = ({ userProfil
           </div>
           <div className="space-y-1.5 max-w-lg mx-auto">
             <h3 className="font-serif font-bold text-xl text-white">
-              Town Hall Stage Staging in Progress
+              No Live Town Hall Right Now
             </h3>
-            <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
-              No live town hall sessions are currently active. Scheduled broadcasts, keynote teardowns, and AMA salons are managed and published exclusively by administrators.
-            </p>
           </div>
           <p className="text-[11px] font-mono text-zinc-500">
-            Submit or upvote questions below for upcoming broadcast agendas.
+            Submit or vote on questions below for the next session.
           </p>
         </div>
       )}

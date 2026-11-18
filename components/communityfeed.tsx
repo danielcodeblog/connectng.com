@@ -1339,17 +1339,8 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({
           isPledged={isPledged}
         />
 
-        {/* Venture Connections Interactive Puzzles */}
-        <div className={`p-1 rounded-2xl ${currentTheme.bgSurfaceClass} shadow-xs transition-colors duration-300`}>
-          <div className="px-4 py-3 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
-            <span className="text-xs font-bold text-zinc-900 dark:text-white flex items-center gap-1.5">
-              <Target className="w-3.5 h-3.5 text-amber-500" />
-              <span>Founder Mind Gym</span>
-            </span>
-            <span className="text-[10px] font-mono text-zinc-400">Daily Puzzles</span>
-          </div>
-          <VentureConnections />
-        </div>
+        {/* Founder Mind Gym Interactive Puzzles */}
+        <VentureConnections theme={currentTheme} />
 
       </div>
 

@@ -1772,7 +1772,15 @@ async function startServer() {
       if (!apiKey) {
         return res.status(503).json({ error: 'AI service is not configured on the server.' });
       }
-      const ai = new GoogleGenAI({ apiKey });
+      const ai = new GoogleGenAI({
+        apiKey,
+        apiVersion: 'v1beta',
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          },
+        },
+      });
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: trimmedPitch,
@@ -1801,7 +1809,15 @@ async function startServer() {
       if (!apiKey) {
         return res.status(503).json({ error: 'AI service is not configured on the server.' });
       }
-      const ai = new GoogleGenAI({ apiKey });
+      const ai = new GoogleGenAI({
+        apiKey,
+        apiVersion: 'v1beta',
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          },
+        },
+      });
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: trimmedQuery,
@@ -1828,6 +1844,79 @@ async function startServer() {
     } catch (error: any) {
       console.error('Gemini market research error:', error);
       return res.status(500).json({ error: safeErrorMessage(error, 'Error performing research.') });
+    }
+  });
+
+  app.post('/api/gemini/tts', requireAuth, geminiLimiter, async (req, res) => {
+    try {
+      const { text, voiceName } = req.body || {};
+      if (!text || typeof text !== 'string' || !text.trim()) {
+        return res.status(400).json({ error: 'text is required' });
+      }
+      const trimmedText = text.trim();
+      if (trimmedText.length > 4000) {
+        return res.status(400).json({ error: 'text exceeds maximum length of 4,000 characters' });
+      }
+
+      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+      if (!apiKey) {
+        return res.status(503).json({ error: 'AI voice service is not configured on the server.' });
+      }
+
+      const allowedVoices = new Set(['Puck', 'Charon', 'Kore', 'Fenrir', 'Zephyr']);
+      const selectedVoice = typeof voiceName === 'string' && allowedVoices.has(voiceName)
+        ? voiceName
+        : 'Kore';
+
+      const ai = new GoogleGenAI({
+        apiKey,
+        apiVersion: 'v1beta',
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          },
+        },
+      });
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.8-flash-lite-tts',
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                text: trimmedText,
+                speechMetadata: {
+                  style: 'Warm, natural, confident startup founder speaking conversationally with smooth, realistic human inflection and clear pacing',
+                },
+              } as any,
+            ],
+          },
+        ],
+        config: {
+          responseModalities: ['AUDIO'],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: selectedVoice },
+            },
+          },
+        },
+      });
+
+      const audioPart = response.candidates?.[0]?.content?.parts?.find(
+        (p: any) => p?.inlineData?.data
+      );
+      const base64Audio = audioPart?.inlineData?.data;
+      const mimeType = audioPart?.inlineData?.mimeType || 'audio/wav';
+
+      if (!base64Audio) {
+        return res.status(502).json({ error: 'Voice synthesis returned empty audio.' });
+      }
+
+      return res.json({ audioBase64: base64Audio, mimeType });
+    } catch (error: any) {
+      console.error('Gemini TTS error:', error);
+      return res.status(500).json({ error: safeErrorMessage(error, 'Error synthesizing natural voice.') });
     }
   });
 

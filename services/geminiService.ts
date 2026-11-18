@@ -53,3 +53,29 @@ export const performMarketResearch = async (query: string): Promise<{ text: stri
     return { text: "Error performing research. Make sure you are signed in and GEMINI_API_KEY is configured on the server.", sources: [] };
   }
 };
+
+export const synthesizePitchSpeech = async (
+  text: string,
+  voiceName: 'Kore' | 'Zephyr' | 'Puck' | 'Charon' | 'Fenrir' = 'Kore'
+): Promise<{ audioBase64: string; mimeType: string }> => {
+  const headers = await getAuthHeaders();
+  const response = await fetch('/api/gemini/tts', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ text, voiceName }),
+  });
+
+  if (!response.ok) {
+    const errData = await response.json().catch(() => ({}));
+    throw new Error(errData.error || `Voice synthesis failed (${response.status})`);
+  }
+
+  const data = await response.json();
+  if (!data?.audioBase64) {
+    throw new Error('Empty audio payload returned from server');
+  }
+  return {
+    audioBase64: data.audioBase64,
+    mimeType: data.mimeType || 'audio/wav',
+  };
+};

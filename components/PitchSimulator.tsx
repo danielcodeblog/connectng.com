@@ -222,9 +222,9 @@ export const PitchSimulator: React.FC = () => {
     return score;
   };
 
-  const [pitchScript, setPitchScript] = useState<PitchScript>(() => {
+  const getSavedScriptForLang = (langCode: string): PitchScript | null => {
     try {
-      const saved = localStorage.getItem('connectup_pitch_script_v5');
+      const saved = localStorage.getItem(`connectup_pitch_script_v6_${langCode}`);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed.hook === 'string' && typeof parsed.solution === 'string' && typeof parsed.ask === 'string') {
@@ -234,7 +234,11 @@ export const PitchSimulator: React.FC = () => {
     } catch (e) {
       console.error("Failed to load pitch script:", e);
     }
-    return LANGUAGES[0].script;
+    return null;
+  };
+
+  const [pitchScript, setPitchScript] = useState<PitchScript>(() => {
+    return getSavedScriptForLang('en') || LANGUAGES[0].script;
   });
 
   const [hookText, setHookText] = useState(pitchScript.hook);
@@ -283,13 +287,11 @@ export const PitchSimulator: React.FC = () => {
     setSelectedLangCode(code);
     const targetLang = LANGUAGES.find(l => l.code === code);
     if (targetLang) {
-      setPitchScript(targetLang.script);
-      setHookText(targetLang.script.hook);
-      setSolutionText(targetLang.script.solution);
-      setAskText(targetLang.script.ask);
-      try {
-        localStorage.setItem('connectup_pitch_script_v5', JSON.stringify(targetLang.script));
-      } catch {}
+      const nextScript = getSavedScriptForLang(code) || targetLang.script;
+      setPitchScript(nextScript);
+      setHookText(nextScript.hook);
+      setSolutionText(nextScript.solution);
+      setAskText(nextScript.ask);
 
       // Automatically select highest-ranked natural voice for this language
       const sortedForLang = [...availableVoices].sort(
@@ -552,7 +554,7 @@ export const PitchSimulator: React.FC = () => {
       };
       setPitchScript(updatedScript);
       try {
-        localStorage.setItem('connectup_pitch_script_v5', JSON.stringify(updatedScript));
+        localStorage.setItem(`connectup_pitch_script_v6_${selectedLangCode}`, JSON.stringify(updatedScript));
       } catch (e) {
         console.error("Failed to save to localStorage", e);
       }
@@ -568,6 +570,7 @@ export const PitchSimulator: React.FC = () => {
     setSolutionText(defaultLang.script.solution);
     setAskText(defaultLang.script.ask);
     try {
+      localStorage.removeItem('connectup_pitch_script_v6_en');
       localStorage.removeItem('connectup_pitch_script_v5');
     } catch {}
   };

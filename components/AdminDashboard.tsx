@@ -635,6 +635,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
             formattedDate = s.createdAt;
           }
 
+          const rawCurrency = (s.currency || 'USD').toUpperCase();
+          const rawAmount = Number(s.amount) || 0;
+          const usdAmount = rawCurrency === 'NGN' && rawAmount >= 1000
+            ? Math.round((rawAmount / 1400) * 100) / 100
+            : rawAmount;
+
           return {
             id: s.id || `tx_${Math.random().toString(36).substring(2, 7)}`,
             reference: s.reference || s.id,
@@ -644,8 +650,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
             userAvatar,
             plan: 'pro',
             billingCycle: billingCycle as any,
-            amount: Number(s.amount) || 0,
-            currency: (s.currency || 'USD').toUpperCase(),
+            amount: usdAmount,
+            currency: 'USD',
             provider: s.provider || 'Paystack',
             status: (s.status || 'completed') as any,
             createdAt: formattedDate
@@ -661,12 +667,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
     }
   };
 
-  const formatCurrency = (amount: number | string, currency: string = 'USD') => {
+  const formatCurrency = (amount: number | string, _currency: string = 'USD') => {
     const num = Number(amount) || 0;
-    const curr = (currency || 'USD').toUpperCase();
-    if (curr === 'NGN') {
-      return `₦${num.toLocaleString(undefined, { minimumFractionDigits: num % 1 !== 0 ? 2 : 0 })}`;
-    }
     return `$${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
@@ -1138,17 +1140,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
   const subMetrics = useMemo(() => {
     let mrr = 0;
     let totalRevenue = 0;
-    let primaryCurrency = 'USD';
-    let currencyCounts: Record<string, number> = {};
+    const primaryCurrency = 'USD';
 
     subscriptions.forEach(s => {
       const status = (s.status || 'completed').toLowerCase();
       if (status !== 'refunded' && status !== 'cancelled' && status !== 'failed') {
         const amt = Number(s.amount) || 0;
         totalRevenue += amt;
-        if (s.currency) {
-          currencyCounts[s.currency] = (currencyCounts[s.currency] || 0) + 1;
-        }
         if (s.billingCycle === 'monthly') {
           mrr += amt;
         } else if (s.billingCycle === 'yearly') {
@@ -1156,10 +1154,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
         }
       }
     });
-
-    if (currencyCounts['NGN'] && currencyCounts['NGN'] > (currencyCounts['USD'] || 0)) {
-      primaryCurrency = 'NGN';
-    }
 
     return {
       mrr: Math.round(mrr * 100) / 100,

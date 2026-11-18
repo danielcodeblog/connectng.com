@@ -109,9 +109,34 @@ const blogs: any[] = [
   }
 ];
 
+import { StorageService } from '../services/storageService';
+
 export const BlogSection: React.FC = () => {
-  const [selectedBlog, setSelectedBlog] = useState<typeof blogs[0] | null>(null);
+  const [blogList, setBlogList] = useState<any[]>(blogs);
+  const [selectedBlog, setSelectedBlog] = useState<any | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const fetchDbBlogs = async () => {
+    try {
+      const data = await StorageService.getBlogPosts();
+      if (data && data.length > 0) {
+        setBlogList(data);
+      }
+    } catch (e) {
+      console.warn("Failed to load blogs in BlogSection:", e);
+    }
+  };
+
+  useEffect(() => {
+    fetchDbBlogs();
+    const handleUpdate = () => {
+      fetchDbBlogs();
+    };
+    window.addEventListener('connectup_blogs_updated', handleUpdate);
+    return () => {
+      window.removeEventListener('connectup_blogs_updated', handleUpdate);
+    };
+  }, []);
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
@@ -212,7 +237,7 @@ export const BlogSection: React.FC = () => {
               className="flex gap-5 sm:gap-6 overflow-x-auto scrollbar-none scroll-smooth py-2 snap-x snap-mandatory"
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
-              {blogs.map((blog) => (
+              {blogList.map((blog) => (
                 <div
                   key={blog.id}
                   className="group cursor-pointer relative w-[310px] sm:w-[370px] md:w-[410px] h-[480px] sm:h-[530px] shrink-0 snap-start rounded-none overflow-hidden shadow-md hover:shadow-2xl transition-all duration-500 bg-zinc-950 border border-zinc-200"

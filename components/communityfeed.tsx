@@ -724,18 +724,18 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({
               </button>
 
               <button
-                onClick={() => setCommunityMode('exchange')}
+                onClick={() => setCommunityMode('townhall')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
-                  communityMode === 'exchange'
+                  communityMode === 'townhall'
                     ? 'text-white shadow-xs font-bold'
                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white'
                 }`}
-                style={communityMode === 'exchange' ? {
+                style={communityMode === 'townhall' ? {
                   background: `linear-gradient(135deg, ${currentTheme.primaryHex}, ${currentTheme.secondaryHex})`
                 } : undefined}
               >
-                <HeartHandshake className="w-3.5 h-3.5" />
-                <span>The Exchange</span>
+                <Radio className="w-3.5 h-3.5" />
+                <span>Town Hall Boards</span>
               </button>
 
               <button

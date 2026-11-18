@@ -1107,8 +1107,8 @@ async function startServer() {
               const fallbackTx = {
                 id: `tx_${p.id.substring(0, 8)}`,
                 user_id: p.id,
-                amount: isYearly ? 60 : 5,
-                currency: 'NGN',
+                amount: isYearly ? 29 : 5,
+                currency: 'USD',
                 tier: 'pro',
                 billing_cycle: p.billing_cycle || 'yearly',
                 provider: 'Paystack',

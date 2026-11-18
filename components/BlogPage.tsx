@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { LandingNavbar } from './LandingNavbar';
 import FooterSection5 from './ui/footer-section-5';
+import { StorageService } from '../services/storageService';
 
 import blogHeroFounders from '@/src/assets/images/blog_hero_founders_1794780560973.jpg';
 import blogSeedFundraising from '@/src/assets/images/blog_seed_fundraising_1794780560365.jpg';
@@ -281,6 +282,7 @@ export const BlogPage: React.FC<BlogPageProps> = ({
   onNavigateToSection,
   onLegalView,
 }) => {
+  const [posts, setPosts] = useState<BlogPost[]>(BLOG_POSTS);
   const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -289,6 +291,28 @@ export const BlogPage: React.FC<BlogPageProps> = ({
   const [isScrolled, setIsScrolled] = useState(false);
 
   const feedSectionRef = useRef<HTMLElement>(null);
+
+  const fetchDbPosts = async () => {
+    try {
+      const data = await StorageService.getBlogPosts();
+      if (data && data.length > 0) {
+        setPosts(data);
+      }
+    } catch (e) {
+      console.warn("Failed to load blog posts in BlogPage:", e);
+    }
+  };
+
+  useEffect(() => {
+    fetchDbPosts();
+    const handleUpdate = () => {
+      fetchDbPosts();
+    };
+    window.addEventListener('connectup_blogs_updated', handleUpdate);
+    return () => {
+      window.removeEventListener('connectup_blogs_updated', handleUpdate);
+    };
+  }, []);
 
   const handleNav = (page: any) => {
     if (page === 'blog') {
@@ -343,9 +367,7 @@ export const BlogPage: React.FC<BlogPageProps> = ({
     feedSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  const categories = ['All', 'Fundraising', 'Pitching', 'Matching', 'Founder Stories', 'Investor Insights'];
-
-  const filteredPosts = BLOG_POSTS.filter((post) => {
+  const filteredPosts = posts.filter((post) => {
     const matchesCategory = selectedCategory === 'All' || post.category === selectedCategory;
     const q = searchQuery.trim().toLowerCase();
     const matchesSearch =
@@ -623,32 +645,11 @@ export const BlogPage: React.FC<BlogPageProps> = ({
 
                   <div className="flex flex-col sm:items-end gap-2 max-w-xs">
                     <BookOpen className="w-5 h-5 text-zinc-700" aria-hidden="true" />
-                    <p className="text-xs text-zinc-500 sm:text-right leading-relaxed">
-                      Showing {filteredPosts.length} of {BLOG_POSTS.length} articles for founders and investors.
-                    </p>
                   </div>
                 </div>
 
-                {/* Clean Segmented Filter Row */}
-                <div className="flex flex-wrap items-center justify-between gap-4 mb-10">
-                  <div className="flex flex-wrap items-center gap-1 p-1 bg-zinc-100 rounded-xl">
-                    {categories.map((cat) => (
-                      <button
-                        key={cat}
-                        type="button"
-                        onClick={() => setSelectedCategory(cat)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
-                          selectedCategory === cat
-                            ? 'bg-white text-zinc-950 shadow-xs font-semibold'
-                            : 'text-zinc-600 hover:text-zinc-950'
-                        }`}
-                      >
-                        {cat}
-                      </button>
-                    ))}
-                  </div>
-
-                  {(searchQuery || selectedCategory !== 'All') && (
+                {(searchQuery || selectedCategory !== 'All') && (
+                  <div className="flex flex-wrap items-center justify-end gap-4 mb-10">
                     <button
                       type="button"
                       onClick={() => {
@@ -659,8 +660,8 @@ export const BlogPage: React.FC<BlogPageProps> = ({
                     >
                       Clear filters
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {filteredPosts.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-12">

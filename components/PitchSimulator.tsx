@@ -154,7 +154,9 @@ export const PitchSimulator: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
   
-  // Voice states
+  // Voice & speed states (defaults to 1x)
+  const SPEED_OPTIONS = [1, 1.25, 1.5, 0.75] as const;
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [isVoicing, setIsVoicing] = useState(false);
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoiceURI, setSelectedVoiceURI] = useState<string>('');
@@ -266,11 +268,12 @@ export const PitchSimulator: React.FC = () => {
     if (isPlaying) {
       interval = setInterval(() => {
         setCurrentTime((prev) => {
-          if (prev >= 30) {
+          const next = Number((prev + 0.1 * playbackSpeed).toFixed(2));
+          if (next >= 30) {
             handleCompleteSession();
             return 30;
           }
-          return Number((prev + 0.1).toFixed(1));
+          return next;
         });
       }, 100);
     } else {
@@ -279,7 +282,7 @@ export const PitchSimulator: React.FC = () => {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isPlaying]);
+  }, [isPlaying, playbackSpeed]);
 
   const handleCompleteSession = () => {
     setIsPlaying(false);
@@ -339,7 +342,7 @@ export const PitchSimulator: React.FC = () => {
     if (activeVoice) {
       utterance.voice = activeVoice;
     }
-    utterance.rate = 1.05;
+    utterance.rate = playbackSpeed;
     utterance.pitch = 1.0;
 
     utterance.onstart = () => setIsVoicing(true);
@@ -417,9 +420,6 @@ export const PitchSimulator: React.FC = () => {
               <h3 className="text-base sm:text-lg font-bold text-zinc-950 dark:text-white leading-tight">
                 Pitch Studio
               </h3>
-              <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider bg-amber-400/20 text-amber-700 dark:text-amber-300 border border-amber-400/30">
-                Neural Multilingual
-              </span>
             </div>
             <p className="text-[11px] text-zinc-400 mt-0.5">
               Translate your pitch and voice it aloud with high-level neural personas
@@ -442,6 +442,21 @@ export const PitchSimulator: React.FC = () => {
               </option>
             ))}
           </select>
+
+          {/* Playback Speed Toggle (defaults to 1x) */}
+          <button
+            type="button"
+            onClick={() => {
+              const idx = SPEED_OPTIONS.indexOf(playbackSpeed as any);
+              const nextSpeed = SPEED_OPTIONS[(idx + 1) % SPEED_OPTIONS.length];
+              setPlaybackSpeed(nextSpeed);
+            }}
+            disabled={isVoicing}
+            className="h-8 px-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-xl text-xs font-mono font-bold text-zinc-800 dark:text-zinc-200 transition-all cursor-pointer disabled:opacity-50 shadow-2xs"
+            title="Playback & voice speed (1x normal)"
+          >
+            {playbackSpeed}x
+          </button>
 
           {/* Voice Read-Aloud Button */}
           <button

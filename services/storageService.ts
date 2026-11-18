@@ -1665,22 +1665,6 @@ export const StorageService = {
 
   getCommunityPosts: async (page: number = 0, limit: number = 10, sortBy: 'recent' | 'liked' = 'recent', tag?: string | null): Promise<CommunityPost[]> => {
       await StorageService.init();
-      if (_isMock) {
-          let list = [...MOCK_COMMUNITY_POSTS];
-          
-          if (tag) {
-              list = list.filter(p => p.tags?.some(t => t.toLowerCase() === tag.toLowerCase()));
-          }
-          
-          if (sortBy === 'liked') {
-              list.sort((a, b) => (b.likes || 0) - (a.likes || 0));
-          } else {
-              // Mock order for 'recent' is just the array order as we prepend
-          }
-          
-          const start = page * limit;
-          return list.slice(start, start + limit);
-      }
       try {
           const user = await getAuthenticatedUser();
           
@@ -1715,7 +1699,6 @@ export const StorageService = {
           if (quotedPostIds.length > 0) {
               const { data: qpData } = await supabase.from('community_posts').select('*').in('id', quotedPostIds);
               if (qpData) {
-                  // We also need authors for these quoted posts
                   const qpAuthorIds = qpData.map((qp: any) => qp.author_id || qp.user_id || qp.profile_id);
                   const { data: qpProfiles } = await supabase.from('profiles').select('*').in('id', qpAuthorIds);
                   const qpProfileMap = new Map(qpProfiles?.map((p: any) => [p.id, p]) || []);
@@ -1750,10 +1733,8 @@ export const StorageService = {
           const allProfileIds = [...new Set([...authorIds, ...commentAuthorIds])];
           
           const { data: profiles } = await supabase.from('profiles').select('*').in('id', allProfileIds);
-          console.log('Profiles fetched:', profiles);
           const profileMap = new Map<string, any>(profiles?.map((p: any) => [p.id, p]) || []);
           
-          // Fetch current user's likes and follows if logged in
           let userLikes = new Set<string>();
           let userFollows = new Set<string>();
           
@@ -1809,9 +1790,7 @@ export const StorageService = {
               };
           });
       } catch (e: any) { 
-          if (e.message && (e.message.toLowerCase().includes('fetch') || e.message.toLowerCase().includes('network'))) {
-              _isMock = true;
-          }
+          console.error("Error fetching community posts from database:", e);
           return [];
       }
   },

@@ -6,9 +6,9 @@ const companyName = "ConnectUp";
 
 const ConnectUpLogo = ({ className }: { className?: string }) => {
   return (
-    <div className={`flex items-center gap-2 cursor-pointer p-0 select-none ${className}`}>
-      <ConnectUpIcon className="w-8 h-8" />
-      <span className="font-[800] text-2xl tracking-tighter">
+    <div className={`flex items-center gap-1 cursor-pointer p-0 select-none ${className}`}>
+      <ConnectUpIcon className="w-8 h-8 -ml-1" />
+      <span className="font-[800] text-2xl tracking-tighter -ml-0.5 leading-none">
         <span className="text-white">connect</span>
         <span className="text-zinc-950">up</span>
       </span>
@@ -107,20 +107,20 @@ export default function FooterSection5({ onNavigate, onLegalView }: FooterSectio
         <div className="absolute bottom-12 right-1/4 translate-x-1/2 w-[300px] h-[300px] rounded-full bg-[#CFB53B]/30 blur-[80px] pointer-events-none z-0" />
 
         {/* Content */}
-        <div className="relative z-10 max-w-7xl mx-auto px-6 md:px-12 lg:px-24 py-16 md:py-20 flex flex-col justify-between gap-16">
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20 flex flex-col justify-between gap-16">
           <div className="flex flex-col md:flex-row justify-between gap-16 md:gap-8 items-start">
             {/* Left Side */}
-            <div className="flex flex-col justify-between max-w-[300px] w-full relative z-10">
-              <div className="flex flex-col">
+            <div className="flex flex-col justify-between max-w-[300px] w-full relative z-10 text-left">
+              <div className="flex flex-col items-start">
                 {/* Brand Logo */}
                 <ConnectUpLogo className="mb-4" />
-                <h2 className="text-white/90 text-lg md:text-xl font-light leading-snug max-w-[280px]">
+                <h2 className="text-white/90 text-lg md:text-xl font-light leading-snug max-w-[280px] text-left">
                   Redefining capital formation <br />
                   <span className="font-extrabold text-white">
                     for the next generation.
                   </span>
                 </h2>
-                <p className="text-zinc-900/70 text-sm mt-3 font-medium leading-relaxed max-w-[280px]">
+                <p className="text-zinc-900/70 text-sm mt-3 font-medium leading-relaxed max-w-[280px] text-left">
                   Empowering founders, syndicates, and modern builders with the premium tools to access, organize, and accelerate institutional-grade capital globally.
                 </p>
               </div>

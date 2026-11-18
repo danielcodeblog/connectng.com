@@ -5,12 +5,13 @@ import {
   ArrowRight, Globe, MapPin, BadgeCheck, Trash2, LogOut,
   AlertCircle, Briefcase, KeyRound, Sparkles, UserMinus, Mail,
   PauseCircle, PlayCircle, AlertTriangle, RefreshCw, X, ShieldAlert, CheckCircle2,
-  MessageCircle, Sun, Moon, CalendarDays
+  MessageCircle, Sun, Moon, CalendarDays, ChevronRight, Scale
 } from 'lucide-react';
 import { ContactPage } from './ContactPage';
 import { motion, AnimatePresence } from 'motion/react';
 import { SettingsTabs, SettingsTabItem } from './SettingsTabs';
 import { Card } from './Card';
+import { LEGAL_DOCUMENTS } from './LegalView';
 
 interface SettingsViewProps {
   userProfile: any;
@@ -106,10 +107,51 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   }, [initialTab]);
 
   const contentPanelRef = React.useRef<HTMLDivElement>(null);
+  const [activeLegalSectionId, setActiveLegalSectionId] = useState<string>('');
 
   useEffect(() => {
     contentPanelRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    if (activeTab === 'privacy' || activeTab === 'terms') {
+      setActiveLegalSectionId(LEGAL_DOCUMENTS[activeTab].sections[0]?.id || '');
+    }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== 'privacy' && activeTab !== 'terms') return;
+    const container = contentPanelRef.current;
+    if (!container) return;
+
+    const doc = LEGAL_DOCUMENTS[activeTab];
+    const anchorIds = doc.sections.flatMap((section) => [
+      section.id,
+      ...(section.subsections?.map((sub) => sub.id) || []),
+    ]);
+
+    const handleScroll = () => {
+      const containerTop = container.getBoundingClientRect().top;
+      let currentId = anchorIds[0] || '';
+      for (const id of anchorIds) {
+        const el = document.getElementById(`settings-${id}`);
+        if (!el) continue;
+        if (el.getBoundingClientRect().top - containerTop <= 120) {
+          currentId = id;
+        }
+      }
+      if (currentId) {
+        setActiveLegalSectionId(currentId);
+      }
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [activeTab]);
+
+  const scrollToLegalSection = (id: string) => {
+    const el = document.getElementById(`settings-${id}`);
+    if (!el) return;
+    setActiveLegalSectionId(id);
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   useEffect(() => {
     setLocalProfile(userProfile);
@@ -690,88 +732,232 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         );
       case 'terms':
-        return (
-          <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <header className="space-y-4">
-              <h3 className="text-3xl font-black tracking-tight text-zinc-900 dark:text-white">Terms of Service</h3>
-              <p className="text-zinc-500">Last updated: July 2024</p>
-            </header>
-            <div className="prose dark:prose-invert max-w-none space-y-8">
-              {[
-                { title: "Acceptance", content: "By using connectup, you agree to these terms. Our platform provides a networking environment for capital and innovation." },
-                { title: "Accounts", content: "You are responsible for your account security. Notify us immediately of any unauthorized use." },
-                { title: "Conduct", content: "Any misuse of the platform or data is prohibited. We maintain a professional environment for all members." },
-                { title: "Ownership", content: "Platform code, designs, and data remain the exclusive property of connectup." }
-              ].map((section, i) => (
-                <section key={i} className="space-y-4">
-                  <h4 className="text-xl font-bold flex items-center gap-3 text-zinc-900 dark:text-white">
-                    <span className="text-brand-primary">0{i+1}</span>
-                    {section.title}
-                  </h4>
-                  <p className="text-zinc-600 dark:text-zinc-400 leading-relaxed pl-8 border-l-2 border-zinc-100 dark:border-zinc-800">{section.content}</p>
-                </section>
-              ))}
-            </div>
-          </div>
-        );
-      case 'privacy':
-        return (
-          <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <header className="space-y-4">
-              <h3 className="text-3xl font-black tracking-tight text-zinc-900 dark:text-white">Privacy Policy</h3>
-              <p className="text-zinc-500">Your privacy is our foundational constant.</p>
-            </header>
-            <div className="grid md:grid-cols-2 gap-8">
-              {[
-                { 
-                  title: "Data Collection", 
-                  content: "We only collect data necessary to provide our service, such as your profile information and professional details.", 
-                  icon: Shield,
-                  bgImage: "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&q=80&w=600"
-                },
-                { 
-                  title: "How We Use Data", 
-                  content: "Your data is used to facilitate matches and power platform features. We do not sell your personal information.", 
-                  icon: Lock,
-                  bgImage: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=600"
-                },
-                { 
-                  title: "Your Rights", 
-                  content: "You have full control over your data. You can request access, corrections, or deletion at any time.", 
-                  icon: Eye,
-                  bgImage: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=600"
-                },
-                { 
-                  title: "Security", 
-                  content: "We use secure token-based authentication and TLS encryption to protect your account access.", 
-                  icon: Shield,
-                  bgImage: "https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&q=80&w=600"
-                }
-              ].map((section, i) => (
-                <div key={i} className="group relative p-8 rounded-3xl bg-zinc-50/50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800 space-y-4 overflow-hidden transition-all duration-300 hover:shadow-lg">
-                  {/* Background Image with elegant overlay */}
-                  <div className="absolute inset-0 z-0 pointer-events-none transition-transform duration-700 group-hover:scale-110">
-                    <img 
-                      src={section.bgImage} 
-                      alt="" 
-                      className="w-full h-full object-cover opacity-[0.05] dark:opacity-[0.12] mix-blend-multiply dark:mix-blend-overlay"
-                      loading="lazy"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-50/80 via-transparent to-transparent dark:from-zinc-900/80" />
-                  </div>
+      case 'privacy': {
+        const legalKey = activeTab === 'privacy' ? 'privacy' : 'terms';
+        const doc = LEGAL_DOCUMENTS[legalKey];
+        const isPrivacyDoc = legalKey === 'privacy';
 
-                  <div className="relative z-10 space-y-4">
-                    <div className="w-12 h-12 rounded-2xl bg-white dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 flex items-center justify-center text-zinc-900 dark:text-white shadow-sm">
-                      <section.icon size={24} />
-                    </div>
-                    <h4 className="text-lg font-bold text-zinc-900 dark:text-white">{section.title}</h4>
-                    <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">{section.content}</p>
+        return (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-3 duration-300">
+            {/* Editorial Legal Header & Inline Switcher */}
+            <header className="pb-6 border-b border-zinc-200/80 dark:border-zinc-800 space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1.5">
+                    <span>Settings</span>
+                    <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Legal</span>
+                    <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />
+                    <span className="text-zinc-900 dark:text-zinc-200 font-semibold">{doc.title}</span>
                   </div>
+                  <h3 className="text-2xl sm:text-3xl font-semibold tracking-tight text-zinc-950 dark:text-white">
+                    {doc.title}
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">{doc.lastUpdated}</p>
                 </div>
-              ))}
+
+                <div className="flex items-center gap-1 p-1 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 self-start sm:self-auto shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('privacy')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${
+                      isPrivacyDoc
+                        ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-xs font-semibold'
+                        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white'
+                    }`}
+                  >
+                    Privacy Policy
+                  </button>
+                </div>
+              </div>
+
+              <p className="text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed max-w-3xl">
+                {doc.intro}
+              </p>
+            </header>
+
+            {/* Two-Column Documentation Body + Sticky Outline */}
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+              {/* Left 8 Columns: Structured Legal Sections */}
+              <div className="xl:col-span-8 space-y-9 min-w-0">
+                {doc.sections.map((section) => (
+                  <section
+                    key={section.id}
+                    id={`settings-${section.id}`}
+                    className="scroll-mt-6 space-y-4"
+                  >
+                    <h4 className="text-lg sm:text-xl font-semibold tracking-tight text-zinc-950 dark:text-white">
+                      {section.title}
+                    </h4>
+
+                    {section.paragraphs?.map((p, idx) => (
+                      <p
+                        key={idx}
+                        className="text-sm text-zinc-600 dark:text-zinc-300 leading-[1.75]"
+                      >
+                        {p}
+                      </p>
+                    ))}
+
+                    {section.bullets && (
+                      <ul className="list-disc pl-5 space-y-2 text-sm text-zinc-600 dark:text-zinc-300 leading-[1.7]">
+                        {section.bullets.map((item, idx) => (
+                          <li key={idx}>
+                            <strong className="font-semibold text-zinc-900 dark:text-white">
+                              {item.label}:
+                            </strong>{' '}
+                            {item.text}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {section.subsections && (
+                      <div className="space-y-6 pt-1">
+                        {section.subsections.map((sub) => (
+                          <div
+                            key={sub.id}
+                            id={`settings-${sub.id}`}
+                            className="scroll-mt-6 space-y-3"
+                          >
+                            <h5 className="text-sm sm:text-base font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+                              {sub.title}
+                            </h5>
+
+                            {sub.paragraphs?.map((p, idx) => (
+                              <p
+                                key={idx}
+                                className="text-sm text-zinc-600 dark:text-zinc-300 leading-[1.75]"
+                              >
+                                {p}
+                              </p>
+                            ))}
+
+                            {sub.bullets && (
+                              <ul className="list-disc pl-5 space-y-2 text-sm text-zinc-600 dark:text-zinc-300 leading-[1.7]">
+                                {sub.bullets.map((item, idx) => (
+                                  <li key={idx}>
+                                    <strong className="font-semibold text-zinc-900 dark:text-white">
+                                      {item.label}:
+                                    </strong>{' '}
+                                    {item.text}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                ))}
+
+                {/* Bottom Document Cross-Link */}
+                <div className="pt-6 border-t border-zinc-200 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                      {isPrivacyDoc
+                        ? 'Review platform rules & member conduct'
+                        : 'Review how we safeguard member information'}
+                    </p>
+                    <p className="text-sm font-semibold text-zinc-950 dark:text-white mt-0.5">
+                      {isPrivacyDoc ? 'Read our Terms of Service' : 'Read our Privacy Policy'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab(isPrivacyDoc ? 'terms' : 'privacy')}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#FACC15] hover:bg-amber-400 text-zinc-950 text-xs font-semibold transition-colors cursor-pointer self-start sm:self-auto whitespace-nowrap"
+                  >
+                    <span>{isPrivacyDoc ? 'Terms of Service' : 'Privacy Policy'}</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Right 4 Columns: Sticky On-Page Outline & Quick Trust Controls */}
+              <aside className="hidden xl:block xl:col-span-4 sticky top-0 space-y-6">
+                <nav aria-label="On this page" className="p-5 rounded-2xl bg-zinc-50/80 dark:bg-zinc-950/50 border border-zinc-200/80 dark:border-zinc-800">
+                  <p className="text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3">
+                    On this page
+                  </p>
+                  <ul className="space-y-2 text-xs border-l border-zinc-200 dark:border-zinc-800 pl-3.5">
+                    {doc.sections.map((section) => {
+                      const isSectionActive = activeLegalSectionId === section.id;
+                      return (
+                        <li key={section.id} className="space-y-1.5">
+                          <button
+                            type="button"
+                            onClick={() => scrollToLegalSection(section.id)}
+                            className={`block text-left w-full leading-snug transition-colors cursor-pointer ${
+                              isSectionActive
+                                ? 'text-zinc-950 dark:text-white font-semibold'
+                                : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                            }`}
+                          >
+                            {section.title}
+                          </button>
+
+                          {section.subsections && (
+                            <ul className="space-y-1 pl-3">
+                              {section.subsections.map((sub) => {
+                                const isSubActive = activeLegalSectionId === sub.id;
+                                return (
+                                  <li key={sub.id}>
+                                    <button
+                                      type="button"
+                                      onClick={() => scrollToLegalSection(sub.id)}
+                                      className={`block text-left w-full leading-snug transition-colors cursor-pointer ${
+                                        isSubActive
+                                          ? 'text-zinc-950 dark:text-white font-semibold'
+                                          : 'text-zinc-400 dark:text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
+                                      }`}
+                                    >
+                                      {sub.title}
+                                    </button>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </nav>
+
+                <div className="p-5 rounded-2xl bg-zinc-50/80 dark:bg-zinc-950/50 border border-zinc-200/80 dark:border-zinc-800 space-y-2.5">
+                  <p className="text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+                    Related Controls
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('password')}
+                    className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Lock className="w-3.5 h-3.5 text-zinc-500" />
+                      <span>Password &amp; Security</span>
+                    </span>
+                    <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('account')}
+                    className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Scale className="w-3.5 h-3.5 text-zinc-500" />
+                      <span>Account Visibility &amp; Deletion</span>
+                    </span>
+                    <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />
+                  </button>
+                </div>
+              </aside>
             </div>
           </div>
         );
+      }
       case 'profile':
         return (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-3 duration-300">

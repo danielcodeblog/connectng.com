@@ -242,12 +242,13 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({
         >
           {/* Brand Logo */}
           <div 
-            className="flex items-center gap-2.5 cursor-pointer relative z-10 select-none group py-1"
+            className="flex items-center gap-2 cursor-pointer relative z-10 select-none group py-1"
             onClick={() => handlePageSelect('home')}
             title="ConnectUp - Discover & Fund High-Growth Ventures"
           >
-            <div className="flex items-center">
-              <span className="font-[800] text-xl tracking-tighter transition-colors">
+            <div className="flex items-center gap-2">
+              <ConnectUpIcon className="w-7 h-7 transition-transform duration-200 group-hover:scale-105" />
+              <span className="font-[800] text-xl tracking-tighter transition-colors leading-none">
                 <span className={isLight ? "text-zinc-950 inline transition-colors group-hover:text-zinc-700" : "text-white inline transition-colors group-hover:text-white/80"}>
                   connect
                 </span>

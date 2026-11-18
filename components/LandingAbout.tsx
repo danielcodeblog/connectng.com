@@ -1,4 +1,3 @@
-
 import React, { useRef } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { TypewriterSequence } from './TypewriterSequence';

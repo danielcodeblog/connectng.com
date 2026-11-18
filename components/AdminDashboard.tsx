@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  BarChart, Bar, Cell, AreaChart, Area, ComposedChart
+  BarChart, Bar, Cell, AreaChart, Area, ComposedChart, ReferenceLine
 } from 'recharts';
 import { UserRole, TownHallBoard } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -94,6 +94,139 @@ export interface AdminToast {
   onAction?: () => void;
 }
 
+const UsersKpiGlyph = ({ className = 'w-4 h-4' }: { className?: string }) => (
+  <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden="true">
+    <circle cx="8" cy="7" r="3" fill="currentColor" fillOpacity="0.18" stroke="currentColor" strokeWidth="1.5" />
+    <path d="M2.75 16.25c.6-2.45 2.75-3.75 5.25-3.75s4.65 1.3 5.25 3.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <circle cx="14.5" cy="7.5" r="2" stroke="currentColor" strokeWidth="1.4" opacity="0.7" />
+    <path d="M14.75 12.25c1.55.35 2.75 1.35 3.25 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" opacity="0.7" />
+  </svg>
+);
+
+const RevenueKpiGlyph = ({ className = 'w-4 h-4' }: { className?: string }) => (
+  <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden="true">
+    <rect x="2.5" y="4.5" width="15" height="11" rx="2.5" fill="currentColor" fillOpacity="0.12" stroke="currentColor" strokeWidth="1.5" />
+    <path d="M2.5 8.25h15" stroke="currentColor" strokeWidth="1.5" />
+    <rect x="5" y="11" width="4" height="1.75" rx="0.875" fill="#F59E0B" />
+    <circle cx="14.25" cy="11.875" r="1.125" fill="currentColor" opacity="0.7" />
+  </svg>
+);
+
+const VelocityKpiGlyph = ({ className = 'w-4 h-4' }: { className?: string }) => (
+  <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden="true">
+    <rect x="3" y="11.5" width="3.2" height="5.5" rx="1" fill="currentColor" fillOpacity="0.3" />
+    <rect x="8.4" y="7.5" width="3.2" height="9.5" rx="1" fill="currentColor" fillOpacity="0.55" />
+    <rect x="13.8" y="3.5" width="3.2" height="13.5" rx="1" fill="#F59E0B" />
+  </svg>
+);
+
+const ModerationKpiGlyph = ({ className = 'w-4 h-4' }: { className?: string }) => (
+  <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden="true">
+    <path
+      d="M10 2.5L16.25 5.1v4.65c0 3.7-2.65 6.8-6.25 7.75-3.6-.95-6.25-4.05-6.25-7.75V5.1L10 2.5z"
+      fill="currentColor"
+      fillOpacity="0.14"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinejoin="round"
+    />
+    <path d="M7.5 10l1.75 1.75L12.75 8" stroke="#10B981" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const TelemetryHeaderGlyph = ({ className = 'w-5 h-5' }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+    <rect x="2.5" y="3.5" width="19" height="17" rx="4" stroke="currentColor" strokeOpacity="0.22" strokeWidth="1.4" />
+    <path d="M6 16.5L10 11.5L13.5 14L18 8" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M6 16.5L10 11.5L13.5 14L18 8V17.5H6V16.5Z" fill="#F59E0B" fillOpacity="0.16" />
+    <circle cx="18" cy="8" r="2.25" fill="#F59E0B" />
+    <circle cx="18" cy="8" r="4" stroke="#F59E0B" strokeOpacity="0.3" strokeWidth="1.2" />
+  </svg>
+);
+
+const AreaChartModeGlyph = ({ active }: { active: boolean }) => (
+  <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5 shrink-0" aria-hidden="true">
+    <path
+      d="M2 12.5C4.2 12.5 4.8 7 7 7C9.2 7 9.8 10 11.5 9C13 8.1 13.5 4.2 14.5 3.5V13.5H2V12.5Z"
+      fill={active ? '#F59E0B' : 'currentColor'}
+      fillOpacity={active ? 0.28 : 0.14}
+    />
+    <path
+      d="M2 12.5C4.2 12.5 4.8 7 7 7C9.2 7 9.8 10 11.5 9C13 8.1 13.5 4.2 14.5 3.5"
+      stroke={active ? '#F59E0B' : 'currentColor'}
+      strokeWidth="1.5"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+const BarChartModeGlyph = ({ active }: { active: boolean }) => (
+  <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5 shrink-0" aria-hidden="true">
+    <rect x="2" y="8.5" width="3" height="5" rx="1" fill={active ? '#F59E0B' : 'currentColor'} fillOpacity={active ? 0.55 : 0.4} />
+    <rect x="6.5" y="3.5" width="3" height="10" rx="1" fill={active ? '#F59E0B' : 'currentColor'} />
+    <rect x="11" y="6" width="3" height="7.5" rx="1" fill={active ? '#10B981' : 'currentColor'} fillOpacity={active ? 0.85 : 0.65} />
+  </svg>
+);
+
+interface ActivityTooltipProps {
+  active?: boolean;
+  payload?: Array<{
+    name?: string;
+    value?: number;
+    dataKey?: string;
+    payload?: { date?: string; activity?: number; growth?: number; volume?: number };
+  }>;
+  label?: string;
+}
+
+const ActivityChartTooltip: React.FC<ActivityTooltipProps> = ({ active, payload, label }) => {
+  if (!active || !payload || payload.length === 0) return null;
+  const rowData = payload[0]?.payload;
+  const actionsVal = rowData?.activity ?? 0;
+  const growthVal = rowData?.growth ?? 0;
+  const volumeVal = rowData?.volume ?? 0;
+  const ratio = growthVal > 0 ? (actionsVal / growthVal).toFixed(1) : null;
+
+  return (
+    <div className="bg-[#0B0B0E]/95 backdrop-blur-xl border border-zinc-800/90 rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.45)] px-3.5 py-2.5 min-w-[184px] text-zinc-100">
+      <div className="flex items-center justify-between gap-4 pb-2 mb-2 border-b border-zinc-800/80">
+        <span className="text-[11px] font-semibold tracking-tight text-white">{label}</span>
+        {ratio && (
+          <span className="text-[10px] font-mono tabular-nums text-amber-400/90">
+            {ratio}x / user
+          </span>
+        )}
+      </div>
+
+      <div className="space-y-1.5 text-xs">
+        <div className="flex items-center justify-between gap-5">
+          <span className="flex items-center gap-2 text-zinc-400">
+            <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.65)]" />
+            <span>Actions</span>
+          </span>
+          <span className="font-mono tabular-nums font-bold text-white">{actionsVal}</span>
+        </div>
+        <div className="flex items-center justify-between gap-5">
+          <span className="flex items-center gap-2 text-zinc-400">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.55)]" />
+            <span>New Users</span>
+          </span>
+          <span className="font-mono tabular-nums font-bold text-white">{growthVal}</span>
+        </div>
+      </div>
+
+      {volumeVal > 0 && (
+        <div className="mt-2 pt-1.5 border-t border-zinc-800/80 flex items-center justify-between text-[11px]">
+          <span className="text-zinc-500">Revenue</span>
+          <span className="font-mono tabular-nums font-semibold text-zinc-200">
+            ${volumeVal.toLocaleString()}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onNavigateHome }) => {
   const [activeTab, setActiveTab] = useState<'dashboards' | 'users' | 'subscriptions' | 'reports' | 'townhall' | 'blogs' | 'logs' | 'settings'>('dashboards');
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -172,6 +305,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
 
   // Chart configuration
   const [chartType, setChartType] = useState<'area' | 'bar'>('area');
+  const [visibleSeries, setVisibleSeries] = useState<{ activity: boolean; growth: boolean }>({
+    activity: true,
+    growth: true,
+  });
+  const [hoveredBarIndex, setHoveredBarIndex] = useState<number | null>(null);
   const [activeToast, setActiveToast] = useState<AdminToast | null>(null);
   const [isToastPaused, setIsToastPaused] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -1075,6 +1213,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
     return values.slice(-10);
   }, [users, subscriptions, subMetrics]);
 
+  const activitySummary = useMemo(() => {
+    const totalActions = activityStats.reduce((sum, d) => sum + d.activity, 0);
+    const totalNewUsers = activityStats.reduce((sum, d) => sum + d.growth, 0);
+    const avgActions = activityStats.length > 0 ? Math.round(totalActions / activityStats.length) : 0;
+    const peakPoint = activityStats.reduce(
+      (best, cur) => (cur.activity > best.activity ? cur : best),
+      activityStats[0] || { date: '—', activity: 0, growth: 0, volume: 0 }
+    );
+    return { totalActions, totalNewUsers, avgActions, peakPoint };
+  }, [activityStats]);
+
   const locationStats = useMemo(() => {
     const counts: Record<string, number> = {};
     users.forEach(u => {
@@ -1874,10 +2023,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
                   
                   {/* Metric 1: Total Users */}
-                  <div className="p-3 sm:p-4 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
-                    <div className="flex items-center justify-between text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 mb-1">
-                      <span className="truncate">Total Users</span>
-                      <Users size={14} className="text-zinc-400 shrink-0" />
+                  <div className="p-3.5 sm:p-4 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
+                    <div className="flex items-center justify-between text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 mb-1.5">
+                      <span className="truncate font-medium">Total Users</span>
+                      <UsersKpiGlyph className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
                     </div>
                     <div className="text-lg sm:text-xl font-bold font-mono tabular-nums text-zinc-950 dark:text-white">
                       {users.length}
@@ -1889,10 +2038,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                   </div>
 
                   {/* Metric 2: MRR */}
-                  <div className="p-3 sm:p-4 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
-                    <div className="flex items-center justify-between text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 mb-1">
-                      <span className="truncate">Monthly Revenue</span>
-                      <CreditCard size={14} className="text-zinc-400 shrink-0" />
+                  <div className="p-3.5 sm:p-4 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
+                    <div className="flex items-center justify-between text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 mb-1.5">
+                      <span className="truncate font-medium">Monthly Revenue</span>
+                      <RevenueKpiGlyph className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
                     </div>
                     <div className="text-lg sm:text-xl font-bold font-mono tabular-nums text-zinc-950 dark:text-white truncate">
                       ${subMetrics.mrr.toLocaleString()}
@@ -1905,10 +2054,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                   </div>
 
                   {/* Metric 3: Deal Engine Velocity */}
-                  <div className="p-3 sm:p-4 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
-                    <div className="flex items-center justify-between text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 mb-1">
-                      <span className="truncate">Total Swipes</span>
-                      <TrendingUp size={14} className="text-zinc-400 shrink-0" />
+                  <div className="p-3.5 sm:p-4 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
+                    <div className="flex items-center justify-between text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 mb-1.5">
+                      <span className="truncate font-medium">Total Swipes</span>
+                      <VelocityKpiGlyph className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
                     </div>
                     <div className="text-lg sm:text-xl font-bold font-mono tabular-nums text-zinc-950 dark:text-white">
                       {swipesCount}
@@ -1921,10 +2070,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                   </div>
 
                   {/* Metric 4: Moderation Health */}
-                  <div className="p-3 sm:p-4 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
-                    <div className="flex items-center justify-between text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 mb-1">
-                      <span className="truncate">Pending Reports</span>
-                      <ShieldCheck size={14} className="text-zinc-400 shrink-0" />
+                  <div className="p-3.5 sm:p-4 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
+                    <div className="flex items-center justify-between text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 mb-1.5">
+                      <span className="truncate font-medium">Pending Reports</span>
+                      <ModerationKpiGlyph className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
                     </div>
                     <div className="text-base sm:text-xl font-bold font-mono tabular-nums text-zinc-950 dark:text-white truncate">
                       {reports.filter(r => r.status === 'pending').length === 0 ? 'All clear' : `${reports.filter(r => r.status === 'pending').length} Pending`}
@@ -1941,155 +2090,341 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
                   
                   {/* Chart View (2 cols) */}
-                  <div className="p-3.5 sm:p-4 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs lg:col-span-2 flex flex-col justify-between">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <h2 className="text-xs sm:text-sm font-bold text-zinc-950 dark:text-white">Platform Activity</h2>
-                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">New users and actions over time</p>
+                  <div className="p-4 sm:p-5 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs lg:col-span-2 flex flex-col justify-between">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <TelemetryHeaderGlyph className="w-6 h-6 text-zinc-700 dark:text-zinc-300 shrink-0" />
+                        <div className="min-w-0">
+                          <h2 className="text-sm font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                            Platform Activity
+                          </h2>
+                          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
+                            Actions &amp; member velocity across recent periods
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg">
+
+                      <div className="flex items-center gap-1 bg-zinc-100/90 dark:bg-zinc-900 p-1 rounded-xl border border-zinc-200/70 dark:border-zinc-800">
                         <button
+                          type="button"
                           onClick={() => setChartType('area')}
-                          className={`px-2 py-0.5 text-xs font-medium rounded-md transition-colors ${
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all cursor-pointer ${
                             chartType === 'area'
-                              ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-xs'
-                              : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
+                              ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs font-semibold'
+                              : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white'
                           }`}
                         >
-                          Area
+                          <AreaChartModeGlyph active={chartType === 'area'} />
+                          <span>Area</span>
                         </button>
                         <button
+                          type="button"
                           onClick={() => setChartType('bar')}
-                          className={`px-2 py-0.5 text-xs font-medium rounded-md transition-colors ${
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all cursor-pointer ${
                             chartType === 'bar'
-                              ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-xs'
-                              : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
+                              ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs font-semibold'
+                              : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white'
                           }`}
                         >
-                          Bar
+                          <BarChartModeGlyph active={chartType === 'bar'} />
+                          <span>Bar</span>
                         </button>
                       </div>
                     </div>
 
-                    <div className="h-44 w-full min-w-0 mt-1">
+                    {/* Executive Telemetry Strip */}
+                    <div className="grid grid-cols-3 gap-3 py-3 my-3 border-y border-zinc-100 dark:border-zinc-800/70">
+                      <div className="min-w-0">
+                        <p className="text-[10px] uppercase tracking-wider font-semibold text-zinc-400 dark:text-zinc-500">
+                          Total Actions
+                        </p>
+                        <div className="flex items-baseline gap-2 mt-0.5">
+                          <span className="text-base sm:text-lg font-bold font-mono tabular-nums text-zinc-950 dark:text-white">
+                            {activitySummary.totalActions}
+                          </span>
+                          <span className="text-[10px] font-mono tabular-nums text-amber-600 dark:text-amber-400 hidden sm:inline">
+                            Avg {activitySummary.avgActions}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="min-w-0 pl-3 border-l border-zinc-100 dark:border-zinc-800/70">
+                        <p className="text-[10px] uppercase tracking-wider font-semibold text-zinc-400 dark:text-zinc-500">
+                          New Signups
+                        </p>
+                        <div className="flex items-baseline gap-2 mt-0.5">
+                          <span className="text-base sm:text-lg font-bold font-mono tabular-nums text-zinc-950 dark:text-white">
+                            {activitySummary.totalNewUsers}
+                          </span>
+                          <span className="text-[10px] font-mono tabular-nums text-emerald-600 dark:text-emerald-400 hidden sm:inline">
+                            {activityStats.length} periods
+                          </span>
+                        </div>
+                      </div>
+                      <div className="min-w-0 pl-3 border-l border-zinc-100 dark:border-zinc-800/70">
+                        <p className="text-[10px] uppercase tracking-wider font-semibold text-zinc-400 dark:text-zinc-500">
+                          Peak Period
+                        </p>
+                        <div className="flex items-baseline gap-2 mt-0.5">
+                          <span className="text-base sm:text-lg font-bold font-mono tabular-nums text-zinc-950 dark:text-white truncate">
+                            {activitySummary.peakPoint.activity}
+                          </span>
+                          <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 truncate hidden sm:inline">
+                            {activitySummary.peakPoint.date}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="h-56 sm:h-64 w-full min-w-0">
                       <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                         {chartType === 'area' ? (
-                          <AreaChart data={activityStats} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <AreaChart data={activityStats} margin={{ top: 14, right: 14, left: -16, bottom: 4 }}>
                             <defs>
-                              <linearGradient id="activityGrad" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#EAB308" stopOpacity={0.3} />
-                                <stop offset="95%" stopColor="#EAB308" stopOpacity={0.0} />
+                              <linearGradient id="cuAreaActionsGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#F59E0B" stopOpacity={0.34} />
+                                <stop offset="55%" stopColor="#FACC15" stopOpacity={0.12} />
+                                <stop offset="100%" stopColor="#FACC15" stopOpacity={0.0} />
                               </linearGradient>
+                              <linearGradient id="cuAreaGrowthGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#10B981" stopOpacity={0.22} />
+                                <stop offset="100%" stopColor="#10B981" stopOpacity={0.0} />
+                              </linearGradient>
+                              <filter id="cuAmberGlow" x="-10%" y="-10%" width="120%" height="130%">
+                                <feDropShadow dx="0" dy="3" stdDeviation="3" floodColor="#F59E0B" floodOpacity="0.28" />
+                              </filter>
                             </defs>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-zinc-200 dark:text-zinc-800/80" />
-                            <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#71717a' }} dy={10} />
-                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#71717a' }} dx={-5} />
-                            <Tooltip
-                              contentStyle={{ 
-                                backgroundColor: '#18181b', 
-                                border: '1px solid #27272a',
-                                borderRadius: '8px',
-                                color: '#fafafa',
-                                fontSize: '11px',
-                                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)'
-                              }}
+                            <CartesianGrid strokeDasharray="2 4" vertical={false} stroke="currentColor" className="text-zinc-200/80 dark:text-zinc-800/80" />
+                            <XAxis
+                              dataKey="date"
+                              axisLine={false}
+                              tickLine={false}
+                              tick={{ fontSize: 11, fill: '#71717a' }}
+                              dy={8}
                             />
-                            <Area type="monotone" dataKey="activity" stroke="#EAB308" strokeWidth={2} fillOpacity={1} fill="url(#activityGrad)" />
+                            <YAxis
+                              axisLine={false}
+                              tickLine={false}
+                              allowDecimals={false}
+                              tick={{ fontSize: 11, fill: '#71717a' }}
+                              dx={-4}
+                            />
+                            <Tooltip
+                              cursor={{ stroke: '#F59E0B', strokeWidth: 1, strokeDasharray: '4 4', strokeOpacity: 0.55 }}
+                              content={<ActivityChartTooltip />}
+                            />
+                            {visibleSeries.activity && activitySummary.avgActions > 0 && (
+                              <ReferenceLine
+                                y={activitySummary.avgActions}
+                                stroke="#a1a1aa"
+                                strokeDasharray="3 4"
+                                strokeOpacity={0.55}
+                                label={{
+                                  value: `Avg ${activitySummary.avgActions}`,
+                                  position: 'insideTopRight',
+                                  fill: '#a1a1aa',
+                                  fontSize: 10,
+                                }}
+                              />
+                            )}
+                            {visibleSeries.activity && (
+                              <Area
+                                type="monotone"
+                                dataKey="activity"
+                                name="Actions"
+                                stroke="#F59E0B"
+                                strokeWidth={2.5}
+                                fillOpacity={1}
+                                fill="url(#cuAreaActionsGrad)"
+                                filter="url(#cuAmberGlow)"
+                                dot={(dotProps: any) => {
+                                  const isPeak =
+                                    activitySummary.peakPoint.activity > 0 &&
+                                    dotProps?.payload?.date === activitySummary.peakPoint.date;
+                                  if (!isPeak) return <g key={`dot-${dotProps.index}`} />;
+                                  return (
+                                    <g key={`peak-${dotProps.index}`}>
+                                      <circle cx={dotProps.cx} cy={dotProps.cy} r={6} fill="#F59E0B" fillOpacity={0.2} />
+                                      <circle cx={dotProps.cx} cy={dotProps.cy} r={3.2} fill="#F59E0B" stroke="#ffffff" strokeWidth={1.5} />
+                                    </g>
+                                  );
+                                }}
+                                activeDot={{ r: 5.5, fill: '#F59E0B', stroke: '#ffffff', strokeWidth: 2 }}
+                              />
+                            )}
+                            {visibleSeries.growth && (
+                              <Area
+                                type="monotone"
+                                dataKey="growth"
+                                name="New Users"
+                                stroke="#10B981"
+                                strokeWidth={2}
+                                fillOpacity={1}
+                                fill="url(#cuAreaGrowthGrad)"
+                                activeDot={{ r: 4.5, fill: '#10B981', stroke: '#ffffff', strokeWidth: 2 }}
+                              />
+                            )}
                           </AreaChart>
                         ) : (
-                          <BarChart data={activityStats} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-zinc-200 dark:text-zinc-800/80" />
-                            <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#71717a' }} dy={10} />
-                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#71717a' }} dx={-5} />
-                            <Tooltip
-                              contentStyle={{ 
-                                backgroundColor: '#18181b', 
-                                border: '1px solid #27272a',
-                                borderRadius: '8px',
-                                color: '#fafafa',
-                                fontSize: '11px'
-                              }}
+                          <BarChart
+                            data={activityStats}
+                            margin={{ top: 14, right: 14, left: -16, bottom: 4 }}
+                            barGap={6}
+                            barCategoryGap="24%"
+                            onMouseLeave={() => setHoveredBarIndex(null)}
+                          >
+                            <defs>
+                              <linearGradient id="cuBarActionsGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#FDE047" />
+                                <stop offset="55%" stopColor="#F59E0B" />
+                                <stop offset="100%" stopColor="#D97706" />
+                              </linearGradient>
+                              <linearGradient id="cuBarGrowthGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#34D399" />
+                                <stop offset="100%" stopColor="#059669" />
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="2 4" vertical={false} stroke="currentColor" className="text-zinc-200/80 dark:text-zinc-800/80" />
+                            <XAxis
+                              dataKey="date"
+                              axisLine={false}
+                              tickLine={false}
+                              tick={{ fontSize: 11, fill: '#71717a' }}
+                              dy={8}
                             />
-                            <Bar dataKey="growth" fill="#EAB308" radius={[4, 4, 0, 0]} name="New Users" />
-                            <Bar dataKey="activity" fill="#71717a" radius={[4, 4, 0, 0]} name="Actions" />
+                            <YAxis
+                              axisLine={false}
+                              tickLine={false}
+                              allowDecimals={false}
+                              tick={{ fontSize: 11, fill: '#71717a' }}
+                              dx={-4}
+                            />
+                            <Tooltip
+                              cursor={{ fill: 'rgba(245, 158, 11, 0.06)', radius: 8 }}
+                              content={<ActivityChartTooltip />}
+                            />
+                            {visibleSeries.activity && activitySummary.avgActions > 0 && (
+                              <ReferenceLine
+                                y={activitySummary.avgActions}
+                                stroke="#a1a1aa"
+                                strokeDasharray="3 4"
+                                strokeOpacity={0.55}
+                              />
+                            )}
+                            {visibleSeries.activity && (
+                              <Bar
+                                dataKey="activity"
+                                name="Actions"
+                                fill="url(#cuBarActionsGrad)"
+                                radius={[6, 6, 2, 2]}
+                                maxBarSize={26}
+                                background={{ fill: 'rgba(161, 161, 170, 0.08)', radius: 6 }}
+                                onMouseEnter={(_, index) => setHoveredBarIndex(index)}
+                              >
+                                {activityStats.map((_, idx) => (
+                                  <Cell
+                                    key={`act-cell-${idx}`}
+                                    fill="url(#cuBarActionsGrad)"
+                                    fillOpacity={hoveredBarIndex === null || hoveredBarIndex === idx ? 1 : 0.45}
+                                  />
+                                ))}
+                              </Bar>
+                            )}
+                            {visibleSeries.growth && (
+                              <Bar
+                                dataKey="growth"
+                                name="New Users"
+                                fill="url(#cuBarGrowthGrad)"
+                                radius={[6, 6, 2, 2]}
+                                maxBarSize={26}
+                                onMouseEnter={(_, index) => setHoveredBarIndex(index)}
+                              >
+                                {activityStats.map((_, idx) => (
+                                  <Cell
+                                    key={`gro-cell-${idx}`}
+                                    fill="url(#cuBarGrowthGrad)"
+                                    fillOpacity={hoveredBarIndex === null || hoveredBarIndex === idx ? 1 : 0.45}
+                                  />
+                                ))}
+                              </Bar>
+                            )}
                           </BarChart>
                         )}
                       </ResponsiveContainer>
                     </div>
 
-                    <div className="flex items-center gap-6 mt-3 pt-3 border-t border-zinc-150 dark:border-zinc-800/60 text-xs text-zinc-500 dark:text-zinc-400">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-                        <span>Actions</span>
+                    {/* Interactive Series Legend */}
+                    <div className="flex flex-wrap items-center justify-between gap-4 mt-4 pt-3 border-t border-zinc-200/80 dark:border-zinc-800/60 text-xs">
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setVisibleSeries((prev) =>
+                              prev.activity && !prev.growth ? prev : { ...prev, activity: !prev.activity }
+                            )
+                          }
+                          className={`inline-flex items-center gap-2 px-2 py-1 rounded-md transition-opacity cursor-pointer ${
+                            visibleSeries.activity ? 'opacity-100' : 'opacity-40 hover:opacity-75'
+                          }`}
+                        >
+                          <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shrink-0" />
+                          <span className="text-zinc-600 dark:text-zinc-300 font-medium">Actions</span>
+                          <span className="font-mono tabular-nums font-semibold text-zinc-950 dark:text-white">
+                            {activitySummary.totalActions}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setVisibleSeries((prev) =>
+                              prev.growth && !prev.activity ? prev : { ...prev, growth: !prev.growth }
+                            )
+                          }
+                          className={`inline-flex items-center gap-2 px-2 py-1 rounded-md transition-opacity cursor-pointer ${
+                            visibleSeries.growth ? 'opacity-100' : 'opacity-40 hover:opacity-75'
+                          }`}
+                        >
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
+                          <span className="text-zinc-600 dark:text-zinc-300 font-medium">New Users</span>
+                          <span className="font-mono tabular-nums font-semibold text-zinc-950 dark:text-white">
+                            {activitySummary.totalNewUsers}
+                          </span>
+                        </button>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full bg-zinc-400" />
-                        <span>New Users</span>
-                      </div>
+                      <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-mono">
+                        Click series to toggle
+                      </span>
                     </div>
                   </div>
 
                   {/* Demographic & Geographic Breakdown */}
-                  <div className="p-4 sm:p-5 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs flex flex-col justify-between">
+                  <div className="p-4 sm:p-5 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs flex flex-col justify-between space-y-4">
                     <div>
                       <h2 className="text-sm font-bold text-zinc-950 dark:text-white">User Breakdown</h2>
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">Distribution of founders, investors, and admins</p>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-3">Roles and active community distribution</p>
 
-                      <div className="space-y-3">
-                        <div>
-                          <div className="flex justify-between text-xs mb-1 font-medium">
-                            <span className="text-zinc-600 dark:text-zinc-400">Founders</span>
-                            <span className="font-mono tabular-nums font-semibold text-zinc-950 dark:text-white">
-                              {foundersCount} ({Math.round((foundersCount / (users.length || 1)) * 100)}%)
-                            </span>
-                          </div>
-                          <div className="w-full h-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
-                            <div 
-                              className="h-full bg-amber-400 rounded-full"
-                              style={{ width: `${Math.round((foundersCount / (users.length || 1)) * 100)}%` }}
-                            />
-                          </div>
+                      <div className="space-y-2.5">
+                        <div className="flex items-center justify-between text-xs py-1.5 border-b border-zinc-100 dark:border-zinc-800/60">
+                          <span className="text-zinc-700 dark:text-zinc-300 font-medium">Founders</span>
+                          <span className="font-mono font-bold text-zinc-950 dark:text-white">{foundersCount}</span>
                         </div>
-
-                        <div>
-                          <div className="flex justify-between text-xs mb-1 font-medium">
-                            <span className="text-zinc-600 dark:text-zinc-400">Investors & VCs</span>
-                            <span className="font-mono tabular-nums font-semibold text-zinc-950 dark:text-white">
-                              {investorsCount} ({Math.round((investorsCount / (users.length || 1)) * 100)}%)
-                            </span>
-                          </div>
-                          <div className="w-full h-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
-                            <div 
-                              className="h-full bg-emerald-500 rounded-full"
-                              style={{ width: `${Math.round((investorsCount / (users.length || 1)) * 100)}%` }}
-                            />
-                          </div>
+                        <div className="flex items-center justify-between text-xs py-1.5 border-b border-zinc-100 dark:border-zinc-800/60">
+                          <span className="text-zinc-700 dark:text-zinc-300 font-medium">Investors &amp; VCs</span>
+                          <span className="font-mono font-bold text-zinc-950 dark:text-white">{investorsCount}</span>
                         </div>
-
-                        <div>
-                          <div className="flex justify-between text-xs mb-1 font-medium">
-                            <span className="text-zinc-600 dark:text-zinc-400">Admins</span>
-                            <span className="font-mono tabular-nums font-semibold text-zinc-950 dark:text-white">
-                              {adminsCount} ({Math.round((adminsCount / (users.length || 1)) * 100)}%)
-                            </span>
-                          </div>
-                          <div className="w-full h-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
-                            <div 
-                              className="h-full bg-zinc-400 rounded-full"
-                              style={{ width: `${Math.round((adminsCount / (users.length || 1)) * 100)}%` }}
-                            />
-                          </div>
+                        <div className="flex items-center justify-between text-xs py-1.5">
+                          <span className="text-zinc-700 dark:text-zinc-300 font-medium">Admins</span>
+                          <span className="font-mono font-bold text-zinc-950 dark:text-white">{adminsCount}</span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="pt-4 border-t border-zinc-150 dark:border-zinc-800/60">
+                    <div className="pt-3 border-t border-zinc-150 dark:border-zinc-800/60">
                       <div className="text-[10px] font-mono uppercase text-zinc-400 mb-2">Top Locations</div>
                       <div className="space-y-1.5">
                         {locationStats.map((loc, idx) => (
                           <div key={idx} className="flex items-center justify-between text-xs">
                             <span className="text-zinc-600 dark:text-zinc-400 truncate max-w-[140px]">{loc.name}</span>
-                            <span className="font-mono tabular-nums text-zinc-950 dark:text-white font-medium">{loc.count} users</span>
+                            <span className="font-mono tabular-nums text-zinc-950 dark:text-white font-medium">{loc.count}</span>
                           </div>
                         ))}
                       </div>

@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  Mail, Phone, MapPin, Copy, Check, ArrowUpRight, 
-  HelpCircle, Send, CheckCircle2, MessageSquare 
+  Mail, Phone, MapPin, Check, ArrowUpRight, 
+  CheckCircle2, ChevronRight 
 } from 'lucide-react';
 import { LandingNavbar, NavPage } from './LandingNavbar';
 import FooterSection5 from './ui/footer-section-5';
+import contactHeroImg from '@/src/assets/images/contact_hero_banner_1794785802907.jpg';
 
 interface ContactPageProps {
   onBackHome?: () => void;
@@ -26,6 +27,17 @@ export const ContactPage: React.FC<ContactPageProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 36);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const handleNavigate = (page: NavPage) => {
     if (page === 'contact') {
@@ -85,85 +97,60 @@ export const ContactPage: React.FC<ContactPageProps> = ({
 
   return (
     <div className="min-h-screen bg-white text-zinc-900 flex flex-col font-sans selection:bg-[#FFBF00] selection:text-black relative overflow-x-hidden">
-      
-      {/* BACKGROUND AMBIENT GLOW & CYBER CIRCUIT LINES (CALIBRATED FOR WHITE THEME) */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-        {/* Soft emerald-teal aura radial glow behind upper content */}
-        <div 
-          className="absolute top-0 left-1/2 -translate-x-1/2 w-[850px] sm:w-[1100px] h-[520px] opacity-25 blur-[120px] rounded-full pointer-events-none"
-          style={{
-            background: 'radial-gradient(circle at 50% 25%, rgba(16, 185, 129, 0.35) 0%, rgba(52, 211, 153, 0.15) 45%, transparent 70%)'
-          }}
-        />
-
-        {/* Ambient warm amber accent glow */}
-        <div 
-          className="absolute top-[320px] left-1/4 -translate-x-1/2 w-[450px] h-[400px] opacity-15 blur-[110px] rounded-full pointer-events-none"
-          style={{
-            background: 'radial-gradient(circle, rgba(245, 158, 11, 0.3) 0%, transparent 70%)'
-          }}
-        />
-
-        {/* Giant Typographic Architectural Watermark "CONTACT" */}
-        <div className="absolute top-28 sm:top-36 left-1/2 -translate-x-1/2 select-none pointer-events-none whitespace-nowrap">
-          <span className="text-[90px] sm:text-[160px] md:text-[210px] lg:text-[250px] font-black uppercase tracking-[0.08em] text-zinc-900/[0.035] leading-none font-sans block">
-            CONTACT
-          </span>
-        </div>
-
-        {/* Circuit Cyber Lines - Left Side (Crisp Slate with Emerald Nodes) */}
-        <svg 
-          className="absolute top-24 left-0 w-[240px] sm:w-[360px] h-[360px] opacity-40 stroke-zinc-300 fill-none pointer-events-none" 
-          viewBox="0 0 360 360"
-        >
-          <path d="M-20,40 L120,40 L180,100 L260,100 L300,140" strokeWidth="1.5" strokeDasharray="3 3" />
-          <path d="M-20,120 L90,120 L150,180 L230,180" strokeWidth="1.5" />
-          <path d="M-20,200 L60,200 L110,250 L180,250" strokeWidth="1.2" opacity="0.7" />
-          <circle cx="300" cy="140" r="4" fill="#059669" />
-          <circle cx="230" cy="180" r="3.5" fill="#059669" />
-          <circle cx="180" cy="250" r="3" fill="#059669" opacity="0.7" />
-        </svg>
-
-        {/* Circuit Cyber Lines - Right Side (Crisp Slate with Emerald Nodes) */}
-        <svg 
-          className="absolute top-24 right-0 w-[240px] sm:w-[360px] h-[360px] opacity-40 stroke-zinc-300 fill-none pointer-events-none" 
-          viewBox="0 0 360 360"
-        >
-          <path d="M380,40 L240,40 L180,100 L100,100 L60,140" strokeWidth="1.5" strokeDasharray="3 3" />
-          <path d="M380,120 L270,120 L210,180 L130,180" strokeWidth="1.5" />
-          <path d="M380,200 L300,200 L250,250 L180,250" strokeWidth="1.2" opacity="0.7" />
-          <circle cx="60" cy="140" r="4" fill="#059669" />
-          <circle cx="130" cy="180" r="3.5" fill="#059669" />
-          <circle cx="180" cy="250" r="3" fill="#059669" opacity="0.7" />
-        </svg>
-      </div>
-
-      {/* Shared Landing Navbar */}
+      {/* Shared Landing Navbar: white text over dark photographic banner, light mode on scroll */}
       <LandingNavbar 
         currentPage="contact" 
         onNavigate={handleNavigate} 
         onLoginClick={onLoginClick || (() => {})} 
-        lightMode={true}
+        isScrolled={isScrolled}
+        lightMode={isScrolled}
       />
 
       {/* Main Content Container */}
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 sm:pt-40 pb-20 relative z-10 flex flex-col justify-center">
-        
-        {/* 2-Column Responsive Contact Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center max-w-6xl mx-auto w-full">
-          
-          {/* =========================================================================
-              LEFT COLUMN: Header & Info Cards
-             ========================================================================= */}
-          <div className="lg:col-span-5 space-y-8">
-            
-            {/* Pill Badge (No star icon) */}
-            <div className="space-y-4">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-zinc-100 border border-zinc-200 text-xs text-zinc-700 font-medium shadow-xs">
-                <HelpCircle className="w-3.5 h-3.5 text-zinc-500" />
-                <span>Contact</span>
-              </div>
+      <main className="flex-1 w-full">
+        {/* 1. FULL-BLEED PHOTOGRAPHIC HERO BANNER (MATCHING BLOG) */}
+        <section className="relative w-full h-[460px] sm:h-[520px] flex flex-col justify-between overflow-hidden bg-zinc-950">
+          <img
+            src={contactHeroImg}
+            alt="Founders and investors meeting at ConnectUp"
+            referrerPolicy="no-referrer"
+            className="absolute inset-0 w-full h-full object-cover object-center opacity-85"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/65 via-black/45 to-black/75" />
 
+          <div className="h-20 sm:h-24 shrink-0" />
+
+          {/* Hero Copy & Direct Scroll CTA */}
+          <div className="relative z-10 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 my-auto">
+            <div className="max-w-2xl space-y-5">
+              <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs font-medium text-white/80">
+                <button
+                  type="button"
+                  onClick={() => handleNavigate('home')}
+                  className="hover:text-white transition-colors cursor-pointer"
+                >
+                  Home
+                </button>
+                <ChevronRight className="w-3.5 h-3.5 text-white/60" />
+                <span className="text-white">Contact</span>
+              </nav>
+            </div>
+          </div>
+        </section>
+
+        {/* 2. CONTACT INFO & FORM SECTION */}
+        <section
+          className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24 relative z-10"
+        >
+          {/* 2-Column Responsive Contact Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center max-w-6xl mx-auto w-full">
+            
+            {/* =========================================================================
+                LEFT COLUMN: Header & Info Cards
+               ========================================================================= */}
+            <div className="lg:col-span-5 space-y-8">
+            
+            <div className="space-y-4">
               {/* Main Heading */}
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-zinc-950 leading-tight">
                 Get in touch
@@ -392,6 +379,7 @@ export const ContactPage: React.FC<ContactPageProps> = ({
           </div>
 
         </div>
+        </section>
       </main>
 
       {/* Shared Landing Footer */}

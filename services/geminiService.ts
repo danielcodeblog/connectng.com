@@ -59,23 +59,33 @@ export const synthesizePitchSpeech = async (
   voiceName: 'Kore' | 'Zephyr' | 'Puck' | 'Charon' | 'Fenrir' = 'Kore'
 ): Promise<{ audioBase64: string; mimeType: string }> => {
   const headers = await getAuthHeaders();
-  const response = await fetch('/api/gemini/tts', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ text, voiceName }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 12000);
 
-  if (!response.ok) {
-    const errData = await response.json().catch(() => ({}));
-    throw new Error(errData.error || `Voice synthesis failed (${response.status})`);
-  }
+  try {
+    const response = await fetch('/api/gemini/tts', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ text, voiceName }),
+      signal: controller.signal,
+    });
 
-  const data = await response.json();
-  if (!data?.audioBase64) {
-    throw new Error('Empty audio payload returned from server');
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      const err: any = new Error(errData.error || `Voice synthesis failed (${response.status})`);
+      err.status = response.status;
+      throw err;
+    }
+
+    const data = await response.json();
+    if (!data?.audioBase64) {
+      throw new Error('Empty audio payload returned from server');
+    }
+    return {
+      audioBase64: data.audioBase64,
+      mimeType: data.mimeType || 'audio/wav',
+    };
+  } finally {
+    clearTimeout(timeoutId);
   }
-  return {
-    audioBase64: data.audioBase64,
-    mimeType: data.mimeType || 'audio/wav',
-  };
 };

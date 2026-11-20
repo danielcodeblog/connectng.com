@@ -11,6 +11,7 @@ import {
 import { IconWrapper } from './IconWrapper';
 import { cn } from '../lib/utils';
 import { synthesizePitchSpeech } from '../services/geminiService';
+import { supabase } from '../services/supabaseClient';
 
 export interface PitchScript {
   hook: string;
@@ -150,6 +151,78 @@ const LANGUAGES: LanguageConfig[] = [
   }
 ];
 
+const LANG_LOCALES: Record<string, string> = {
+  en: 'en-US',
+  es: 'es-ES',
+  fr: 'fr-FR',
+  de: 'de-DE',
+  ja: 'ja-JP',
+  zh: 'zh-CN',
+  pt: 'pt-BR',
+  it: 'it-IT',
+  ko: 'ko-KR',
+  ar: 'ar-SA',
+  hi: 'hi-IN',
+};
+
+// Valid 46-byte silent WAV (24kHz mono 16-bit PCM) to unlock HTMLAudioElement synchronously on click
+const SILENT_WAV_DATA_URI =
+  'data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAwF0AAIC7AAACABAAZGF0YQIAAAAAAA==';
+
+const ensurePlayableWavBytes = (bytes: Uint8Array): Uint8Array => {
+  const hasRiffHeader =
+    bytes.length >= 12 &&
+    bytes[0] === 0x52 && // R
+    bytes[1] === 0x49 && // I
+    bytes[2] === 0x46 && // F
+    bytes[3] === 0x46;   // F
+  if (hasRiffHeader) return bytes;
+
+  // Wrap headerless raw L16 PCM (24kHz, mono, 16-bit LE) into a valid WAV container
+  const sampleRate = 24000;
+  const numChannels = 1;
+  const bitsPerSample = 16;
+  const byteRate = (sampleRate * numChannels * bitsPerSample) / 8;
+  const blockAlign = (numChannels * bitsPerSample) / 8;
+  const wav = new Uint8Array(44 + bytes.length);
+  const view = new DataView(wav.buffer);
+
+  const writeAscii = (offset: number, str: string) => {
+    for (let i = 0; i < str.length; i++) wav[offset + i] = str.charCodeAt(i);
+  };
+
+  writeAscii(0, 'RIFF');
+  view.setUint32(4, 36 + bytes.length, true);
+  writeAscii(8, 'WAVE');
+  writeAscii(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, byteRate, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bitsPerSample, true);
+  writeAscii(36, 'data');
+  view.setUint32(40, bytes.length, true);
+  wav.set(bytes, 44);
+  return wav;
+};
+
+const splitIntoSpeechChunks = (segments: string[]): string[] => {
+  const chunks: string[] = [];
+  for (const seg of segments) {
+    const trimmed = seg.trim();
+    if (!trimmed) continue;
+    const sentences = trimmed.split(/(?<=[.!?。！？])\s+/).filter(Boolean);
+    if (sentences.length === 0) {
+      chunks.push(trimmed);
+    } else {
+      chunks.push(...sentences);
+    }
+  }
+  return chunks;
+};
+
 export const PitchSimulator: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -160,16 +233,25 @@ export const PitchSimulator: React.FC = () => {
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [isVoicing, setIsVoicing] = useState(false);
   const [isLoadingVoice, setIsLoadingVoice] = useState(false);
+  const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoiceURI, setSelectedVoiceURI] = useState<string>('');
   const [selectedLangCode, setSelectedLangCode] = useState<string>('en');
 
   // Audio playback & SpeechSynthesis refs
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
-  const keepAliveIntervalRef = useRef<any>(null);
   const speechTimeoutRef = useRef<any>(null);
+  const speechWatchdogRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const unlockedAudioRef = useRef<HTMLAudioElement | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const audioUnlockedRef = useRef<boolean>(false);
+  const ttsUnavailableRef = useRef<boolean>(false);
+  const hasAuthTokenRef = useRef<boolean | null>(null);
+  const voiceRequestIdRef = useRef<number>(0);
   const audioCacheRef = useRef<Map<string, string>>(new Map());
+  const audioBufferCacheRef = useRef<Map<string, ArrayBuffer>>(new Map());
   const isVoicingRef = useRef<boolean>(false);
 
   const scoreNaturalVoice = (v: SpeechSynthesisVoice, langCode: string): number => {
@@ -284,6 +366,7 @@ export const PitchSimulator: React.FC = () => {
 
   const handleLanguageChange = (code: string) => {
     stopVoicing();
+    setVoiceNotice(null);
     setSelectedLangCode(code);
     const targetLang = LANGUAGES.find(l => l.code === code);
     if (targetLang) {
@@ -303,10 +386,41 @@ export const PitchSimulator: React.FC = () => {
     }
   };
 
-  // Sync playback rate on active HTMLAudioElement
+  // Track Supabase auth token availability so unauthenticated/mock browsers preserve synchronous click gesture
+  useEffect(() => {
+    let mounted = true;
+    supabase.auth.getSession()
+      .then(({ data }) => {
+        if (mounted) {
+          hasAuthTokenRef.current = Boolean(data?.session?.access_token);
+        }
+      })
+      .catch(() => {
+        if (mounted) hasAuthTokenRef.current = false;
+      });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      hasAuthTokenRef.current = Boolean(session?.access_token);
+      if (session?.access_token) {
+        ttsUnavailableRef.current = false;
+      }
+    });
+
+    return () => {
+      mounted = false;
+      authListener?.subscription?.unsubscribe();
+    };
+  }, []);
+
+  // Sync playback rate on active audio nodes / HTMLAudioElement
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.playbackRate = playbackSpeed;
+    }
+    if (audioSourceRef.current) {
+      try {
+        audioSourceRef.current.playbackRate.value = playbackSpeed;
+      } catch {}
     }
   }, [playbackSpeed]);
 
@@ -314,16 +428,28 @@ export const PitchSimulator: React.FC = () => {
   useEffect(() => {
     return () => {
       isVoicingRef.current = false;
-      if (keepAliveIntervalRef.current) clearInterval(keepAliveIntervalRef.current);
+      voiceRequestIdRef.current += 1;
       if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current);
+      if (speechWatchdogRef.current) clearTimeout(speechWatchdogRef.current);
+      if (audioSourceRef.current) {
+        audioSourceRef.current.onended = null;
+        try { audioSourceRef.current.stop(); } catch {}
+        try { audioSourceRef.current.disconnect(); } catch {}
+        audioSourceRef.current = null;
+      }
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
+      }
+      if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+        audioCtxRef.current.close().catch(() => {});
+        audioCtxRef.current = null;
       }
       audioCacheRef.current.forEach((url) => {
         try { URL.revokeObjectURL(url); } catch {}
       });
       audioCacheRef.current.clear();
+      audioBufferCacheRef.current.clear();
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         window.speechSynthesis.cancel();
       }
@@ -332,25 +458,21 @@ export const PitchSimulator: React.FC = () => {
 
   // Timer Tick
   useEffect(() => {
-    let interval: any = null;
-    if (isPlaying) {
-      interval = setInterval(() => {
-        setCurrentTime((prev) => {
-          const next = Number((prev + 0.1 * playbackSpeed).toFixed(2));
-          if (next >= 30) {
-            handleCompleteSession();
-            return 30;
-          }
-          return next;
-        });
-      }, 100);
-    } else {
-      if (interval) clearInterval(interval);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
+    if (!isPlaying) return;
+    const interval = setInterval(() => {
+      setCurrentTime((prev) => {
+        const next = Number((prev + 0.1 * playbackSpeed).toFixed(2));
+        return next >= 30 ? 30 : next;
+      });
+    }, 100);
+    return () => clearInterval(interval);
   }, [isPlaying, playbackSpeed]);
+
+  useEffect(() => {
+    if (isPlaying && currentTime >= 30) {
+      handleCompleteSession();
+    }
+  }, [isPlaying, currentTime]);
 
   const handleCompleteSession = () => {
     setIsPlaying(false);
@@ -358,6 +480,7 @@ export const PitchSimulator: React.FC = () => {
   };
 
   const handleStart = () => {
+    setVoiceNotice(null);
     if (currentTime >= 30) {
       setCurrentTime(0);
     }
@@ -370,6 +493,7 @@ export const PitchSimulator: React.FC = () => {
   };
 
   const handleReset = () => {
+    setVoiceNotice(null);
     setIsPlaying(false);
     setCurrentTime(0);
     stopVoicing();
@@ -377,100 +501,171 @@ export const PitchSimulator: React.FC = () => {
 
   const stopVoicing = () => {
     isVoicingRef.current = false;
+    voiceRequestIdRef.current += 1;
     setIsVoicing(false);
     setIsLoadingVoice(false);
-    if (audioRef.current) {
-      audioRef.current.onended = null;
-      audioRef.current.onerror = null;
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      audioRef.current = null;
-    }
     if (speechTimeoutRef.current) {
       clearTimeout(speechTimeoutRef.current);
       speechTimeoutRef.current = null;
     }
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
+    if (speechWatchdogRef.current) {
+      clearTimeout(speechWatchdogRef.current);
+      speechWatchdogRef.current = null;
     }
-    if (keepAliveIntervalRef.current) {
-      clearInterval(keepAliveIntervalRef.current);
-      keepAliveIntervalRef.current = null;
+    if (audioSourceRef.current) {
+      audioSourceRef.current.onended = null;
+      try { audioSourceRef.current.stop(); } catch {}
+      try { audioSourceRef.current.disconnect(); } catch {}
+      audioSourceRef.current = null;
+    }
+    if (audioRef.current) {
+      audioRef.current.onended = null;
+      audioRef.current.onerror = null;
+      audioRef.current.pause();
+      try {
+        audioRef.current.currentTime = 0;
+      } catch {}
+      audioRef.current = null;
+    }
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch {}
     }
   };
 
-  const speakWithBrowserFallback = (segments: string[]) => {
+  const speakWithBrowserFallback = (segments: string[], reqId: number) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
       stopVoicing();
+      setVoiceNotice('Voice synthesis is not supported in this browser.');
       return;
     }
 
-    const cleanSegments = segments.map((s) => s.trim()).filter(Boolean);
-    if (cleanSegments.length === 0) {
+    const cleanChunks = splitIntoSpeechChunks(segments);
+    if (cleanChunks.length === 0) {
       stopVoicing();
       return;
     }
 
-    window.speechSynthesis.cancel();
-    if (keepAliveIntervalRef.current) clearInterval(keepAliveIntervalRef.current);
     if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current);
+    if (speechWatchdogRef.current) clearTimeout(speechWatchdogRef.current);
 
-    const allVoices = window.speechSynthesis.getVoices();
+    const synth = window.speechSynthesis;
+    const allVoices = synth.getVoices();
     const rankedVoices = [...(allVoices.length > 0 ? allVoices : availableVoices)].sort(
       (a, b) => scoreNaturalVoice(b, selectedLangCode) - scoreNaturalVoice(a, selectedLangCode)
     );
     const activeVoice =
       rankedVoices.find((v) => v.voiceURI === selectedVoiceURI) || rankedVoices[0];
+    const fallbackLang = LANG_LOCALES[selectedLangCode] || 'en-US';
 
     isVoicingRef.current = true;
+    setIsLoadingVoice(false);
     setIsVoicing(true);
 
     const speakIndex = (idx: number) => {
-      if (!isVoicingRef.current || idx >= cleanSegments.length) {
-        stopVoicing();
+      if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId || idx >= cleanChunks.length) {
+        if (voiceRequestIdRef.current === reqId) stopVoicing();
         return;
       }
 
-      const utterance = new SpeechSynthesisUtterance(cleanSegments[idx]);
+      const utterance = new SpeechSynthesisUtterance(cleanChunks[idx]);
       utteranceRef.current = utterance;
       if (activeVoice) {
         utterance.voice = activeVoice;
-        utterance.lang = activeVoice.lang;
+        utterance.lang = activeVoice.lang || fallbackLang;
+      } else {
+        utterance.lang = fallbackLang;
       }
       utterance.rate = playbackSpeed;
       utterance.pitch = 1.0;
 
+      let hasStarted = false;
+      if (speechWatchdogRef.current) clearTimeout(speechWatchdogRef.current);
+      speechWatchdogRef.current = setTimeout(() => {
+        if (!hasStarted && isVoicingRef.current && voiceRequestIdRef.current === reqId && !synth.speaking) {
+          stopVoicing();
+          setVoiceNotice('Browser blocked or has no available speech voice. Try unmuting or using Chrome/Edge.');
+        }
+      }, 2800);
+
+      utterance.onstart = () => {
+        hasStarted = true;
+        if (speechWatchdogRef.current) {
+          clearTimeout(speechWatchdogRef.current);
+          speechWatchdogRef.current = null;
+        }
+      };
+
       utterance.onend = () => {
-        if (!isVoicingRef.current) return;
-        if (idx + 1 < cleanSegments.length) {
+        if (speechWatchdogRef.current) {
+          clearTimeout(speechWatchdogRef.current);
+          speechWatchdogRef.current = null;
+        }
+        if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId) return;
+        if (idx + 1 < cleanChunks.length) {
           speechTimeoutRef.current = setTimeout(() => {
             speakIndex(idx + 1);
-          }, 280);
+          }, 180);
         } else {
           stopVoicing();
         }
       };
 
-      utterance.onerror = () => {
+      utterance.onerror = (event: SpeechSynthesisErrorEvent) => {
+        if (speechWatchdogRef.current) {
+          clearTimeout(speechWatchdogRef.current);
+          speechWatchdogRef.current = null;
+        }
+        if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId) return;
+        if (event?.error === 'interrupted' || event?.error === 'canceled') return;
         stopVoicing();
+        setVoiceNotice('Browser speech playback failed. Check system audio or permissions.');
       };
 
-      window.speechSynthesis.speak(utterance);
+      try {
+        if (synth.paused) synth.resume();
+        synth.speak(utterance);
+      } catch {
+        stopVoicing();
+        setVoiceNotice('Unable to start browser speech playback.');
+      }
     };
 
-    speakIndex(0);
-
-    keepAliveIntervalRef.current = setInterval(() => {
-      if (window.speechSynthesis.speaking) {
-        window.speechSynthesis.pause();
-        window.speechSynthesis.resume();
-      } else if (!isVoicingRef.current) {
-        clearInterval(keepAliveIntervalRef.current);
-      }
-    }, 5000);
+    // Chromium drops utterances if speak() runs in the same tick as cancel()
+    const needsCancel = synth.speaking || synth.pending;
+    if (needsCancel) {
+      synth.cancel();
+      speechTimeoutRef.current = setTimeout(() => speakIndex(0), 80);
+    } else {
+      speakIndex(0);
+    }
   };
 
-  // Natural AI Voice Read-Aloud (Gemini 3.8 TTS primary, ranked natural browser voice fallback)
+  const unlockAudioContextSynchronously = (): AudioContext | null => {
+    if (typeof window === 'undefined') return null;
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return null;
+    try {
+      if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+        audioCtxRef.current = new AudioCtx();
+      }
+      const ctx = audioCtxRef.current;
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+      const silentBuf = ctx.createBuffer(1, 1, 22050);
+      const src = ctx.createBufferSource();
+      src.buffer = silentBuf;
+      src.connect(ctx.destination);
+      src.start(0);
+      return ctx;
+    } catch {
+      return null;
+    }
+  };
+
+  // Natural AI Voice Read-Aloud (Gemini 3.8 TTS primary via Web Audio + HTMLAudio, browser speechSynthesis fallback)
   const speakPitch = async () => {
     if (isVoicing || isLoadingVoice) {
       stopVoicing();
@@ -481,21 +676,31 @@ export const PitchSimulator: React.FC = () => {
     const segments = [hookText.trim(), solutionText.trim(), askText.trim()].filter(Boolean);
     if (segments.length === 0) return;
 
+    setVoiceNotice(null);
+    const reqId = ++voiceRequestIdRef.current;
+    isVoicingRef.current = true;
+
     const cleanText = segments.join('\n\n');
     const cacheKey = `${selectedLangCode}:${cleanText}`;
 
     const playAudioUrl = async (objectUrl: string) => {
-      if (!isVoicingRef.current) return;
-      const audio = new Audio(objectUrl);
+      if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId) return;
+      const audio = unlockedAudioRef.current || new Audio();
+      unlockedAudioRef.current = audio;
+      audio.onended = null;
+      audio.onerror = null;
+      audio.pause();
+      audio.muted = false;
+      audio.src = objectUrl;
       audio.playbackRate = playbackSpeed;
       audioRef.current = audio;
 
       audio.onended = () => {
-        stopVoicing();
+        if (voiceRequestIdRef.current === reqId) stopVoicing();
       };
       audio.onerror = () => {
-        if (isVoicingRef.current) {
-          speakWithBrowserFallback(segments);
+        if (isVoicingRef.current && voiceRequestIdRef.current === reqId) {
+          speakWithBrowserFallback(segments, reqId);
         }
       };
 
@@ -504,38 +709,130 @@ export const PitchSimulator: React.FC = () => {
       try {
         await audio.play();
       } catch {
-        if (isVoicingRef.current) {
-          speakWithBrowserFallback(segments);
+        if (isVoicingRef.current && voiceRequestIdRef.current === reqId) {
+          speakWithBrowserFallback(segments, reqId);
         }
       }
     };
 
-    isVoicingRef.current = true;
+    const playWavBuffer = async (wavBuffer: ArrayBuffer, objectUrl: string) => {
+      if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId) return;
+
+      const ctx = audioCtxRef.current || unlockAudioContextSynchronously();
+      if (ctx) {
+        try {
+          if (ctx.state === 'suspended') {
+            await ctx.resume();
+          }
+          const decoded = await ctx.decodeAudioData(wavBuffer.slice(0));
+          if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId) return;
+
+          if (audioSourceRef.current) {
+            audioSourceRef.current.onended = null;
+            try { audioSourceRef.current.stop(); } catch {}
+            try { audioSourceRef.current.disconnect(); } catch {}
+          }
+
+          const source = ctx.createBufferSource();
+          source.buffer = decoded;
+          source.playbackRate.value = playbackSpeed;
+          source.connect(ctx.destination);
+          source.onended = () => {
+            if (voiceRequestIdRef.current === reqId) {
+              stopVoicing();
+            }
+          };
+          audioSourceRef.current = source;
+
+          setIsLoadingVoice(false);
+          setIsVoicing(true);
+          source.start(0);
+          return;
+        } catch {
+          // Fall through to HTMLAudioElement playback
+        }
+      }
+
+      await playAudioUrl(objectUrl);
+    };
+
+    // Always unlock Web Audio synchronously inside the user click gesture across all browsers
+    unlockAudioContextSynchronously();
+
+    const cachedBuffer = audioBufferCacheRef.current.get(cacheKey);
     const cachedUrl = audioCacheRef.current.get(cacheKey);
+    if (cachedBuffer && cachedUrl) {
+      await playWavBuffer(cachedBuffer, cachedUrl);
+      return;
+    }
     if (cachedUrl) {
       await playAudioUrl(cachedUrl);
       return;
     }
 
+    // If server TTS is unavailable or this browser session has no auth token,
+    // start browser speechSynthesis synchronously inside the user click gesture.
+    if (ttsUnavailableRef.current || hasAuthTokenRef.current === false) {
+      speakWithBrowserFallback(segments, reqId);
+      return;
+    }
+
+    // Synchronously unlock a shared HTMLAudioElement inside the user click gesture
+    // so Safari / Firefox / iframe autoplay policies also allow fallback <audio> playback.
+    if (!audioUnlockedRef.current) {
+      try {
+        const audio = unlockedAudioRef.current || new Audio();
+        unlockedAudioRef.current = audio;
+        audio.muted = true;
+        audio.src = SILENT_WAV_DATA_URI;
+        const p = audio.play();
+        if (p && typeof p.then === 'function') {
+          p.then(() => {
+            if (audio.src === SILENT_WAV_DATA_URI) {
+              audio.pause();
+            }
+            audio.muted = false;
+            audioUnlockedRef.current = true;
+          }).catch(() => {
+            audio.muted = false;
+          });
+        }
+      } catch {}
+    }
+
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.getVoices();
+        if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+      } catch {}
+    }
+
     setIsLoadingVoice(true);
     try {
-      const { audioBase64, mimeType } = await synthesizePitchSpeech(cleanText, 'Kore');
-      if (!isVoicingRef.current) return;
+      const { audioBase64 } = await synthesizePitchSpeech(cleanText, 'Kore');
+      if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId) return;
 
       const binaryString = atob(audioBase64);
-      const bytes = new Uint8Array(binaryString.length);
+      const rawBytes = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
+        rawBytes[i] = binaryString.charCodeAt(i);
       }
-      const blob = new Blob([bytes], { type: mimeType || 'audio/wav' });
+      const wavBytes = ensurePlayableWavBytes(rawBytes);
+      const wavBuffer = new ArrayBuffer(wavBytes.byteLength);
+      new Uint8Array(wavBuffer).set(wavBytes);
+      const blob = new Blob([wavBuffer], { type: 'audio/wav' });
       const objectUrl = URL.createObjectURL(blob);
+      audioBufferCacheRef.current.set(cacheKey, wavBuffer);
       audioCacheRef.current.set(cacheKey, objectUrl);
 
-      await playAudioUrl(objectUrl);
-    } catch {
-      if (!isVoicingRef.current) return;
+      await playWavBuffer(wavBuffer, objectUrl);
+    } catch (err: any) {
+      if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId) return;
+      if (err?.status === 503) {
+        ttsUnavailableRef.current = true;
+      }
       setIsLoadingVoice(false);
-      speakWithBrowserFallback(segments);
+      speakWithBrowserFallback(segments, reqId);
     }
   };
 
@@ -730,6 +1027,12 @@ export const PitchSimulator: React.FC = () => {
           <div className="absolute top-0 bottom-0 left-[16.6%] w-0.5 bg-zinc-300 dark:bg-zinc-700" />
           <div className="absolute top-0 bottom-0 left-[66.6%] w-0.5 bg-zinc-300 dark:bg-zinc-700" />
         </div>
+
+        {voiceNotice && (
+          <p className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
+            {voiceNotice}
+          </p>
+        )}
       </div>
 
       {/* Teleprompter Script Area */}

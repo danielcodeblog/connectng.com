@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  Mail, Phone, MapPin, Check, ArrowUpRight, 
+  Mail, ArrowUpRight, 
   CheckCircle2, ChevronRight 
 } from 'lucide-react';
 import { LandingNavbar, NavPage } from './LandingNavbar';
@@ -92,8 +92,6 @@ export const ContactPage: React.FC<ContactPageProps> = ({
   };
 
   const emailAddress = 'hello@connectupng.com';
-  const phoneNumber = '(501) 123-4567';
-  const locationAddress = 'Crosby Street, NY, US';
 
   return (
     <div className="min-h-screen bg-white text-zinc-900 flex flex-col font-sans selection:bg-[#FFBF00] selection:text-black relative overflow-x-hidden">
@@ -195,80 +193,6 @@ export const ContactPage: React.FC<ContactPageProps> = ({
                     onClick={(e) => e.stopPropagation()}
                     className="w-9 h-9 rounded-xl bg-zinc-100 hover:bg-zinc-200 border border-zinc-200/60 flex items-center justify-center text-zinc-600 group-hover:text-zinc-900 transition-all"
                     title="Send Email"
-                  >
-                    <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                  </a>
-                </div>
-              </div>
-
-              {/* Card 2: Call us */}
-              <div 
-                onClick={(e) => handleCopy(phoneNumber, 'phone', e)}
-                className="group relative rounded-2xl bg-white hover:bg-zinc-50 border border-zinc-200 hover:border-zinc-300 transition-all duration-200 p-4 sm:p-5 flex items-center justify-between cursor-pointer shadow-sm hover:shadow-md"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-zinc-100 border border-zinc-200/80 flex items-center justify-center text-zinc-700 group-hover:text-zinc-950 transition-colors shrink-0">
-                    <Phone className="w-5 h-5 stroke-[1.8]" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-semibold text-zinc-900 tracking-wide">
-                      Call us
-                    </h3>
-                    <p className="text-xs sm:text-sm text-zinc-500 font-mono mt-0.5 group-hover:text-zinc-700 transition-colors">
-                      {phoneNumber}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {copiedKey === 'phone' ? (
-                    <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
-                      Copied!
-                    </span>
-                  ) : null}
-                  <a
-                    href="tel:5011234567"
-                    onClick={(e) => e.stopPropagation()}
-                    className="w-9 h-9 rounded-xl bg-zinc-100 hover:bg-zinc-200 border border-zinc-200/60 flex items-center justify-center text-zinc-600 group-hover:text-zinc-900 transition-all"
-                    title="Call"
-                  >
-                    <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                  </a>
-                </div>
-              </div>
-
-              {/* Card 3: Our location */}
-              <div 
-                onClick={(e) => handleCopy(locationAddress, 'location', e)}
-                className="group relative rounded-2xl bg-white hover:bg-zinc-50 border border-zinc-200 hover:border-zinc-300 transition-all duration-200 p-4 sm:p-5 flex items-center justify-between cursor-pointer shadow-sm hover:shadow-md"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-zinc-100 border border-zinc-200/80 flex items-center justify-center text-zinc-700 group-hover:text-zinc-950 transition-colors shrink-0">
-                    <MapPin className="w-5 h-5 stroke-[1.8]" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-semibold text-zinc-900 tracking-wide">
-                      Our location
-                    </h3>
-                    <p className="text-xs sm:text-sm text-zinc-500 font-mono mt-0.5 group-hover:text-zinc-700 transition-colors">
-                      {locationAddress}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {copiedKey === 'location' ? (
-                    <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
-                      Copied!
-                    </span>
-                  ) : null}
-                  <a
-                    href="https://maps.google.com/?q=Crosby+Street,+NY,+US"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="w-9 h-9 rounded-xl bg-zinc-100 hover:bg-zinc-200 border border-zinc-200/60 flex items-center justify-center text-zinc-600 group-hover:text-zinc-900 transition-all"
-                    title="View on Map"
                   >
                     <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                   </a>

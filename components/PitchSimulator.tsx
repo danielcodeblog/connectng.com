@@ -207,6 +207,69 @@ const ensurePlayableWavBytes = (bytes: Uint8Array): Uint8Array => {
   return wav;
 };
 
+const decodeWavToAudioBuffer = (ctx: AudioContext, wavBuffer: ArrayBuffer): AudioBuffer | null => {
+  try {
+    if (wavBuffer.byteLength < 44) return null;
+    const view = new DataView(wavBuffer);
+    const readStr = (offset: number, len: number) => {
+      let s = '';
+      for (let i = 0; i < len; i++) s += String.fromCharCode(view.getUint8(offset + i));
+      return s;
+    };
+    if (readStr(0, 4) !== 'RIFF' || readStr(8, 4) !== 'WAVE') return null;
+
+    let offset = 12;
+    let audioFormat = 0;
+    let numChannels = 1;
+    let sampleRate = 24000;
+    let bitsPerSample = 16;
+    let dataOffset = -1;
+    let dataSize = 0;
+
+    while (offset + 8 <= wavBuffer.byteLength) {
+      const chunkId = readStr(offset, 4);
+      const chunkSize = view.getUint32(offset + 4, true);
+      const chunkDataStart = offset + 8;
+
+      if (chunkId === 'fmt ' && chunkSize >= 16 && chunkDataStart + 16 <= wavBuffer.byteLength) {
+        audioFormat = view.getUint16(chunkDataStart, true);
+        numChannels = view.getUint16(chunkDataStart + 2, true);
+        sampleRate = view.getUint32(chunkDataStart + 4, true);
+        bitsPerSample = view.getUint16(chunkDataStart + 14, true);
+      } else if (chunkId === 'data') {
+        dataOffset = chunkDataStart;
+        dataSize = Math.min(chunkSize, wavBuffer.byteLength - chunkDataStart);
+        break;
+      }
+
+      offset = chunkDataStart + chunkSize + (chunkSize % 2);
+    }
+
+    if (audioFormat !== 1 || dataOffset < 0 || dataSize <= 0 || numChannels < 1 || sampleRate < 8000) {
+      return null;
+    }
+
+    if (bitsPerSample === 16) {
+      const bytesPerFrame = numChannels * 2;
+      const frameCount = Math.floor(dataSize / bytesPerFrame);
+      if (frameCount <= 0) return null;
+      const audioBuf = ctx.createBuffer(numChannels, frameCount, sampleRate);
+      for (let ch = 0; ch < numChannels; ch++) {
+        const channelData = audioBuf.getChannelData(ch);
+        for (let i = 0; i < frameCount; i++) {
+          const sampleOffset = dataOffset + i * bytesPerFrame + ch * 2;
+          channelData[i] = view.getInt16(sampleOffset, true) / 32768;
+        }
+      }
+      return audioBuf;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+};
+
 const splitIntoSpeechChunks = (segments: string[]): string[] => {
   const chunks: string[] = [];
   for (const seg of segments) {
@@ -252,6 +315,7 @@ export const PitchSimulator: React.FC = () => {
   const audioCacheRef = useRef<Map<string, string>>(new Map());
   const audioBufferCacheRef = useRef<Map<string, ArrayBuffer>>(new Map());
   const isVoicingRef = useRef<boolean>(false);
+  const blockedAudioElemRef = useRef<HTMLAudioElement | null>(null);
 
   const scoreNaturalVoice = (v: SpeechSynthesisVoice, langCode: string): number => {
     const name = v.name.toLowerCase();
@@ -354,11 +418,20 @@ export const PitchSimulator: React.FC = () => {
     };
 
     populateVoices();
-    window.speechSynthesis.onvoiceschanged = populateVoices;
+    const synth = window.speechSynthesis;
+    if (typeof synth.addEventListener === 'function') {
+      synth.addEventListener('voiceschanged', populateVoices);
+    } else {
+      synth.onvoiceschanged = populateVoices;
+    }
 
     return () => {
       if ('speechSynthesis' in window) {
-        window.speechSynthesis.onvoiceschanged = null;
+        if (typeof synth.removeEventListener === 'function') {
+          synth.removeEventListener('voiceschanged', populateVoices);
+        } else {
+          synth.onvoiceschanged = null;
+        }
       }
     };
   }, [selectedVoiceURI, selectedLangCode]);
@@ -531,15 +604,21 @@ export const PitchSimulator: React.FC = () => {
     const rankedVoices = [...(allVoices.length > 0 ? allVoices : availableVoices)].sort(
       (a, b) => scoreNaturalVoice(b, selectedLangCode) - scoreNaturalVoice(a, selectedLangCode)
     );
-    const activeVoice =
+    const primaryVoice =
       rankedVoices.find((v) => v.voiceURI === selectedVoiceURI) || rankedVoices[0];
+    const localLangVoice = rankedVoices.find(
+      (v) => v.localService && v.lang.toLowerCase().startsWith(selectedLangCode.toLowerCase())
+    ) || rankedVoices.find((v) => v.localService);
     const fallbackLang = LANG_LOCALES[selectedLangCode] || 'en-US';
+    const isChromium =
+      typeof navigator !== 'undefined' && /Chrome|Chromium|Edg/i.test(navigator.userAgent);
 
     isVoicingRef.current = true;
     setIsLoadingVoice(false);
     setIsVoicing(true);
 
-    const speakIndex = (idx: number) => {
+    // voiceTier: 0 = ranked voice, 1 = local OS voice, 2 = system default (no explicit .voice)
+    const speakIndex = (idx: number, voiceTier: 0 | 1 | 2 = primaryVoice ? 0 : 2) => {
       if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId || idx >= cleanChunks.length) {
         if (voiceRequestIdRef.current === reqId) stopVoicing();
         return;
@@ -547,23 +626,51 @@ export const PitchSimulator: React.FC = () => {
 
       const utterance = new SpeechSynthesisUtterance(cleanChunks[idx]);
       utteranceRef.current = utterance;
-      if (activeVoice) {
-        utterance.voice = activeVoice;
-        utterance.lang = activeVoice.lang || fallbackLang;
+
+      const chosenVoice =
+        voiceTier === 0 ? primaryVoice : voiceTier === 1 ? localLangVoice : undefined;
+
+      if (chosenVoice) {
+        utterance.voice = chosenVoice;
+        utterance.lang = chosenVoice.lang || fallbackLang;
       } else {
         utterance.lang = fallbackLang;
       }
       utterance.rate = playbackSpeed;
       utterance.pitch = 1.0;
+      utterance.volume = 1.0;
 
       let hasStarted = false;
-      if (speechWatchdogRef.current) clearTimeout(speechWatchdogRef.current);
-      speechWatchdogRef.current = setTimeout(() => {
-        if (!hasStarted && isVoicingRef.current && voiceRequestIdRef.current === reqId) {
+      const retryNextTier = () => {
+        if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId) return;
+        const nextTier: 1 | 2 | null =
+          voiceTier === 0 && localLangVoice && localLangVoice.voiceURI !== primaryVoice?.voiceURI
+            ? 1
+            : voiceTier < 2
+              ? 2
+              : null;
+
+        if (nextTier !== null) {
+          try {
+            synth.cancel();
+          } catch {}
+          if (isChromium) {
+            speechTimeoutRef.current = setTimeout(() => speakIndex(idx, nextTier), 80);
+          } else {
+            speakIndex(idx, nextTier);
+          }
+        } else {
           stopVoicing();
           setVoiceNotice('Browser blocked or has no available speech voice. Enable site audio or check browser voice settings.');
         }
-      }, 3200);
+      };
+
+      if (speechWatchdogRef.current) clearTimeout(speechWatchdogRef.current);
+      speechWatchdogRef.current = setTimeout(() => {
+        if (!hasStarted && isVoicingRef.current && voiceRequestIdRef.current === reqId) {
+          retryNextTier();
+        }
+      }, voiceTier < 2 ? 1800 : 2600);
 
       utterance.onstart = () => {
         hasStarted = true;
@@ -581,8 +688,8 @@ export const PitchSimulator: React.FC = () => {
         if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId) return;
         if (idx + 1 < cleanChunks.length) {
           speechTimeoutRef.current = setTimeout(() => {
-            speakIndex(idx + 1);
-          }, 180);
+            speakIndex(idx + 1, voiceTier);
+          }, 150);
         } else {
           stopVoicing();
         }
@@ -595,24 +702,27 @@ export const PitchSimulator: React.FC = () => {
         }
         if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId) return;
         if (event?.error === 'interrupted' || event?.error === 'canceled') return;
-        stopVoicing();
-        setVoiceNotice('Browser speech playback failed. Check system audio or permissions.');
+        retryNextTier();
       };
 
       try {
         if (synth.paused) synth.resume();
         synth.speak(utterance);
       } catch {
-        stopVoicing();
-        setVoiceNotice('Unable to start browser speech playback.');
+        retryNextTier();
       }
     };
 
-    // Chromium drops utterances if speak() runs in the same tick as cancel()
     const needsCancel = synth.speaking || synth.pending;
     if (needsCancel) {
-      synth.cancel();
-      speechTimeoutRef.current = setTimeout(() => speakIndex(0), 80);
+      try {
+        synth.cancel();
+      } catch {}
+      if (isChromium) {
+        speechTimeoutRef.current = setTimeout(() => speakIndex(0), 80);
+      } else {
+        speakIndex(0);
+      }
     } else {
       speakIndex(0);
     }
@@ -641,11 +751,24 @@ export const PitchSimulator: React.FC = () => {
     }
   };
 
-  // Natural AI Voice Read-Aloud (Gemini 3.8 TTS primary via Web Audio + HTMLAudio, browser speechSynthesis fallback)
+  const primeSpeechSynthesisSynchronously = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    try {
+      const synth = window.speechSynthesis;
+      synth.getVoices();
+      if (synth.paused) synth.resume();
+      const primer = new SpeechSynthesisUtterance('.');
+      primer.volume = 0;
+      primer.rate = 10;
+      primer.lang = LANG_LOCALES[selectedLangCode] || 'en-US';
+      synth.speak(primer);
+    } catch {}
+  };
+
+  // Natural AI Voice Read-Aloud (Gemini TTS primary via Web Audio + HTMLAudio, browser speechSynthesis fallback)
   const speakPitch = async () => {
     if (isVoicing || isLoadingVoice) {
       stopVoicing();
-      handleStop();
       return;
     }
 
@@ -668,8 +791,8 @@ export const PitchSimulator: React.FC = () => {
       audio.onerror = null;
       audio.pause();
       audio.muted = false;
+      audio.volume = 1;
       audio.src = objectUrl;
-      audio.load();
       audio.playbackRate = playbackSpeed;
       audioRef.current = audio;
 
@@ -690,8 +813,10 @@ export const PitchSimulator: React.FC = () => {
       } catch {
         if (isVoicingRef.current && voiceRequestIdRef.current === reqId) {
           setBlockedAudioUrl(objectUrl);
-          stopVoicing();
-          setVoiceNotice('Your browser blocked automatic audio playback. Press play on the audio bar below.');
+          isVoicingRef.current = false;
+          setIsVoicing(false);
+          setIsLoadingVoice(false);
+          setVoiceNotice('Browser autoplay was blocked. Click "Play Audio" below to listen.');
         }
       }
     };
@@ -705,13 +830,17 @@ export const PitchSimulator: React.FC = () => {
           if (ctx.state === 'suspended') {
             await Promise.race([
               ctx.resume().catch(() => {}),
-              new Promise((resolve) => setTimeout(resolve, 300)),
+              new Promise((resolve) => setTimeout(resolve, 800)),
             ]);
           }
           if (ctx.state !== 'running') {
             throw new Error('AudioContext suspended');
           }
-          const decoded = await ctx.decodeAudioData(wavBuffer.slice(0));
+
+          let decoded = decodeWavToAudioBuffer(ctx, wavBuffer);
+          if (!decoded) {
+            decoded = await ctx.decodeAudioData(wavBuffer.slice(0));
+          }
           if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId) return;
 
           if (audioSourceRef.current) {
@@ -743,8 +872,8 @@ export const PitchSimulator: React.FC = () => {
       await playAudioUrl(objectUrl);
     };
 
-    // Always unlock Web Audio synchronously inside the user click gesture across all browsers
-    unlockAudioContextSynchronously();
+    // Synchronously unlock Web Audio inside the user click gesture across all browsers
+    const unlockedCtx = unlockAudioContextSynchronously();
 
     const cachedBuffer = audioBufferCacheRef.current.get(cacheKey);
     const cachedUrl = audioCacheRef.current.get(cacheKey);
@@ -763,9 +892,13 @@ export const PitchSimulator: React.FC = () => {
       return;
     }
 
-    // Synchronously unlock a shared HTMLAudioElement inside the user click gesture
-    // so Safari / Firefox / iframe autoplay policies also allow fallback <audio> playback.
-    if (!audioUnlockedRef.current) {
+    // Synchronously prime speechSynthesis inside the click gesture so Safari/iOS/Firefox
+    // preserve activation if async server TTS falls back (e.g., 401/503/network error).
+    primeSpeechSynthesisSynchronously();
+
+    // Only unlock an HTMLAudioElement fallback synchronously when Web Audio is unavailable,
+    // preventing competing silent audio sessions in Safari/iOS WebKit.
+    if (!unlockedCtx && !audioUnlockedRef.current) {
       try {
         const audio = unlockedAudioRef.current || new Audio();
         unlockedAudioRef.current = audio;
@@ -774,22 +907,12 @@ export const PitchSimulator: React.FC = () => {
         const p = audio.play();
         if (p && typeof p.then === 'function') {
           p.then(() => {
-            if (audio.src === SILENT_WAV_DATA_URI) {
-              audio.pause();
-            }
             audio.muted = false;
             audioUnlockedRef.current = true;
           }).catch(() => {
             audio.muted = false;
           });
         }
-      } catch {}
-    }
-
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      try {
-        window.speechSynthesis.getVoices();
-        if (window.speechSynthesis.paused) window.speechSynthesis.resume();
       } catch {}
     }
 
@@ -921,6 +1044,7 @@ export const PitchSimulator: React.FC = () => {
 
           {/* Voice Read-Aloud Button */}
           <button
+            type="button"
             onClick={speakPitch}
             disabled={isEditing}
             className={cn(
@@ -951,6 +1075,7 @@ export const PitchSimulator: React.FC = () => {
 
           {isEditing && (
             <button
+              type="button"
               onClick={handleResetToDefaults}
               className="px-2.5 py-1.5 text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors cursor-pointer flex items-center gap-1"
               title="Reset to default script"
@@ -961,6 +1086,7 @@ export const PitchSimulator: React.FC = () => {
           )}
 
           <button
+            type="button"
             onClick={handleToggleEdit}
             disabled={isPlaying}
             className={cn(
@@ -1021,11 +1147,28 @@ export const PitchSimulator: React.FC = () => {
         )}
 
         {blockedAudioUrl && (
-          <audio
-            controls
-            src={blockedAudioUrl}
-            className="w-full h-9 rounded-xl"
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const el = blockedAudioElemRef.current;
+                if (el) {
+                  el.playbackRate = playbackSpeed;
+                  el.play().catch(() => {});
+                }
+              }}
+              className="h-9 px-3.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-zinc-950 text-xs font-bold cursor-pointer flex items-center gap-1.5 shrink-0"
+            >
+              <Volume2 className="w-3.5 h-3.5" />
+              <span>Play Audio</span>
+            </button>
+            <audio
+              ref={blockedAudioElemRef}
+              controls
+              src={blockedAudioUrl}
+              className="flex-1 min-w-[200px] h-9 rounded-xl"
+            />
+          </div>
         )}
       </div>
 
@@ -1115,6 +1258,7 @@ export const PitchSimulator: React.FC = () => {
         <div className="flex items-center gap-2">
           {!isPlaying ? (
             <button
+              type="button"
               onClick={handleStart}
               disabled={isEditing}
               className="h-10 px-5 rounded-xl bg-zinc-950 dark:bg-white hover:bg-zinc-850 text-white dark:text-zinc-950 text-xs font-bold transition-all active:scale-95 cursor-pointer disabled:opacity-40 shadow-xs flex items-center gap-2"
@@ -1124,6 +1268,7 @@ export const PitchSimulator: React.FC = () => {
             </button>
           ) : (
             <button
+              type="button"
               onClick={handleStop}
               className="h-10 px-5 rounded-xl bg-amber-400 hover:bg-amber-300 text-zinc-950 text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-xs flex items-center gap-2"
             >
@@ -1134,6 +1279,7 @@ export const PitchSimulator: React.FC = () => {
 
           {(currentTime > 0 || isPlaying) && (
             <button
+              type="button"
               onClick={handleReset}
               className="h-10 w-10 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200/70 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-500 dark:text-zinc-300 transition-colors cursor-pointer flex items-center justify-center shadow-2xs"
               title="Reset Timer"

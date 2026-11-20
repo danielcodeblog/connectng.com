@@ -11,7 +11,6 @@ import {
 import { IconWrapper } from './IconWrapper';
 import { cn } from '../lib/utils';
 import { synthesizePitchSpeech } from '../services/geminiService';
-import { supabase } from '../services/supabaseClient';
 
 export interface PitchScript {
   hook: string;
@@ -234,6 +233,7 @@ export const PitchSimulator: React.FC = () => {
   const [isVoicing, setIsVoicing] = useState(false);
   const [isLoadingVoice, setIsLoadingVoice] = useState(false);
   const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
+  const [blockedAudioUrl, setBlockedAudioUrl] = useState<string | null>(null);
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoiceURI, setSelectedVoiceURI] = useState<string>('');
   const [selectedLangCode, setSelectedLangCode] = useState<string>('en');
@@ -248,7 +248,6 @@ export const PitchSimulator: React.FC = () => {
   const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const audioUnlockedRef = useRef<boolean>(false);
   const ttsUnavailableRef = useRef<boolean>(false);
-  const hasAuthTokenRef = useRef<boolean | null>(null);
   const voiceRequestIdRef = useRef<number>(0);
   const audioCacheRef = useRef<Map<string, string>>(new Map());
   const audioBufferCacheRef = useRef<Map<string, ArrayBuffer>>(new Map());
@@ -367,6 +366,7 @@ export const PitchSimulator: React.FC = () => {
   const handleLanguageChange = (code: string) => {
     stopVoicing();
     setVoiceNotice(null);
+    setBlockedAudioUrl(null);
     setSelectedLangCode(code);
     const targetLang = LANGUAGES.find(l => l.code === code);
     if (targetLang) {
@@ -385,32 +385,6 @@ export const PitchSimulator: React.FC = () => {
       }
     }
   };
-
-  // Track Supabase auth token availability so unauthenticated/mock browsers preserve synchronous click gesture
-  useEffect(() => {
-    let mounted = true;
-    supabase.auth.getSession()
-      .then(({ data }) => {
-        if (mounted) {
-          hasAuthTokenRef.current = Boolean(data?.session?.access_token);
-        }
-      })
-      .catch(() => {
-        if (mounted) hasAuthTokenRef.current = false;
-      });
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      hasAuthTokenRef.current = Boolean(session?.access_token);
-      if (session?.access_token) {
-        ttsUnavailableRef.current = false;
-      }
-    });
-
-    return () => {
-      mounted = false;
-      authListener?.subscription?.unsubscribe();
-    };
-  }, []);
 
   // Sync playback rate on active audio nodes / HTMLAudioElement
   useEffect(() => {
@@ -481,6 +455,7 @@ export const PitchSimulator: React.FC = () => {
 
   const handleStart = () => {
     setVoiceNotice(null);
+    setBlockedAudioUrl(null);
     if (currentTime >= 30) {
       setCurrentTime(0);
     }
@@ -494,6 +469,7 @@ export const PitchSimulator: React.FC = () => {
 
   const handleReset = () => {
     setVoiceNotice(null);
+    setBlockedAudioUrl(null);
     setIsPlaying(false);
     setCurrentTime(0);
     stopVoicing();
@@ -583,11 +559,11 @@ export const PitchSimulator: React.FC = () => {
       let hasStarted = false;
       if (speechWatchdogRef.current) clearTimeout(speechWatchdogRef.current);
       speechWatchdogRef.current = setTimeout(() => {
-        if (!hasStarted && isVoicingRef.current && voiceRequestIdRef.current === reqId && !synth.speaking) {
+        if (!hasStarted && isVoicingRef.current && voiceRequestIdRef.current === reqId) {
           stopVoicing();
-          setVoiceNotice('Browser blocked or has no available speech voice. Try unmuting or using Chrome/Edge.');
+          setVoiceNotice('Browser blocked or has no available speech voice. Enable site audio or check browser voice settings.');
         }
-      }, 2800);
+      }, 3200);
 
       utterance.onstart = () => {
         hasStarted = true;
@@ -654,7 +630,7 @@ export const PitchSimulator: React.FC = () => {
       if (ctx.state === 'suspended') {
         ctx.resume().catch(() => {});
       }
-      const silentBuf = ctx.createBuffer(1, 1, 22050);
+      const silentBuf = ctx.createBuffer(1, 128, ctx.sampleRate || 44100);
       const src = ctx.createBufferSource();
       src.buffer = silentBuf;
       src.connect(ctx.destination);
@@ -677,6 +653,7 @@ export const PitchSimulator: React.FC = () => {
     if (segments.length === 0) return;
 
     setVoiceNotice(null);
+    setBlockedAudioUrl(null);
     const reqId = ++voiceRequestIdRef.current;
     isVoicingRef.current = true;
 
@@ -692,6 +669,7 @@ export const PitchSimulator: React.FC = () => {
       audio.pause();
       audio.muted = false;
       audio.src = objectUrl;
+      audio.load();
       audio.playbackRate = playbackSpeed;
       audioRef.current = audio;
 
@@ -700,6 +678,7 @@ export const PitchSimulator: React.FC = () => {
       };
       audio.onerror = () => {
         if (isVoicingRef.current && voiceRequestIdRef.current === reqId) {
+          setBlockedAudioUrl(objectUrl);
           speakWithBrowserFallback(segments, reqId);
         }
       };
@@ -710,7 +689,9 @@ export const PitchSimulator: React.FC = () => {
         await audio.play();
       } catch {
         if (isVoicingRef.current && voiceRequestIdRef.current === reqId) {
-          speakWithBrowserFallback(segments, reqId);
+          setBlockedAudioUrl(objectUrl);
+          stopVoicing();
+          setVoiceNotice('Your browser blocked automatic audio playback. Press play on the audio bar below.');
         }
       }
     };
@@ -722,7 +703,13 @@ export const PitchSimulator: React.FC = () => {
       if (ctx) {
         try {
           if (ctx.state === 'suspended') {
-            await ctx.resume();
+            await Promise.race([
+              ctx.resume().catch(() => {}),
+              new Promise((resolve) => setTimeout(resolve, 300)),
+            ]);
+          }
+          if (ctx.state !== 'running') {
+            throw new Error('AudioContext suspended');
           }
           const decoded = await ctx.decodeAudioData(wavBuffer.slice(0));
           if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId) return;
@@ -770,9 +757,8 @@ export const PitchSimulator: React.FC = () => {
       return;
     }
 
-    // If server TTS is unavailable or this browser session has no auth token,
-    // start browser speechSynthesis synchronously inside the user click gesture.
-    if (ttsUnavailableRef.current || hasAuthTokenRef.current === false) {
+    // Only skip server TTS if the server explicitly returned 503 (missing GEMINI_API_KEY)
+    if (ttsUnavailableRef.current) {
       speakWithBrowserFallback(segments, reqId);
       return;
     }
@@ -1032,6 +1018,14 @@ export const PitchSimulator: React.FC = () => {
           <p className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
             {voiceNotice}
           </p>
+        )}
+
+        {blockedAudioUrl && (
+          <audio
+            controls
+            src={blockedAudioUrl}
+            className="w-full h-9 rounded-xl"
+          />
         )}
       </div>
 

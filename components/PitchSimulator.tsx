@@ -168,22 +168,63 @@ const LANG_LOCALES: Record<string, string> = {
 const SILENT_WAV_DATA_URI =
   'data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAwF0AAIC7AAACABAAZGF0YQIAAAAAAA==';
 
-const ensurePlayableWavBytes = (bytes: Uint8Array): Uint8Array => {
-  const hasRiffHeader =
-    bytes.length >= 12 &&
-    bytes[0] === 0x52 && // R
-    bytes[1] === 0x49 && // I
-    bytes[2] === 0x46 && // F
-    bytes[3] === 0x46;   // F
-  if (hasRiffHeader) return bytes;
+const hasAudioContainerMagic = (bytes: Uint8Array): string | null => {
+  if (bytes.length >= 12 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46) {
+    return 'audio/wav';
+  }
+  if (
+    (bytes.length >= 3 && bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) ||
+    (bytes.length >= 2 && bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0)
+  ) {
+    return 'audio/mpeg';
+  }
+  if (bytes.length >= 4 && bytes[0] === 0x4f && bytes[1] === 0x67 && bytes[2] === 0x67 && bytes[3] === 0x53) {
+    return 'audio/ogg';
+  }
+  if (bytes.length >= 4 && bytes[0] === 0x66 && bytes[1] === 0x4c && bytes[2] === 0x61 && bytes[3] === 0x43) {
+    return 'audio/flac';
+  }
+  if (bytes.length >= 4 && bytes[0] === 0x1a && bytes[1] === 0x45 && bytes[2] === 0xdf && bytes[3] === 0xa3) {
+    return 'audio/webm';
+  }
+  return null;
+};
 
-  // Wrap headerless raw L16 PCM (24kHz, mono, 16-bit LE) into a valid WAV container
-  const sampleRate = 24000;
-  const numChannels = 1;
+const preparePlayableAudio = (
+  rawBytes: Uint8Array,
+  mimeType?: string
+): { bytes: Uint8Array; blobType: string } => {
+  const detectedMagic = hasAudioContainerMagic(rawBytes);
+  if (detectedMagic) {
+    return { bytes: rawBytes, blobType: detectedMagic };
+  }
+
+  const lowerMime = (mimeType || '').toLowerCase();
+  const isCompressed =
+    lowerMime.includes('mp3') ||
+    lowerMime.includes('mpeg') ||
+    lowerMime.includes('ogg') ||
+    lowerMime.includes('opus') ||
+    lowerMime.includes('webm') ||
+    lowerMime.includes('aac') ||
+    lowerMime.includes('mp4') ||
+    lowerMime.includes('flac');
+  if (isCompressed) {
+    return { bytes: rawBytes, blobType: mimeType || 'audio/mpeg' };
+  }
+
+  // Wrap headerless raw L16 PCM into a valid RIFF/WAV container using reported rate/channels
+  const rateMatch = lowerMime.match(/rate=(\d+)/);
+  const channelsMatch = lowerMime.match(/channels=(\d+)/);
+  const sampleRate = rateMatch ? Math.max(8000, Math.min(96000, Number(rateMatch[1]))) : 24000;
+  const numChannels = channelsMatch ? Math.max(1, Math.min(2, Number(channelsMatch[1]))) : 1;
   const bitsPerSample = 16;
+  const frameAlign = numChannels * (bitsPerSample / 8);
+  const pcmLen = rawBytes.length - (rawBytes.length % frameAlign);
+  const pcmBytes = pcmLen === rawBytes.length ? rawBytes : rawBytes.subarray(0, pcmLen);
+
   const byteRate = (sampleRate * numChannels * bitsPerSample) / 8;
-  const blockAlign = (numChannels * bitsPerSample) / 8;
-  const wav = new Uint8Array(44 + bytes.length);
+  const wav = new Uint8Array(44 + pcmBytes.length);
   const view = new DataView(wav.buffer);
 
   const writeAscii = (offset: number, str: string) => {
@@ -191,7 +232,7 @@ const ensurePlayableWavBytes = (bytes: Uint8Array): Uint8Array => {
   };
 
   writeAscii(0, 'RIFF');
-  view.setUint32(4, 36 + bytes.length, true);
+  view.setUint32(4, 36 + pcmBytes.length, true);
   writeAscii(8, 'WAVE');
   writeAscii(12, 'fmt ');
   view.setUint32(16, 16, true);
@@ -199,12 +240,28 @@ const ensurePlayableWavBytes = (bytes: Uint8Array): Uint8Array => {
   view.setUint16(22, numChannels, true);
   view.setUint32(24, sampleRate, true);
   view.setUint32(28, byteRate, true);
-  view.setUint16(32, blockAlign, true);
+  view.setUint16(32, frameAlign, true);
   view.setUint16(34, bitsPerSample, true);
   writeAscii(36, 'data');
-  view.setUint32(40, bytes.length, true);
-  wav.set(bytes, 44);
-  return wav;
+  view.setUint32(40, pcmBytes.length, true);
+  wav.set(pcmBytes, 44);
+  return { bytes: wav, blobType: 'audio/wav' };
+};
+
+const applyDeclickEnvelope = (audioBuf: AudioBuffer) => {
+  const fadeSamples = Math.min(
+    Math.floor(audioBuf.sampleRate * 0.004),
+    Math.floor(audioBuf.length / 4)
+  );
+  if (fadeSamples <= 1) return;
+  for (let ch = 0; ch < audioBuf.numberOfChannels; ch++) {
+    const data = audioBuf.getChannelData(ch);
+    for (let i = 0; i < fadeSamples; i++) {
+      const gain = i / fadeSamples;
+      data[i] *= gain;
+      data[audioBuf.length - 1 - i] *= gain;
+    }
+  }
 };
 
 const decodeWavToAudioBuffer = (ctx: AudioContext, wavBuffer: ArrayBuffer): AudioBuffer | null => {
@@ -238,18 +295,21 @@ const decodeWavToAudioBuffer = (ctx: AudioContext, wavBuffer: ArrayBuffer): Audi
         bitsPerSample = view.getUint16(chunkDataStart + 14, true);
       } else if (chunkId === 'data') {
         dataOffset = chunkDataStart;
-        dataSize = Math.min(chunkSize, wavBuffer.byteLength - chunkDataStart);
+        dataSize =
+          chunkSize === 0 || chunkSize === 0xffffffff
+            ? wavBuffer.byteLength - chunkDataStart
+            : Math.min(chunkSize, wavBuffer.byteLength - chunkDataStart);
         break;
       }
 
       offset = chunkDataStart + chunkSize + (chunkSize % 2);
     }
 
-    if (audioFormat !== 1 || dataOffset < 0 || dataSize <= 0 || numChannels < 1 || sampleRate < 8000) {
+    if ((audioFormat !== 1 && audioFormat !== 3) || dataOffset < 0 || dataSize <= 0 || numChannels < 1 || sampleRate < 8000) {
       return null;
     }
 
-    if (bitsPerSample === 16) {
+    if (audioFormat === 1 && bitsPerSample === 16) {
       const bytesPerFrame = numChannels * 2;
       const frameCount = Math.floor(dataSize / bytesPerFrame);
       if (frameCount <= 0) return null;
@@ -261,6 +321,23 @@ const decodeWavToAudioBuffer = (ctx: AudioContext, wavBuffer: ArrayBuffer): Audi
           channelData[i] = view.getInt16(sampleOffset, true) / 32768;
         }
       }
+      applyDeclickEnvelope(audioBuf);
+      return audioBuf;
+    }
+
+    if (audioFormat === 3 && bitsPerSample === 32) {
+      const bytesPerFrame = numChannels * 4;
+      const frameCount = Math.floor(dataSize / bytesPerFrame);
+      if (frameCount <= 0) return null;
+      const audioBuf = ctx.createBuffer(numChannels, frameCount, sampleRate);
+      for (let ch = 0; ch < numChannels; ch++) {
+        const channelData = audioBuf.getChannelData(ch);
+        for (let i = 0; i < frameCount; i++) {
+          const sampleOffset = dataOffset + i * bytesPerFrame + ch * 4;
+          channelData[i] = Math.max(-1, Math.min(1, view.getFloat32(sampleOffset, true)));
+        }
+      }
+      applyDeclickEnvelope(audioBuf);
       return audioBuf;
     }
 
@@ -276,10 +353,14 @@ const splitIntoSpeechChunks = (segments: string[]): string[] => {
     const trimmed = seg.trim();
     if (!trimmed) continue;
     const sentences = trimmed.split(/(?<=[.!?。！？])\s+/).filter(Boolean);
-    if (sentences.length === 0) {
-      chunks.push(trimmed);
-    } else {
-      chunks.push(...sentences);
+    const parts = sentences.length === 0 ? [trimmed] : sentences;
+    for (const part of parts) {
+      if (part.length <= 220) {
+        chunks.push(part);
+      } else {
+        const subParts = part.split(/(?<=[,;、，；])\s+/).filter(Boolean);
+        chunks.push(...(subParts.length > 0 ? subParts : [part]));
+      }
     }
   }
   return chunks;
@@ -303,6 +384,7 @@ export const PitchSimulator: React.FC = () => {
 
   // Audio playback & SpeechSynthesis refs
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const utteranceQueueRef = useRef<SpeechSynthesisUtterance[]>([]);
   const speechTimeoutRef = useRef<any>(null);
   const speechWatchdogRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -334,11 +416,11 @@ export const PitchSimulator: React.FC = () => {
       name.includes('wavenet') ||
       name.includes('studio')
     ) {
-      score += 120;
-    } else if (name.includes('google')) {
-      score += 95;
+      score += 150;
     } else if (name.includes('enhanced') || name.includes('premium') || name.includes('siri')) {
-      score += 75;
+      score += 115;
+    } else if (name.includes('google')) {
+      score += 100;
     }
 
     const warmHumanNames = [
@@ -346,22 +428,23 @@ export const PitchSimulator: React.FC = () => {
       'aria', 'jenny', 'guy', 'sonia', 'ryan', 'libby', 'serena', 'oliver', 'kate', 'clara'
     ];
     if (warmHumanNames.some((n) => name.includes(n))) {
-      score += 55;
+      score += 75;
     }
 
-    if (!v.localService) {
-      score += 25;
+    if (v.localService) {
+      score += 10;
     }
 
     const roboticNames = [
-      'espeak', 'festival', 'fred', 'albert', 'bad news', 'bahh', 'bells', 'boing',
-      'bubbles', 'cellos', 'deranged', 'good news', 'hysterical', 'jester', 'organ',
-      'trinoids', 'whisper', 'zarvox', 'junior', 'kathy', 'ralph', 'eddy', 'flo',
-      'grandma', 'grandpa', 'reed', 'rocko', 'sandy', 'shelley',
-      'microsoft david', 'microsoft zira', 'microsoft mark'
+      'espeak', 'festival', 'speech-dispatcher', 'rhvoice', 'fred', 'albert', 'bad news',
+      'bahh', 'bells', 'boing', 'bubbles', 'cellos', 'deranged', 'good news', 'hysterical',
+      'jester', 'organ', 'trinoids', 'whisper', 'zarvox', 'junior', 'kathy', 'ralph', 'eddy',
+      'flo', 'grandma', 'grandpa', 'reed', 'rocko', 'sandy', 'shelley',
+      'microsoft david', 'microsoft zira', 'microsoft mark', 'microsoft hazel',
+      'microsoft george', 'microsoft susan', 'microsoft heera', 'microsoft ravi'
     ];
     if (roboticNames.some((n) => name.includes(n))) {
-      score -= 150;
+      score -= 220;
     }
 
     return score;
@@ -581,6 +664,8 @@ export const PitchSimulator: React.FC = () => {
         window.speechSynthesis.cancel();
       } catch {}
     }
+    utteranceRef.current = null;
+    utteranceQueueRef.current = [];
   };
 
   const speakWithBrowserFallback = (segments: string[], reqId: number) => {
@@ -618,30 +703,20 @@ export const PitchSimulator: React.FC = () => {
     setIsVoicing(true);
 
     // voiceTier: 0 = ranked voice, 1 = local OS voice, 2 = system default (no explicit .voice)
-    const speakIndex = (idx: number, voiceTier: 0 | 1 | 2 = primaryVoice ? 0 : 2) => {
-      if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId || idx >= cleanChunks.length) {
+    // Queue all remaining chunks synchronously so Safari/iOS/Firefox never lose gesture activation between sentences.
+    const enqueueRemainingChunks = (startIdx: number, voiceTier: 0 | 1 | 2 = primaryVoice ? 0 : 2) => {
+      if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId || startIdx >= cleanChunks.length) {
         if (voiceRequestIdRef.current === reqId) stopVoicing();
         return;
       }
 
-      const utterance = new SpeechSynthesisUtterance(cleanChunks[idx]);
-      utteranceRef.current = utterance;
-
       const chosenVoice =
         voiceTier === 0 ? primaryVoice : voiceTier === 1 ? localLangVoice : undefined;
 
-      if (chosenVoice) {
-        utterance.voice = chosenVoice;
-        utterance.lang = chosenVoice.lang || fallbackLang;
-      } else {
-        utterance.lang = fallbackLang;
-      }
-      utterance.rate = playbackSpeed;
-      utterance.pitch = 1.0;
-      utterance.volume = 1.0;
+      utteranceQueueRef.current = [];
+      let hasStartedAny = false;
 
-      let hasStarted = false;
-      const retryNextTier = () => {
+      const retryFromChunk = (failedIdx: number) => {
         if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId) return;
         const nextTier: 1 | 2 | null =
           voiceTier === 0 && localLangVoice && localLangVoice.voiceURI !== primaryVoice?.voiceURI
@@ -655,9 +730,9 @@ export const PitchSimulator: React.FC = () => {
             synth.cancel();
           } catch {}
           if (isChromium) {
-            speechTimeoutRef.current = setTimeout(() => speakIndex(idx, nextTier), 80);
+            speechTimeoutRef.current = setTimeout(() => enqueueRemainingChunks(failedIdx, nextTier), 120);
           } else {
-            speakIndex(idx, nextTier);
+            enqueueRemainingChunks(failedIdx, nextTier);
           }
         } else {
           stopVoicing();
@@ -667,49 +742,69 @@ export const PitchSimulator: React.FC = () => {
 
       if (speechWatchdogRef.current) clearTimeout(speechWatchdogRef.current);
       speechWatchdogRef.current = setTimeout(() => {
-        if (!hasStarted && isVoicingRef.current && voiceRequestIdRef.current === reqId) {
-          retryNextTier();
+        if (!hasStartedAny && isVoicingRef.current && voiceRequestIdRef.current === reqId) {
+          retryFromChunk(startIdx);
         }
       }, voiceTier < 2 ? 1800 : 2600);
 
-      utterance.onstart = () => {
-        hasStarted = true;
-        if (speechWatchdogRef.current) {
-          clearTimeout(speechWatchdogRef.current);
-          speechWatchdogRef.current = null;
+      for (let i = startIdx; i < cleanChunks.length; i++) {
+        const chunkIdx = i;
+        const utterance = new SpeechSynthesisUtterance(cleanChunks[chunkIdx]);
+        if (chunkIdx === startIdx) {
+          utteranceRef.current = utterance;
         }
-      };
+        utteranceQueueRef.current.push(utterance);
 
-      utterance.onend = () => {
-        if (speechWatchdogRef.current) {
-          clearTimeout(speechWatchdogRef.current);
-          speechWatchdogRef.current = null;
-        }
-        if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId) return;
-        if (idx + 1 < cleanChunks.length) {
-          speechTimeoutRef.current = setTimeout(() => {
-            speakIndex(idx + 1, voiceTier);
-          }, 150);
+        if (chosenVoice) {
+          utterance.voice = chosenVoice;
+          utterance.lang = chosenVoice.lang || fallbackLang;
         } else {
-          stopVoicing();
+          utterance.lang = fallbackLang;
         }
-      };
+        utterance.rate = playbackSpeed;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
 
-      utterance.onerror = (event: SpeechSynthesisErrorEvent) => {
-        if (speechWatchdogRef.current) {
-          clearTimeout(speechWatchdogRef.current);
-          speechWatchdogRef.current = null;
+        utterance.onstart = () => {
+          hasStartedAny = true;
+          utteranceRef.current = utterance;
+          if (speechWatchdogRef.current) {
+            clearTimeout(speechWatchdogRef.current);
+            speechWatchdogRef.current = null;
+          }
+        };
+
+        utterance.onend = () => {
+          if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId) return;
+          if (chunkIdx === cleanChunks.length - 1) {
+            stopVoicing();
+          } else {
+            if (speechWatchdogRef.current) clearTimeout(speechWatchdogRef.current);
+            speechWatchdogRef.current = setTimeout(() => {
+              if (isVoicingRef.current && voiceRequestIdRef.current === reqId) {
+                retryFromChunk(chunkIdx + 1);
+              }
+            }, 2500);
+          }
+        };
+
+        utterance.onerror = (event: SpeechSynthesisErrorEvent) => {
+          if (speechWatchdogRef.current) {
+            clearTimeout(speechWatchdogRef.current);
+            speechWatchdogRef.current = null;
+          }
+          if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId) return;
+          if (event?.error === 'interrupted' || event?.error === 'canceled') return;
+          retryFromChunk(chunkIdx);
+        };
+
+        try {
+          if (synth.paused) synth.resume();
+          synth.speak(utterance);
+        } catch {
+          retryFromChunk(chunkIdx);
+          return;
         }
-        if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId) return;
-        if (event?.error === 'interrupted' || event?.error === 'canceled') return;
-        retryNextTier();
-      };
-
-      try {
-        if (synth.paused) synth.resume();
-        synth.speak(utterance);
-      } catch {
-        retryNextTier();
       }
     };
 
@@ -719,12 +814,12 @@ export const PitchSimulator: React.FC = () => {
         synth.cancel();
       } catch {}
       if (isChromium) {
-        speechTimeoutRef.current = setTimeout(() => speakIndex(0), 80);
+        speechTimeoutRef.current = setTimeout(() => enqueueRemainingChunks(0), 120);
       } else {
-        speakIndex(0);
+        enqueueRemainingChunks(0);
       }
     } else {
-      speakIndex(0);
+      enqueueRemainingChunks(0);
     }
   };
 
@@ -757,10 +852,11 @@ export const PitchSimulator: React.FC = () => {
       const synth = window.speechSynthesis;
       synth.getVoices();
       if (synth.paused) synth.resume();
-      const primer = new SpeechSynthesisUtterance('.');
+      const primer = new SpeechSynthesisUtterance(' ');
       primer.volume = 0;
       primer.rate = 10;
       primer.lang = LANG_LOCALES[selectedLangCode] || 'en-US';
+      utteranceRef.current = primer;
       synth.speak(primer);
     } catch {}
   };
@@ -849,10 +945,27 @@ export const PitchSimulator: React.FC = () => {
             try { audioSourceRef.current.disconnect(); } catch {}
           }
 
+          if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+            try { window.speechSynthesis.cancel(); } catch {}
+          }
+
           const source = ctx.createBufferSource();
           source.buffer = decoded;
           source.playbackRate.value = playbackSpeed;
-          source.connect(ctx.destination);
+
+          if (typeof ctx.createDynamicsCompressor === 'function') {
+            const compressor = ctx.createDynamicsCompressor();
+            compressor.threshold.value = -18;
+            compressor.knee.value = 18;
+            compressor.ratio.value = 3;
+            compressor.attack.value = 0.003;
+            compressor.release.value = 0.15;
+            source.connect(compressor);
+            compressor.connect(ctx.destination);
+          } else {
+            source.connect(ctx.destination);
+          }
+
           source.onended = () => {
             if (voiceRequestIdRef.current === reqId) {
               stopVoicing();
@@ -869,6 +982,9 @@ export const PitchSimulator: React.FC = () => {
         }
       }
 
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        try { window.speechSynthesis.cancel(); } catch {}
+      }
       await playAudioUrl(objectUrl);
     };
 
@@ -918,7 +1034,7 @@ export const PitchSimulator: React.FC = () => {
 
     setIsLoadingVoice(true);
     try {
-      const { audioBase64 } = await synthesizePitchSpeech(cleanText, 'Kore');
+      const { audioBase64, mimeType } = await synthesizePitchSpeech(cleanText, 'Kore');
       if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId) return;
 
       const binaryString = atob(audioBase64);
@@ -926,15 +1042,15 @@ export const PitchSimulator: React.FC = () => {
       for (let i = 0; i < binaryString.length; i++) {
         rawBytes[i] = binaryString.charCodeAt(i);
       }
-      const wavBytes = ensurePlayableWavBytes(rawBytes);
-      const wavBuffer = new ArrayBuffer(wavBytes.byteLength);
-      new Uint8Array(wavBuffer).set(wavBytes);
-      const blob = new Blob([wavBuffer], { type: 'audio/wav' });
+      const { bytes: playableBytes, blobType } = preparePlayableAudio(rawBytes, mimeType);
+      const audioBuffer = new ArrayBuffer(playableBytes.byteLength);
+      new Uint8Array(audioBuffer).set(playableBytes);
+      const blob = new Blob([audioBuffer], { type: blobType });
       const objectUrl = URL.createObjectURL(blob);
-      audioBufferCacheRef.current.set(cacheKey, wavBuffer);
+      audioBufferCacheRef.current.set(cacheKey, audioBuffer);
       audioCacheRef.current.set(cacheKey, objectUrl);
 
-      await playWavBuffer(wavBuffer, objectUrl);
+      await playWavBuffer(audioBuffer, objectUrl);
     } catch (err: any) {
       if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId) return;
       if (err?.status === 503) {
@@ -952,6 +1068,9 @@ export const PitchSimulator: React.FC = () => {
   };
 
   const handleToggleEdit = () => {
+    stopVoicing();
+    setVoiceNotice(null);
+    setBlockedAudioUrl(null);
     if (isEditing) {
       const updatedScript: PitchScript = {
         hook: hookText,
@@ -969,6 +1088,9 @@ export const PitchSimulator: React.FC = () => {
   };
 
   const handleResetToDefaults = () => {
+    stopVoicing();
+    setVoiceNotice(null);
+    setBlockedAudioUrl(null);
     const defaultLang = LANGUAGES[0];
     setSelectedLangCode('en');
     setPitchScript(defaultLang.script);

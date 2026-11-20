@@ -371,6 +371,15 @@ export const PitchSimulator: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
   
+  const VOICE_PERSONAS = [
+    { id: 'Kore', label: 'Kore (Warm)' },
+    { id: 'Zephyr', label: 'Zephyr (Crisp)' },
+    { id: 'Puck', label: 'Puck (Upbeat)' },
+    { id: 'Charon', label: 'Charon (Deep)' },
+    { id: 'Fenrir', label: 'Fenrir (Bold)' },
+  ] as const;
+  type VoicePersonaId = (typeof VOICE_PERSONAS)[number]['id'];
+
   // Voice & speed states (defaults to 1x)
   const SPEED_OPTIONS = [1, 1.25, 1.5, 0.75] as const;
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
@@ -381,6 +390,7 @@ export const PitchSimulator: React.FC = () => {
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoiceURI, setSelectedVoiceURI] = useState<string>('');
   const [selectedLangCode, setSelectedLangCode] = useState<string>('en');
+  const [selectedPersona, setSelectedPersona] = useState<VoicePersonaId>('Kore');
 
   // Audio playback & SpeechSynthesis refs
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
@@ -494,7 +504,7 @@ export const PitchSimulator: React.FC = () => {
         setAvailableVoices(sortedVoices);
 
         const bestVoice = sortedVoices[0];
-        if (bestVoice && (!selectedVoiceURI || !sortedVoices.some(v => v.voiceURI === selectedVoiceURI))) {
+        if (bestVoice) {
           setSelectedVoiceURI(bestVoice.voiceURI);
         }
       }
@@ -517,7 +527,7 @@ export const PitchSimulator: React.FC = () => {
         }
       }
     };
-  }, [selectedVoiceURI, selectedLangCode]);
+  }, [selectedLangCode]);
 
   const handleLanguageChange = (code: string) => {
     stopVoicing();
@@ -877,7 +887,7 @@ export const PitchSimulator: React.FC = () => {
     isVoicingRef.current = true;
 
     const cleanText = segments.join('\n\n');
-    const cacheKey = `${selectedLangCode}:${cleanText}`;
+    const cacheKey = `${selectedLangCode}:${selectedPersona}:${cleanText}`;
 
     const playAudioUrl = async (objectUrl: string) => {
       if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId) return;
@@ -953,18 +963,43 @@ export const PitchSimulator: React.FC = () => {
           source.buffer = decoded;
           source.playbackRate.value = playbackSpeed;
 
+          let lastNode: AudioNode = source;
+          if (typeof ctx.createBiquadFilter === 'function') {
+            const highpass = ctx.createBiquadFilter();
+            highpass.type = 'highpass';
+            highpass.frequency.value = 80;
+            highpass.Q.value = 0.7;
+
+            const presence = ctx.createBiquadFilter();
+            presence.type = 'peaking';
+            presence.frequency.value = 3000;
+            presence.Q.value = 0.9;
+            presence.gain.value = 2.0;
+
+            lastNode.connect(highpass);
+            highpass.connect(presence);
+            lastNode = presence;
+          }
+
           if (typeof ctx.createDynamicsCompressor === 'function') {
             const compressor = ctx.createDynamicsCompressor();
-            compressor.threshold.value = -18;
-            compressor.knee.value = 18;
-            compressor.ratio.value = 3;
-            compressor.attack.value = 0.003;
-            compressor.release.value = 0.15;
-            source.connect(compressor);
-            compressor.connect(ctx.destination);
-          } else {
-            source.connect(ctx.destination);
+            compressor.threshold.value = -10;
+            compressor.knee.value = 12;
+            compressor.ratio.value = 2.5;
+            compressor.attack.value = 0.004;
+            compressor.release.value = 0.14;
+            lastNode.connect(compressor);
+            lastNode = compressor;
           }
+
+          if (typeof ctx.createGain === 'function') {
+            const makeup = ctx.createGain();
+            makeup.gain.value = 1.15;
+            lastNode.connect(makeup);
+            lastNode = makeup;
+          }
+
+          lastNode.connect(ctx.destination);
 
           source.onended = () => {
             if (voiceRequestIdRef.current === reqId) {
@@ -1034,7 +1069,7 @@ export const PitchSimulator: React.FC = () => {
 
     setIsLoadingVoice(true);
     try {
-      const { audioBase64, mimeType } = await synthesizePitchSpeech(cleanText, 'Kore');
+      const { audioBase64, mimeType } = await synthesizePitchSpeech(cleanText, selectedPersona);
       if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId) return;
 
       const binaryString = atob(audioBase64);
@@ -1145,6 +1180,26 @@ export const PitchSimulator: React.FC = () => {
             {LANGUAGES.map(lang => (
               <option key={lang.code} value={lang.code}>
                 {lang.flag} {lang.nativeName} ({lang.name})
+              </option>
+            ))}
+          </select>
+
+          {/* Neural Voice Persona Selector */}
+          <select
+            value={selectedPersona}
+            onChange={(e) => {
+              stopVoicing();
+              setVoiceNotice(null);
+              setBlockedAudioUrl(null);
+              setSelectedPersona(e.target.value as VoicePersonaId);
+            }}
+            disabled={isLoadingVoice}
+            className="h-8 px-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-semibold text-zinc-800 dark:text-zinc-200 focus:outline-none focus:border-amber-400 cursor-pointer disabled:opacity-50"
+            title="Select studio neural voice persona"
+          >
+            {VOICE_PERSONAS.map((persona) => (
+              <option key={persona.id} value={persona.id}>
+                {persona.label}
               </option>
             ))}
           </select>

@@ -1878,30 +1878,40 @@ async function startServer() {
         },
       });
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash-lite-tts',
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              {
-                text: trimmedText,
-                speechMetadata: {
-                  style: 'Warm, natural, confident startup founder speaking conversationally with smooth, realistic human inflection and clear pacing',
-                },
-              } as any,
-            ],
-          },
-        ],
-        config: {
-          responseModalities: ['AUDIO'],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: selectedVoice },
+      const generateTtsWithModel = async (modelName: string) => {
+        return ai.models.generateContent({
+          model: modelName,
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                {
+                  text: trimmedText,
+                  speechMetadata: {
+                    style: 'Studio-quality close-mic recording: warm, articulate, confident startup founder speaking naturally with crisp enunciation, balanced inflection, and smooth pacing.',
+                  },
+                } as any,
+              ],
+            },
+          ],
+          config: {
+            responseModalities: ['AUDIO'],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: { voiceName: selectedVoice },
+              },
             },
           },
-        },
-      });
+        });
+      };
+
+      let response;
+      try {
+        response = await generateTtsWithModel('gemini-3.8-flash-tts');
+      } catch (primaryErr: any) {
+        console.warn('Primary TTS model fallback triggered:', primaryErr?.message || primaryErr);
+        response = await generateTtsWithModel('gemini-3.8-flash-lite-tts');
+      }
 
       const audioPart = response.candidates?.[0]?.content?.parts?.find(
         (p: any) => p?.inlineData?.data

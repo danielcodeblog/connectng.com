@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import { 
-  X, FileText, RefreshCcw, Check, MessageCircle, Flame, User, Flag, Volume2, VolumeX, AlertTriangle, Play, Pause,
+  X, FileText, RefreshCcw, Check, MessageCircle, User, Flag, Volume2, VolumeX, AlertTriangle, Play, Pause,
   Globe, ExternalLink, Award
 } from 'lucide-react';
-import { motion, AnimatePresence, useMotionValue, useTransform } from 'motion/react';
+import { motion, AnimatePresence, useMotionValue, useTransform, animate, MotionValue } from 'motion/react';
 import { StorageService } from '../services/storageService';
 import { Startup } from '../types';
 import { VideoPlayer } from './VideoPlayer';
@@ -13,6 +13,7 @@ import { CircleLoader } from './CircleLoader';
 import CommunityFeed from './communityfeed';
 import UserProfileView from './UserProfileView';
 import { getCompanyLogo } from './CompanyLogos';
+import { ConnectUpIcon } from './ui/ConnectUpLogo';
 
 interface SwipeDeckProps {
   onMatch?: (startup: Startup) => void;
@@ -33,6 +34,12 @@ const SwipeDeck: React.FC<SwipeDeckProps> = React.memo(({ onMatch, userProfile }
   const [isSwiping, setIsSwiping] = useState(false);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(true);
+  const topCardX = useMotionValue(0);
+  const topCardId = cards[cards.length - 1]?.id;
+
+  useLayoutEffect(() => {
+    topCardX.jump(0);
+  }, [topCardId, topCardX]);
 
   // Initial Load
   useEffect(() => {
@@ -126,7 +133,7 @@ const SwipeDeck: React.FC<SwipeDeckProps> = React.memo(({ onMatch, userProfile }
           </div>
         </div>
       ) : (
-        <div className="flex-1 relative w-full h-full bg-transparent overflow-hidden">
+        <div className="flex-1 relative w-full h-full bg-transparent md:bg-zinc-950 overflow-hidden md:p-3 md:pb-24 lg:p-4">
           {isRefreshing && (
             <div className="absolute inset-0 flex flex-col items-center justify-center z-50 p-8 text-center bg-white dark:bg-[#0D0D0F]">
               <CircleLoader size="lg" />
@@ -142,37 +149,40 @@ const SwipeDeck: React.FC<SwipeDeckProps> = React.memo(({ onMatch, userProfile }
                 className="p-6 text-brand-primary bg-white border border-zinc-200 rounded-full shadow-[0_12px_40px_rgba(0,0,0,0.1)] hover:shadow-[0_16px_48px_rgba(234,179,8,0.22)] hover:border-brand-primary/45 hover:scale-110 active:scale-95 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer mb-8 hover:rotate-180" 
                 onClick={() => refreshData(true)}
               />
-              <h2 className="text-3xl sm:text-4xl font-display font-[950] tracking-tight text-zinc-900 mb-3 leading-none transition-all duration-300 pointer-events-none select-none">All Caught Up</h2>
+              <h2 className="text-3xl sm:text-4xl font-display font-[950] tracking-tight text-zinc-900 md:text-white mb-3 leading-none transition-all duration-300 pointer-events-none select-none">All Caught Up</h2>
             </div>
           )}
 
-          <AnimatePresence>
-            {cards.map((card, index) => {
-              const isTop = index === cards.length - 1;
-              const isSecond = index === cards.length - 2;
-              if (!isTop && !isSecond) return null;
-              const hasActiveOverlay = Boolean(
-                matchedStartup || currentInfoOpen || reportCard || selectedProfileId || activeTab !== 'discover'
-              );
-              
-              return (
-                <SwipeCard 
-                  key={card.id} 
-                  card={card} 
-                  isTop={isTop} 
-                  isSecond={isSecond}
-                  isOverlayOpen={hasActiveOverlay}
-                  isSwipingNext={isSwiping}
-                  onSwiping={setIsSwiping}
-                  isMuted={isMuted}
-                  onToggleMute={() => setIsMuted(prev => !prev)}
-                  onSwipe={(dir) => handleSwipe(dir, card)}
-                  onOpenMemo={() => handleOpenMemo(card)}
-                  onReport={() => handleOpenReport(card)}
-                />
-              );
-            })}
-          </AnimatePresence>
+          <div className="relative w-full h-full">
+            <AnimatePresence>
+              {cards.map((card, index) => {
+                const isTop = index === cards.length - 1;
+                const isSecond = index === cards.length - 2;
+                if (!isTop && !isSecond) return null;
+                const hasActiveOverlay = Boolean(
+                  matchedStartup || currentInfoOpen || reportCard || selectedProfileId || activeTab !== 'discover'
+                );
+                
+                return (
+                  <SwipeCard 
+                    key={card.id} 
+                    card={card} 
+                    isTop={isTop} 
+                    isSecond={isSecond}
+                    topCardX={topCardX}
+                    isOverlayOpen={hasActiveOverlay}
+                    isSwipingNext={isSwiping}
+                    onSwiping={setIsSwiping}
+                    isMuted={isMuted}
+                    onToggleMute={() => setIsMuted(prev => !prev)}
+                    onSwipe={(dir) => handleSwipe(dir, card)}
+                    onOpenMemo={() => handleOpenMemo(card)}
+                    onReport={() => handleOpenReport(card)}
+                  />
+                );
+              })}
+            </AnimatePresence>
+          </div>
         </div>
       )}
 
@@ -204,7 +214,7 @@ const SwipeDeck: React.FC<SwipeDeckProps> = React.memo(({ onMatch, userProfile }
                   {userProfile?.avatarUrl ? <img src={userProfile.avatarUrl} className="w-full h-full object-cover" /> : <User size={30} className="m-auto text-zinc-900" />}
                 </div>
                 <div className="w-12 h-12 bg-zinc-900 rounded-full flex items-center justify-center shadow-xl border-4 border-white">
-                  <Flame size={20} className="text-white fill-brand-primary" />
+                  <ConnectUpIcon size={26} />
                 </div>
                 <div className="w-24 h-24 rounded-full border-4 border-brand-primary shadow-2xl overflow-hidden bg-zinc-200">
                   {matchedStartup.founder?.avatarUrl ? (
@@ -483,6 +493,7 @@ const SwipeCard = ({
   card, 
   isTop, 
   isSecond,
+  topCardX,
   isOverlayOpen = false,
   isSwipingNext,
   onSwiping,
@@ -495,6 +506,7 @@ const SwipeCard = ({
   card: Startup, 
   isTop: boolean, 
   isSecond?: boolean,
+  topCardX: MotionValue<number>,
   isOverlayOpen?: boolean,
   isSwipingNext?: boolean,
   onSwiping?: (swiping: boolean) => void,
@@ -510,17 +522,198 @@ const SwipeCard = ({
   const [flashIcon, setFlashIcon] = useState<'play' | 'pause' | null>(null);
   const flashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+  const hasSwipedRef = useRef(false);
+  const crossedThresholdRef = useRef(false);
+
+  const activePointerRef = useRef<{
+    id: number;
+    type: string;
+    startX: number;
+    startY: number;
+    startTime: number;
+    isHorizontalDrag: boolean;
+    isVerticalScroll: boolean;
+    samples: Array<{ x: number; t: number }>;
+  } | null>(null);
+
+  const isTopRef = useRef(isTop);
+  const isOverlayOpenRef = useRef(isOverlayOpen);
+  const onSwipingRef = useRef(onSwiping);
+  isTopRef.current = isTop;
+  isOverlayOpenRef.current = isOverlayOpen;
+  onSwipingRef.current = onSwiping;
 
   useEffect(() => {
     setIsPaused(!isTop);
     if (isTop) {
+      hasSwipedRef.current = false;
+      crossedThresholdRef.current = false;
       setHasSwiped(false);
     }
   }, [isTop]);
 
+  const stopCardVideoImmediately = useCallback(() => {
+    hasSwipedRef.current = true;
+    setHasSwiped(true);
+    setIsPaused(true);
+    cardRef.current?.querySelectorAll('video').forEach((video) => {
+      try {
+        video.pause();
+        video.muted = true;
+      } catch {
+        // Ignore
+      }
+    });
+  }, []);
+
+  const triggerFlash = (type: 'play' | 'pause') => {
+    if (flashTimeoutRef.current) clearTimeout(flashTimeoutRef.current);
+    setFlashIcon(type);
+    flashTimeoutRef.current = setTimeout(() => setFlashIcon(null), 500);
+  };
+
+  const rotate = useTransform(topCardX, [-420, 0, 420], [-9, 0, 9]);
+  const topOpacity = useTransform(topCardX, [-720, -340, 0, 340, 720], [0.15, 1, 1, 1, 0.15]);
+  
+  const likeOpacity = useTransform(topCardX, [24, 110], [0, 1]);
+  const likeScale = useTransform(topCardX, [24, 110], [0.8, 1.06]);
+  const nopeOpacity = useTransform(topCardX, [-110, -24], [1, 0]);
+  const nopeScale = useTransform(topCardX, [-110, -24], [1.06, 0.8]);
+
+  const rightWashOpacity = useTransform(topCardX, [20, 145], [0, 0.14]);
+  const leftWashOpacity = useTransform(topCardX, [-145, -20], [0.14, 0]);
+
+  const secondScale = useTransform(topCardX, [-260, 0, 260], [1, 0.94, 1]);
+  const secondY = useTransform(topCardX, [-260, 0, 260], [0, 10, 0]);
+  const secondOpacity = useTransform(topCardX, [-260, 0, 260], [1, 0.65, 1]);
+
+  const getSwipeThreshold = useCallback(() => {
+    const width = cardRef.current?.offsetWidth || 380;
+    return Math.min(Math.max(width * 0.18, 56), 105);
+  }, []);
+
+  const commitCardSwipe = useCallback((direction: 'left' | 'right', velocityX = 0) => {
+    if (hasSwipedRef.current || !isTopRef.current || isOverlayOpenRef.current) return;
+    stopCardVideoImmediately();
+    onSwipingRef.current?.(false);
+
+    const width = cardRef.current?.offsetWidth || 420;
+    const exitDistance = Math.max(width * 1.2, 500);
+    const targetX = direction === 'right' ? exitDistance : -exitDistance;
+    const launchVelocity = (direction === 'right' ? 1 : -1) * Math.max(Math.abs(velocityX), 1500);
+
+    animate(topCardX, targetX, {
+      type: 'spring',
+      stiffness: 920,
+      damping: 36,
+      mass: 0.45,
+      velocity: launchVelocity,
+      restDelta: 28,
+      restSpeed: 160,
+      onComplete: () => {
+        onSwipe(direction);
+      }
+    });
+  }, [onSwipe, stopCardVideoImmediately, topCardX]);
+
+  const commitCardSwipeRef = useRef(commitCardSwipe);
+  commitCardSwipeRef.current = commitCardSwipe;
+
+  const detachWindowListenersRef = useRef<(() => void) | null>(null);
+
+  const finishPointerGesture = useCallback((ev?: PointerEvent, cancelled = false) => {
+    const ptr = activePointerRef.current;
+    if (!ptr) return;
+    activePointerRef.current = null;
+
+    detachWindowListenersRef.current?.();
+    detachWindowListenersRef.current = null;
+
+    try {
+      if (cardRef.current?.hasPointerCapture(ptr.id)) {
+        cardRef.current.releasePointerCapture(ptr.id);
+      }
+    } catch {
+      // Ignore release errors
+    }
+
+    onSwipingRef.current?.(false);
+
+    if (hasSwipedRef.current) return;
+
+    if (!ptr.isHorizontalDrag) {
+      topCardX.jump(0);
+      if (!cancelled && !ptr.isVerticalScroll && ev && isTopRef.current && !isOverlayOpenRef.current) {
+        const elapsed = performance.now() - ptr.startTime;
+        const dx = Math.abs(ev.clientX - ptr.startX);
+        const dy = Math.abs(ev.clientY - ptr.startY);
+        if (elapsed < 260 && dx < 8 && dy < 8) {
+          setIsPaused(prev => {
+            const next = !prev;
+            triggerFlash(next ? 'pause' : 'play');
+            return next;
+          });
+        }
+      }
+      return;
+    }
+
+    const offsetX = ev ? ev.clientX - ptr.startX : topCardX.get();
+    let velocityX = 0;
+    const samples = ptr.samples;
+    if (samples.length >= 2) {
+      const latest = samples[samples.length - 1];
+      const earliest = samples[0];
+      const dt = latest.t - earliest.t;
+      if (dt >= 8) {
+        velocityX = ((latest.x - earliest.x) / dt) * 1000;
+      }
+    }
+
+    if (!cancelled && isTopRef.current && !isOverlayOpenRef.current) {
+      const threshold = getSwipeThreshold();
+      const isRightFlick = velocityX > 260 && offsetX > 16;
+      const isLeftFlick = velocityX < -260 && offsetX < -16;
+      const isFastWhipRight = velocityX > 580 && offsetX > 8;
+      const isFastWhipLeft = velocityX < -580 && offsetX < -8;
+
+      if (offsetX > threshold || isRightFlick || isFastWhipRight) {
+        commitCardSwipeRef.current('right', velocityX);
+        return;
+      }
+      if (offsetX < -threshold || isLeftFlick || isFastWhipLeft) {
+        commitCardSwipeRef.current('left', velocityX);
+        return;
+      }
+    }
+
+    animate(topCardX, 0, {
+      type: 'spring',
+      stiffness: 820,
+      damping: 26,
+      mass: 0.52,
+      velocity: cancelled ? 0 : velocityX
+    });
+  }, [getSwipeThreshold, topCardX]);
+
+  // Cancel any active drag cleanly if overlay opens or card stops being top
+  useEffect(() => {
+    if (!isTop || isOverlayOpen) {
+      if (activePointerRef.current) {
+        finishPointerGesture(undefined, true);
+      }
+      if (isOverlayOpen && !hasSwipedRef.current) {
+        topCardX.jump(0);
+      }
+    }
+  }, [isTop, isOverlayOpen, finishPointerGesture, topCardX]);
+
   useLayoutEffect(() => {
     const cardEl = cardRef.current;
     return () => {
+      detachWindowListenersRef.current?.();
+      detachWindowListenersRef.current = null;
+      activePointerRef.current = null;
       if (flashTimeoutRef.current) clearTimeout(flashTimeoutRef.current);
       cardEl?.querySelectorAll('video').forEach((video) => {
         try {
@@ -545,60 +738,121 @@ const SwipeCard = ({
     };
   }, []);
 
-  const stopCardVideoImmediately = useCallback(() => {
-    setHasSwiped(true);
-    setIsPaused(true);
-    cardRef.current?.querySelectorAll('video').forEach((video) => {
-      try {
-        video.pause();
-        video.muted = true;
-      } catch {
-        // Ignore
-      }
-    });
-  }, []);
+  const handleCardPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isTop || hasSwipedRef.current || isOverlayOpen) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
 
-  const triggerFlash = (type: 'play' | 'pause') => {
-    if (flashTimeoutRef.current) clearTimeout(flashTimeoutRef.current);
-    setFlashIcon(type);
-    flashTimeoutRef.current = setTimeout(() => setFlashIcon(null), 500);
-  };
-
-  const x = useMotionValue(0);
-  const rotate = useTransform(x, [-200, 200], [-30, 30]);
-  const opacity = useTransform(x, [-200, -150, 0, 150, 200], [0, 1, 1, 1, 0]);
-  
-  const likeOpacity = useTransform(x, [50, 150], [0, 1]);
-  const nopeOpacity = useTransform(x, [-150, -50], [1, 0]);
-
-  const startPosRef = useRef({ x: 0, y: 0 });
-  const lastDownTimeRef = useRef<number>(0);
-
-  const startTap = (e: React.PointerEvent) => {
-    if (!isTop || hasSwiped || isOverlayOpen) return;
-    if (e.button !== 0) return; // Only primary clicks
-    
-    startPosRef.current = { x: e.clientX, y: e.clientY };
-    lastDownTimeRef.current = Date.now();
-  };
-
-  const handleRelease = (e: React.PointerEvent) => {
-    if (!isTop || hasSwiped || isOverlayOpen || lastDownTimeRef.current === 0) return;
-    
-    const elapsed = Date.now() - lastDownTimeRef.current;
-    lastDownTimeRef.current = 0;
-    // Check if it's a quick release and they haven't dragged away
-    if (elapsed < 250) {
-      const dx = Math.abs(e.clientX - startPosRef.current.x);
-      const dy = Math.abs(e.clientY - startPosRef.current.y);
-      if (dx < 10 && dy < 10) {
-        setIsPaused(prev => {
-          const next = !prev;
-          triggerFlash(next ? 'pause' : 'play');
-          return next;
-        });
-      }
+    const target = e.target as HTMLElement | null;
+    if (target?.closest('button, a, input, textarea, select, [data-no-drag="true"]')) {
+      return;
     }
+
+    if (activePointerRef.current) {
+      finishPointerGesture(undefined, true);
+    }
+
+    topCardX.stop();
+    const now = performance.now();
+    activePointerRef.current = {
+      id: e.pointerId,
+      type: e.pointerType,
+      startX: e.clientX,
+      startY: e.clientY,
+      startTime: now,
+      isHorizontalDrag: false,
+      isVerticalScroll: false,
+      samples: [{ x: e.clientX, t: now }]
+    };
+
+    const handleWindowMove = (ev: PointerEvent) => {
+      const ptr = activePointerRef.current;
+      if (!ptr || ev.pointerId !== ptr.id) return;
+
+      if (ev.pointerType === 'mouse' && (ev.buttons & 1) === 0) {
+        finishPointerGesture(ev, true);
+        return;
+      }
+
+      if (!isTopRef.current || hasSwipedRef.current || isOverlayOpenRef.current) {
+        finishPointerGesture(ev, true);
+        return;
+      }
+
+      const dx = ev.clientX - ptr.startX;
+      const dy = ev.clientY - ptr.startY;
+
+      if (!ptr.isHorizontalDrag && !ptr.isVerticalScroll) {
+        const activationPx = ptr.type === 'mouse' ? 4 : 6;
+        if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx) * 1.25) {
+          ptr.isVerticalScroll = true;
+          return;
+        }
+        if (Math.abs(dx) >= activationPx && Math.abs(dx) >= Math.abs(dy)) {
+          ptr.isHorizontalDrag = true;
+          crossedThresholdRef.current = false;
+          onSwipingRef.current?.(true);
+          try {
+            cardRef.current?.setPointerCapture(ptr.id);
+          } catch {
+            // Ignore capture errors
+          }
+        } else {
+          return;
+        }
+      }
+
+      if (ptr.isHorizontalDrag) {
+        const maxDrag = Math.max((cardRef.current?.offsetWidth || 400) * 1.15, 440);
+        const clampedX = Math.max(-maxDrag, Math.min(maxDrag, dx));
+        topCardX.set(clampedX);
+
+        const sampleTime = performance.now();
+        ptr.samples.push({ x: ev.clientX, t: sampleTime });
+        const cutoff = sampleTime - 110;
+        while (ptr.samples.length > 2 && ptr.samples[0].t < cutoff) {
+          ptr.samples.shift();
+        }
+
+        const threshold = getSwipeThreshold();
+        const isPastThreshold = Math.abs(dx) >= threshold;
+        if (isPastThreshold && !crossedThresholdRef.current) {
+          crossedThresholdRef.current = true;
+          if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            navigator.vibrate(6);
+          }
+        } else if (!isPastThreshold && crossedThresholdRef.current) {
+          crossedThresholdRef.current = false;
+        }
+      }
+    };
+
+    const handleWindowUp = (ev: PointerEvent) => {
+      if (activePointerRef.current?.id === ev.pointerId) {
+        finishPointerGesture(ev, false);
+      }
+    };
+
+    const handleWindowCancel = (ev: PointerEvent) => {
+      if (activePointerRef.current?.id === ev.pointerId) {
+        finishPointerGesture(ev, true);
+      }
+    };
+
+    const handleWindowBlur = () => {
+      finishPointerGesture(undefined, true);
+    };
+
+    window.addEventListener('pointermove', handleWindowMove, { passive: true });
+    window.addEventListener('pointerup', handleWindowUp, { passive: true });
+    window.addEventListener('pointercancel', handleWindowCancel, { passive: true });
+    window.addEventListener('blur', handleWindowBlur);
+
+    detachWindowListenersRef.current = () => {
+      window.removeEventListener('pointermove', handleWindowMove);
+      window.removeEventListener('pointerup', handleWindowUp);
+      window.removeEventListener('pointercancel', handleWindowCancel);
+      window.removeEventListener('blur', handleWindowBlur);
+    };
   };
 
   const isVideo = !!card.videoUrl && isTop;
@@ -608,96 +862,96 @@ const SwipeCard = ({
     <motion.div
       ref={cardRef}
       style={{ 
-        x: isTop ? x : 0, 
+        x: isTop ? topCardX : 0, 
         rotate: isTop ? rotate : 0, 
-        opacity: isTop ? opacity : 0.6 
+        opacity: isTop ? topOpacity : secondOpacity,
+        scale: isTop ? 1 : secondScale,
+        y: isTop ? 0 : secondY,
+        willChange: 'transform, opacity'
       }}
-      animate={{
-        scale: isTop ? 1 : 0.95,
-        y: isTop ? 0 : 8,
-      }}
-      transition={{
-        type: 'spring',
-        stiffness: 300,
-        damping: 25
-      }}
-      drag={isTop && !isOverlayOpen ? "x" : false}
-      dragConstraints={{ left: 0, right: 0 }}
-      dragElastic={0.4}
-      dragMomentum={false}
-      dragTransition={{ bounceStiffness: 500, bounceDamping: 32 }}
-      onDragStart={() => {
-        lastDownTimeRef.current = 0;
-        if (isTop && !isOverlayOpen && onSwiping) onSwiping(true);
-      }}
-      onDragEnd={isTop && !isOverlayOpen ? (_, info) => {
-        if (onSwiping) onSwiping(false);
-        if (info.offset.x > 100) {
-          stopCardVideoImmediately();
-          onSwipe('right');
-        } else if (info.offset.x < -100) {
-          stopCardVideoImmediately();
-          onSwipe('left');
-        }
-      } : undefined}
-      onPointerDown={isTop && !isOverlayOpen ? startTap : undefined}
-      onPointerUp={isTop && !isOverlayOpen ? handleRelease : undefined}
-      className={`absolute inset-0 w-full h-full bg-zinc-900 overflow-hidden select-none shadow-lg ${
+      onPointerDown={isTop && !isOverlayOpen ? handleCardPointerDown : undefined}
+      className={`absolute inset-0 w-full h-full bg-zinc-950 overflow-hidden select-none [&_img]:[-webkit-user-drag:none] [&_img]:select-none shadow-lg md:rounded-[1.75rem] md:border md:border-white/10 md:shadow-[0_24px_70px_rgba(0,0,0,0.45)] ${
         isTop && !isOverlayOpen ? 'cursor-grab active:cursor-grabbing touch-none z-20' : isTop ? 'pointer-events-none z-20' : 'pointer-events-none z-10'
       }`}
     >
-      <div className="absolute inset-0 w-full h-full bg-zinc-900">
-        {isVideo ? (
-          <VideoPlayer 
-            key={card.id} 
-            src={card.videoUrl} 
-            className="w-full h-full object-cover" 
-            autoPlay={false} 
-            playing={shouldPlayVideo}
-            muted={isMuted} 
-            loop 
-            controls={true} 
-            disableIntersectionObserver={true}
-            preload="metadata"
-            onPlayingChange={(isPlayingNow) => {
-              if (!hasSwiped && !isOverlayOpen) {
-                setIsPaused(!isPlayingNow);
-              }
-            }}
-          />
-        ) : card.imageUrl ? (
-          <img src={card.imageUrl} className="w-full h-full object-cover" alt="" />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-zinc-900 via-zinc-950 to-black flex flex-col items-center justify-center p-8">
-            <div className="w-24 h-24 rounded-3xl bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center shadow-2xl p-4">
-              {getCompanyLogo(card.name, "w-14 h-14")}
-            </div>
+      <div className="absolute inset-0 w-full h-full bg-zinc-950 overflow-hidden">
+        {/* Wide TikTok Theater Ambient Backdrop (desktop/laptop wings) */}
+        <div className="hidden md:block absolute inset-0 pointer-events-none overflow-hidden">
+          {card.imageUrl ? (
+            <img
+              src={card.imageUrl}
+              draggable={false}
+              className="w-full h-full object-cover scale-125 blur-3xl opacity-40 select-none"
+              alt=""
+            />
+          ) : (
+            <div className="w-full h-full bg-[radial-gradient(circle_at_center,rgba(39,39,42,0.7)_0%,rgba(9,9,11,0.98)_75%)]" />
+          )}
+          <div className="absolute inset-0 bg-black/45" />
+        </div>
+
+        {/* Centered 9:16 Portrait Video/Media Stage inside Wide Card */}
+        <div className="relative z-10 w-full h-full md:[container-type:size] md:flex md:items-center md:justify-center">
+          <div className="relative w-full h-full md:aspect-[9/16] md:w-[min(100cqw,calc(100cqh*9/16))] md:h-[min(100cqh,calc(100cqw*16/9))] md:bg-zinc-900 md:shadow-[0_0_80px_rgba(0,0,0,0.85)] overflow-hidden">
+            {isVideo ? (
+              <VideoPlayer 
+                key={card.id} 
+                src={card.videoUrl} 
+                className="w-full h-full object-cover" 
+                autoPlay={false} 
+                playing={shouldPlayVideo}
+                muted={isMuted} 
+                loop 
+                controls={true} 
+                disableIntersectionObserver={true}
+                preload="metadata"
+                onPlayingChange={(isPlayingNow) => {
+                  if (!hasSwiped && !isOverlayOpen) {
+                    setIsPaused(!isPlayingNow);
+                  }
+                }}
+              />
+            ) : card.imageUrl ? (
+              <img src={card.imageUrl} draggable={false} className="w-full h-full object-cover pointer-events-none select-none" alt="" />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-zinc-900 via-zinc-950 to-black flex flex-col items-center justify-center p-8">
+                <div className="w-24 h-24 rounded-3xl bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center shadow-2xl p-4">
+                  {getCompanyLogo(card.name, "w-14 h-14")}
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
         
         {/* Overlays */}
-        <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-black/60 to-transparent pointer-events-none" />
-        <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black via-black/40 to-transparent pointer-events-none" />
+        <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-black/60 to-transparent pointer-events-none z-10" />
+        <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black via-black/45 to-transparent pointer-events-none z-10" />
 
-
+        {/* Live Swipe Edge Tints */}
+        {isTop && (
+          <>
+            <motion.div style={{ opacity: rightWashOpacity }} className="absolute inset-0 bg-brand-primary pointer-events-none z-20" />
+            <motion.div style={{ opacity: leftWashOpacity }} className="absolute inset-0 bg-red-500 pointer-events-none z-20" />
+          </>
+        )}
 
         {/* Swipe Feedback */}
         {isTop && (
           <>
-            <motion.div style={{ opacity: likeOpacity }} className="absolute inset-0 flex items-center justify-center pointer-events-none z-40">
+            <motion.div style={{ opacity: likeOpacity, scale: likeScale }} className="absolute inset-0 flex items-center justify-center pointer-events-none z-40">
                <div className="p-6 rounded-full bg-brand-primary text-black shadow-2xl border-4 border-black"><Check size={48} strokeWidth={4} /></div>
             </motion.div>
-            <motion.div style={{ opacity: nopeOpacity }} className="absolute inset-0 flex items-center justify-center pointer-events-none z-40">
+            <motion.div style={{ opacity: nopeOpacity, scale: nopeScale }} className="absolute inset-0 flex items-center justify-center pointer-events-none z-40">
                <div className="p-6 rounded-full bg-white text-black shadow-2xl border-4 border-black"><X size={48} strokeWidth={4} /></div>
             </motion.div>
           </>
         )}
       </div>
 
-      <div className="absolute inset-0 z-30 flex flex-col justify-end p-6 pb-6 md:pb-12 pointer-events-none">
+      <div className="absolute inset-0 z-30 flex flex-col justify-end p-6 pb-6 md:px-8 md:pb-8 pointer-events-none">
         {/* Bottom Info and Actions Container */}
-        <div className="flex items-end justify-between w-full pointer-events-auto md:mb-20">
-          <div className="flex flex-col gap-2 flex-1 pr-4">
+        <div className="flex items-end justify-between w-full pointer-events-auto">
+          <div className="flex flex-col gap-2 flex-1 pr-4 max-w-xl">
             <div className="flex flex-wrap items-center gap-2 mb-1">
               <span className="px-2 py-0.5 bg-brand-primary/90 text-zinc-900 rounded text-[10px] font-bold uppercase">{card.industry}</span>
               <span className="px-2 py-0.5 bg-white/20 backdrop-blur-md text-white rounded text-[10px] font-bold uppercase">{card.fundingStage}</span>
@@ -705,11 +959,14 @@ const SwipeCard = ({
             <h2 className="text-3xl font-display font-black text-white drop-shadow-md leading-tight">{card.name}</h2>
             <p className="text-white/90 text-sm font-medium line-clamp-2 drop-shadow-sm">{card.oneLiner}</p>
           </div>
-          <div className="flex flex-col gap-4 shrink-0">
+          <div className="flex flex-col gap-4 shrink-0" data-no-drag="true">
             <button 
-              onPointerDown={(e) => { e.stopPropagation(); isTop && onToggleMute(); }} 
+              type="button"
+              data-no-drag="true"
+              onClick={(e) => { e.stopPropagation(); isTop && onToggleMute(); }}
+              onPointerDown={(e) => e.stopPropagation()} 
               onPointerUp={(e) => e.stopPropagation()}
-              className="flex flex-col items-center group cursor-pointer text-white hover:text-white/85 transition-colors animate-in fade-in zoom-in duration-350"
+              className="flex flex-col items-center group cursor-pointer text-white hover:text-white/85 transition-colors"
               title={isMuted ? "Unmute" : "Mute"}
             >
               <div className="flex items-center justify-center text-white drop-shadow-lg group-active:scale-90 transition-transform pointer-events-auto h-10 w-10 bg-black/35 backdrop-blur-md rounded-full border border-white/10 hover:bg-black/50 hover:border-white/20">
@@ -718,7 +975,10 @@ const SwipeCard = ({
             </button>
 
             <button 
-              onPointerDown={(e) => { e.stopPropagation(); isTop && onOpenMemo(); }} 
+              type="button"
+              data-no-drag="true"
+              onClick={(e) => { e.stopPropagation(); isTop && onOpenMemo(); }}
+              onPointerDown={(e) => e.stopPropagation()} 
               onPointerUp={(e) => e.stopPropagation()}
               className="flex flex-col items-center group cursor-pointer text-white hover:text-white/85 transition-colors"
               title="Memo"
@@ -729,7 +989,10 @@ const SwipeCard = ({
             </button>
 
             <button 
-              onPointerDown={(e) => { e.stopPropagation(); isTop && onReport(card); }} 
+              type="button"
+              data-no-drag="true"
+              onClick={(e) => { e.stopPropagation(); isTop && onReport(card); }}
+              onPointerDown={(e) => e.stopPropagation()} 
               onPointerUp={(e) => e.stopPropagation()}
               className="flex flex-col items-center group cursor-pointer text-white hover:text-white/85 transition-colors"
               title="Report Profile"

@@ -450,7 +450,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = React.memo(({
       {hasError && (
         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-zinc-900 text-white p-4 text-center">
            {poster ? (
-             <img src={poster} className="absolute inset-0 w-full h-full object-cover opacity-50" alt="" />
+             <img src={poster} draggable={false} className="absolute inset-0 w-full h-full object-cover opacity-50 pointer-events-none select-none" alt="" />
            ) : (
              <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mb-2 border border-white/10">
                <AlertCircle size={24} className="text-zinc-500" />
@@ -463,7 +463,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = React.memo(({
       {poster && !hasStarted && !hasError && (
         <img 
           src={poster} 
-          className="absolute inset-0 w-full h-full object-cover z-10 pointer-events-none" 
+          draggable={false}
+          className="absolute inset-0 w-full h-full object-cover z-10 pointer-events-none select-none" 
           alt="" 
         />
       )}

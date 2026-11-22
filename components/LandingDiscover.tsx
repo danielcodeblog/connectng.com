@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useLayoutEffect } from 'react';
 import { Heart, ThumbsDown, Briefcase, TrendingUp, Users, RotateCcw } from 'lucide-react';
 import { motion, useMotionValue, useTransform, animate, useReducedMotion, AnimatePresence } from 'motion/react';
 import { FOUNDERS, FounderData } from '../src/constants';
@@ -15,39 +15,66 @@ export const LandingDiscover = () => {
   const x = useMotionValue(0);
   const cardRef = useRef<HTMLDivElement>(null);
   const hasSwipedRef = useRef(false);
+  const crossedThresholdRef = useRef(false);
 
   const rotate = useTransform(x, [-260, 0, 260], prefersReducedMotion ? [0, 0, 0] : [-15, 0, 15]);
   const cardOpacity = useTransform(x, [-460, -280, 0, 280, 460], [0.2, 1, 1, 1, 0.2]);
 
-  const likeOpacity = useTransform(x, [25, 115], [0, 1]);
-  const likeScale = useTransform(x, [25, 115], [0.8, 1.05]);
-  const passOpacity = useTransform(x, [-115, -25], [1, 0]);
-  const passScale = useTransform(x, [-115, -25], [1.05, 0.8]);
+  const likeOpacity = useTransform(x, [18, 105], [0, 1]);
+  const likeScale = useTransform(x, [18, 105], [0.78, 1.06]);
+  const passOpacity = useTransform(x, [-105, -18], [1, 0]);
+  const passScale = useTransform(x, [-105, -18], [1.06, 0.78]);
+
+  const rightGlowOpacity = useTransform(x, [14, 130], [0, 1]);
+  const leftGlowOpacity = useTransform(x, [-130, -14], [1, 0]);
 
   const nextScale = useTransform(x, [-240, 0, 240], prefersReducedMotion ? [1, 1, 1] : [1, 0.94, 1]);
   const nextY = useTransform(x, [-240, 0, 240], prefersReducedMotion ? [0, 0, 0] : [0, 14, 0]);
   const nextOpacity = useTransform(x, [-240, 0, 240], [1, 0.5, 1]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     hasSwipedRef.current = false;
-    x.set(0);
+    crossedThresholdRef.current = false;
+    x.jump(0);
   }, [currentIndex, x]);
+
+  const getSwipeThreshold = () => {
+    const width = cardRef.current?.offsetWidth || 380;
+    return Math.min(Math.max(width * 0.18, 56), 105);
+  };
 
   const commitSwipe = useCallback((direction: 'left' | 'right', velocityX = 0) => {
     if (hasSwipedRef.current || currentIndex >= founders.length) return;
     hasSwipedRef.current = true;
     setIsDragging(false);
 
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate(direction === 'right' ? 16 : 8);
+    }
+
     const width = cardRef.current?.offsetWidth || 420;
-    const exitDistance = Math.max(width * 1.3, 480);
+    const exitDistance = Math.max(width * 1.25, 480);
     const targetX = direction === 'right' ? exitDistance : -exitDistance;
-    const speedBoost = Math.min(Math.abs(velocityX) / 3500, 0.08);
-    const duration = prefersReducedMotion ? 0.08 : Math.max(0.17, 0.25 - speedBoost);
+    const launchVelocity = (direction === 'right' ? 1 : -1) * Math.max(Math.abs(velocityX), 1500);
+
+    if (prefersReducedMotion) {
+      x.jump(targetX);
+      if (direction === 'right') {
+        setMatches(m => m + 1);
+      }
+      setHistory(prev => [...prev, { direction }]);
+      setCurrentIndex(prev => prev + 1);
+      return;
+    }
 
     animate(x, targetX, {
-      type: 'tween',
-      duration,
-      ease: [0.22, 1, 0.36, 1],
+      type: 'spring',
+      stiffness: 920,
+      damping: 36,
+      mass: 0.45,
+      velocity: launchVelocity,
+      restDelta: 28,
+      restSpeed: 160,
       onComplete: () => {
         if (direction === 'right') {
           setMatches(m => m + 1);
@@ -62,15 +89,14 @@ export const LandingDiscover = () => {
     if (hasSwipedRef.current) return;
     setIsDragging(false);
 
-    const width = cardRef.current?.offsetWidth || 380;
-    const threshold = Math.min(Math.max(width * 0.26, 80), 135);
+    const threshold = getSwipeThreshold();
     const offsetX = info.offset.x;
     const velocityX = info.velocity.x;
 
-    const isRightFlick = velocityX > 420 && offsetX > 24;
-    const isLeftFlick = velocityX < -420 && offsetX < -24;
-    const isFastWhipRight = velocityX > 760 && offsetX > 12;
-    const isFastWhipLeft = velocityX < -760 && offsetX < -12;
+    const isRightFlick = velocityX > 260 && offsetX > 16;
+    const isLeftFlick = velocityX < -260 && offsetX < -16;
+    const isFastWhipRight = velocityX > 580 && offsetX > 8;
+    const isFastWhipLeft = velocityX < -580 && offsetX < -8;
 
     if (offsetX > threshold || isRightFlick || isFastWhipRight) {
       commitSwipe('right', velocityX);
@@ -83,9 +109,10 @@ export const LandingDiscover = () => {
 
     animate(x, 0, {
       type: 'spring',
-      stiffness: 480,
-      damping: 32,
-      mass: 0.75
+      stiffness: 820,
+      damping: 26,
+      mass: 0.52,
+      velocity: velocityX
     });
   };
 
@@ -179,16 +206,51 @@ export const LandingDiscover = () => {
                 x,
                 rotate,
                 opacity: cardOpacity,
-                scale: isDragging && !prefersReducedMotion ? 0.985 : 1,
                 willChange: 'transform, opacity'
+              }}
+              animate={{
+                scale: isDragging && !prefersReducedMotion ? 0.988 : 1,
+              }}
+              transition={{
+                type: 'spring',
+                stiffness: 520,
+                damping: 34,
+                mass: 0.7
               }}
               drag="x"
               dragMomentum={false}
               dragDirectionLock
-              onDragStart={() => setIsDragging(true)}
+              onDragStart={() => {
+                crossedThresholdRef.current = false;
+                setIsDragging(true);
+              }}
+              onDrag={(_, info) => {
+                if (hasSwipedRef.current) return;
+                const threshold = getSwipeThreshold();
+                const isPastThreshold = Math.abs(info.offset.x) >= threshold;
+                if (isPastThreshold && !crossedThresholdRef.current) {
+                  crossedThresholdRef.current = true;
+                  if (typeof navigator !== 'undefined' && navigator.vibrate) {
+                    navigator.vibrate(6);
+                  }
+                } else if (!isPastThreshold && crossedThresholdRef.current) {
+                  crossedThresholdRef.current = false;
+                }
+              }}
               onDragEnd={handleDragEnd}
-              className="absolute inset-0 w-full bg-zinc-950/90 backdrop-blur-xl rounded-[2.5rem] border border-white/15 overflow-hidden shadow-2xl z-10 text-white cursor-grab active:cursor-grabbing select-none touch-pan-y overscroll-x-contain"
+              onPointerCancel={() => setIsDragging(false)}
+              className="absolute inset-0 w-full bg-zinc-950/90 backdrop-blur-xl rounded-[2.5rem] border border-white/15 overflow-hidden shadow-2xl z-10 text-white cursor-grab active:cursor-grabbing select-none [&_img]:[-webkit-user-drag:none] [&_svg]:pointer-events-none touch-pan-y overscroll-x-contain"
             >
+              {/* Live Directional Border Glows */}
+              <motion.div
+                style={{ opacity: rightGlowOpacity }}
+                className="absolute inset-0 rounded-[2.5rem] border-2 border-[#EAB308]/80 bg-[#EAB308]/10 pointer-events-none z-20"
+              />
+              <motion.div
+                style={{ opacity: leftGlowOpacity }}
+                className="absolute inset-0 rounded-[2.5rem] border-2 border-red-400/80 bg-red-500/10 pointer-events-none z-20"
+              />
+
               {/* Directional Stamps */}
               <motion.div
                 style={{ opacity: likeOpacity, scale: likeScale }}

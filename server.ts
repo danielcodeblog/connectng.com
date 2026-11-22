@@ -206,7 +206,7 @@ async function startServer() {
   }
 
   if (!supabaseUrl) {
-    console.error("FATAL: Supabase URL is missing from environment variables.");
+    console.warn("[Server] Supabase URL is not configured; continuing in fallback mode.");
   }
 
   const supabase = (supabaseUrl && anonKey) 
@@ -1930,22 +1930,60 @@ async function startServer() {
     }
   });
 
-  // Vite middleware for development
+  app.get('/api/health', (_req, res) => {
+    res.json({ status: 'ok' });
+  });
+
+  // Vite middleware for development (initialize asynchronously so port 3000 binds immediately)
+  let viteInstance: Awaited<ReturnType<typeof createViteServer>> | null = null;
   if (process.env.NODE_ENV !== 'production') {
-    try {
-      const vite = await createViteServer({
-        server: { 
-          middlewareMode: true,
-          hmr: false,
-          ws: false
-        },
-        appType: 'spa',
+    let viteInitError: unknown = null;
+
+    const viteReadyPromise = createViteServer({
+      server: {
+        middlewareMode: true,
+        hmr: false,
+        ws: false
+      },
+      appType: 'spa',
+    })
+      .then((vite) => {
+        viteInstance = vite;
+        console.log("Vite development middleware mounted successfully");
+        return vite;
+      })
+      .catch((viteError) => {
+        viteInitError = viteError;
+        console.error("Failed to initialize Vite dev server:", viteError);
+        return null;
       });
-      app.use(vite.middlewares);
-      console.log("Vite development middleware mounted successfully");
-    } catch (viteError) {
-      console.error("Failed to initialize Vite dev server:", viteError);
-    }
+
+    app.use(async (req, res, next) => {
+      if (req.path.startsWith('/api/')) {
+        return next();
+      }
+      if (viteInstance) {
+        return viteInstance.middlewares(req, res, next);
+      }
+      const vite = await Promise.race([
+        viteReadyPromise,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500)),
+      ]);
+      if (vite) {
+        return vite.middlewares(req, res, next);
+      }
+      if (viteInitError) {
+        return res.status(500).send('Failed to initialize Vite dev server.');
+      }
+      if (req.method === 'HEAD') {
+        return res.status(200).end();
+      }
+      return res
+        .status(200)
+        .set('Content-Type', 'text/html; charset=utf-8')
+        .set('Cache-Control', 'no-store')
+        .send('<!DOCTYPE html><html><head><meta charset="UTF-8"><meta http-equiv="refresh" content="1"><title>Connect Up</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;color:#52525b;">Starting development server...</body></html>');
+    });
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath, {
@@ -1960,10 +1998,26 @@ async function startServer() {
     });
   }
 
-  // Bind and listen on port 3000
-  app.listen(PORT, '0.0.0.0', () => {
+  // Bind and listen on port 3000 immediately
+  const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
+  server.on('error', (err) => {
+    console.error("FATAL: HTTP server failed to bind port:", err);
+    process.exit(1);
+  });
+
+  const shutdown = () => {
+    server.close(() => {
+      process.exit(0);
+    });
+    if (viteInstance) {
+      viteInstance.close().catch(() => {});
+    }
+    setTimeout(() => process.exit(0), 1000).unref();
+  };
+  process.once('SIGTERM', shutdown);
+  process.once('SIGINT', shutdown);
 }
 
 startServer().catch(err => {

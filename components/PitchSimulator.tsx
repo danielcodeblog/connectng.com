@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   PlayIcon, 
   StopIcon, 
@@ -347,19 +347,31 @@ const decodeWavToAudioBuffer = (ctx: AudioContext, wavBuffer: ArrayBuffer): Audi
   }
 };
 
-const splitIntoSpeechChunks = (segments: string[]): string[] => {
-  const chunks: string[] = [];
-  for (const seg of segments) {
-    const trimmed = seg.trim();
+type PitchSectionKey = 'hook' | 'solution' | 'ask';
+
+interface TaggedSpeechChunk {
+  text: string;
+  section: PitchSectionKey;
+}
+
+const splitIntoSpeechChunks = (
+  sections: { text: string; section: PitchSectionKey }[]
+): TaggedSpeechChunk[] => {
+  const chunks: TaggedSpeechChunk[] = [];
+  for (const item of sections) {
+    const trimmed = item.text.trim();
     if (!trimmed) continue;
     const sentences = trimmed.split(/(?<=[.!?。！？])\s+/).filter(Boolean);
     const parts = sentences.length === 0 ? [trimmed] : sentences;
     for (const part of parts) {
       if (part.length <= 220) {
-        chunks.push(part);
+        chunks.push({ text: part, section: item.section });
       } else {
         const subParts = part.split(/(?<=[,;、，；])\s+/).filter(Boolean);
-        chunks.push(...(subParts.length > 0 ? subParts : [part]));
+        const finalParts = subParts.length > 0 ? subParts : [part];
+        for (const sub of finalParts) {
+          chunks.push({ text: sub, section: item.section });
+        }
       }
     }
   }
@@ -381,12 +393,15 @@ export const PitchSimulator: React.FC = () => {
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoiceURI, setSelectedVoiceURI] = useState<string>('');
   const [selectedLangCode, setSelectedLangCode] = useState<string>('en');
+  const [activeVoiceSection, setActiveVoiceSection] = useState<PitchSectionKey | null>(null);
 
   // Audio playback & SpeechSynthesis refs
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const utteranceQueueRef = useRef<SpeechSynthesisUtterance[]>([]);
   const speechTimeoutRef = useRef<any>(null);
   const speechWatchdogRef = useRef<any>(null);
+  const voiceProgressRafRef = useRef<number | null>(null);
+  const playbackSpeedRef = useRef<number>(playbackSpeed);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const unlockedAudioRef = useRef<HTMLAudioElement | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -544,6 +559,7 @@ export const PitchSimulator: React.FC = () => {
 
   // Sync playback rate on active audio nodes / HTMLAudioElement
   useEffect(() => {
+    playbackSpeedRef.current = playbackSpeed;
     if (audioRef.current) {
       audioRef.current.playbackRate = playbackSpeed;
     }
@@ -561,6 +577,7 @@ export const PitchSimulator: React.FC = () => {
       voiceRequestIdRef.current += 1;
       if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current);
       if (speechWatchdogRef.current) clearTimeout(speechWatchdogRef.current);
+      if (voiceProgressRafRef.current !== null) cancelAnimationFrame(voiceProgressRafRef.current);
       if (audioSourceRef.current) {
         audioSourceRef.current.onended = null;
         try { audioSourceRef.current.stop(); } catch {}
@@ -586,17 +603,25 @@ export const PitchSimulator: React.FC = () => {
     };
   }, []);
 
-  // Timer Tick
+  // Smooth 60fps Timer Tick
   useEffect(() => {
     if (!isPlaying) return;
-    const interval = setInterval(() => {
+    let rafId = 0;
+    let lastTimestamp = performance.now();
+
+    const tick = (now: number) => {
+      const deltaSec = Math.min((now - lastTimestamp) / 1000, 0.25);
+      lastTimestamp = now;
       setCurrentTime((prev) => {
-        const next = Number((prev + 0.1 * playbackSpeed).toFixed(2));
+        const next = prev + deltaSec * playbackSpeedRef.current;
         return next >= 30 ? 30 : next;
       });
-    }, 100);
-    return () => clearInterval(interval);
-  }, [isPlaying, playbackSpeed]);
+      rafId = requestAnimationFrame(tick);
+    };
+
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [isPlaying]);
 
   useEffect(() => {
     if (isPlaying && currentTime >= 30) {
@@ -636,6 +661,11 @@ export const PitchSimulator: React.FC = () => {
     voiceRequestIdRef.current += 1;
     setIsVoicing(false);
     setIsLoadingVoice(false);
+    setActiveVoiceSection(null);
+    if (voiceProgressRafRef.current !== null) {
+      cancelAnimationFrame(voiceProgressRafRef.current);
+      voiceProgressRafRef.current = null;
+    }
     if (speechTimeoutRef.current) {
       clearTimeout(speechTimeoutRef.current);
       speechTimeoutRef.current = null;
@@ -668,14 +698,17 @@ export const PitchSimulator: React.FC = () => {
     utteranceQueueRef.current = [];
   };
 
-  const speakWithBrowserFallback = (segments: string[], reqId: number) => {
+  const speakWithBrowserFallback = (
+    taggedSegments: { text: string; section: PitchSectionKey }[],
+    reqId: number
+  ) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
       stopVoicing();
       setVoiceNotice('Voice synthesis is not supported in this browser.');
       return;
     }
 
-    const cleanChunks = splitIntoSpeechChunks(segments);
+    const cleanChunks = splitIntoSpeechChunks(taggedSegments);
     if (cleanChunks.length === 0) {
       stopVoicing();
       return;
@@ -749,7 +782,8 @@ export const PitchSimulator: React.FC = () => {
 
       for (let i = startIdx; i < cleanChunks.length; i++) {
         const chunkIdx = i;
-        const utterance = new SpeechSynthesisUtterance(cleanChunks[chunkIdx]);
+        const chunkItem = cleanChunks[chunkIdx];
+        const utterance = new SpeechSynthesisUtterance(chunkItem.text);
         if (chunkIdx === startIdx) {
           utteranceRef.current = utterance;
         }
@@ -768,6 +802,7 @@ export const PitchSimulator: React.FC = () => {
         utterance.onstart = () => {
           hasStartedAny = true;
           utteranceRef.current = utterance;
+          setActiveVoiceSection(chunkItem.section);
           if (speechWatchdogRef.current) {
             clearTimeout(speechWatchdogRef.current);
             speechWatchdogRef.current = null;
@@ -868,16 +903,51 @@ export const PitchSimulator: React.FC = () => {
       return;
     }
 
-    const segments = [hookText.trim(), solutionText.trim(), askText.trim()].filter(Boolean);
-    if (segments.length === 0) return;
+    const taggedSegments: { text: string; section: PitchSectionKey }[] = (
+      [
+        { text: hookText.trim(), section: 'hook' as const },
+        { text: solutionText.trim(), section: 'solution' as const },
+        { text: askText.trim(), section: 'ask' as const },
+      ]
+    ).filter((item) => item.text.length > 0);
+    if (taggedSegments.length === 0) return;
 
     setVoiceNotice(null);
     setBlockedAudioUrl(null);
     const reqId = ++voiceRequestIdRef.current;
     isVoicingRef.current = true;
 
-    const cleanText = segments.join('\n\n');
+    const cleanText = taggedSegments
+      .map((s) => (/[.!?。！？]$/.test(s.text) ? s.text : `${s.text}.`))
+      .join('  ');
     const cacheKey = `${selectedLangCode}:${cleanText}`;
+
+    const startAudioSectionSync = (
+      getProgressRatio: () => number
+    ) => {
+      if (voiceProgressRafRef.current !== null) {
+        cancelAnimationFrame(voiceProgressRafRef.current);
+      }
+      const totalChars = taggedSegments.reduce((acc, s) => acc + s.text.length, 0) || 1;
+      let cumulative = 0;
+      const thresholds = taggedSegments.map((s) => {
+        cumulative += s.text.length / totalChars;
+        return { section: s.section, upTo: cumulative };
+      });
+
+      const updateSection = () => {
+        if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId) return;
+        const ratio = Math.max(0, Math.min(1, getProgressRatio()));
+        const active =
+          thresholds.find((t) => ratio <= t.upTo)?.section ||
+          thresholds[thresholds.length - 1].section;
+        setActiveVoiceSection((prev) => (prev === active ? prev : active));
+        voiceProgressRafRef.current = requestAnimationFrame(updateSection);
+      };
+
+      setActiveVoiceSection(taggedSegments[0].section);
+      voiceProgressRafRef.current = requestAnimationFrame(updateSection);
+    };
 
     const playAudioUrl = async (objectUrl: string) => {
       if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId) return;
@@ -898,7 +968,7 @@ export const PitchSimulator: React.FC = () => {
       audio.onerror = () => {
         if (isVoicingRef.current && voiceRequestIdRef.current === reqId) {
           setBlockedAudioUrl(objectUrl);
-          speakWithBrowserFallback(segments, reqId);
+          speakWithBrowserFallback(taggedSegments, reqId);
         }
       };
 
@@ -906,12 +976,17 @@ export const PitchSimulator: React.FC = () => {
       setIsVoicing(true);
       try {
         await audio.play();
+        startAudioSectionSync(() => {
+          if (!audio.duration || !isFinite(audio.duration)) return 0;
+          return audio.currentTime / audio.duration;
+        });
       } catch {
         if (isVoicingRef.current && voiceRequestIdRef.current === reqId) {
           setBlockedAudioUrl(objectUrl);
           isVoicingRef.current = false;
           setIsVoicing(false);
           setIsLoadingVoice(false);
+          setActiveVoiceSection(null);
           setVoiceNotice('Browser autoplay was blocked. Click "Play Audio" below to listen.');
         }
       }
@@ -1001,6 +1076,17 @@ export const PitchSimulator: React.FC = () => {
           setIsLoadingVoice(false);
           setIsVoicing(true);
           source.start(0);
+
+          let lastTrackTime = ctx.currentTime;
+          let accumulatedBufferSec = 0;
+          const totalDuration = Math.max(decoded.duration, 0.1);
+          startAudioSectionSync(() => {
+            const now = ctx.currentTime;
+            const dt = Math.max(0, now - lastTrackTime);
+            lastTrackTime = now;
+            accumulatedBufferSec += dt * playbackSpeedRef.current;
+            return accumulatedBufferSec / totalDuration;
+          });
           return;
         } catch {
           // Fall through to HTMLAudioElement playback
@@ -1029,7 +1115,7 @@ export const PitchSimulator: React.FC = () => {
 
     // Only skip server TTS if the server explicitly returned 503 (missing GEMINI_API_KEY)
     if (ttsUnavailableRef.current) {
-      speakWithBrowserFallback(segments, reqId);
+      speakWithBrowserFallback(taggedSegments, reqId);
       return;
     }
 
@@ -1082,7 +1168,7 @@ export const PitchSimulator: React.FC = () => {
         ttsUnavailableRef.current = true;
       }
       setIsLoadingVoice(false);
-      speakWithBrowserFallback(segments, reqId);
+      speakWithBrowserFallback(taggedSegments, reqId);
     }
   };
 
@@ -1128,7 +1214,7 @@ export const PitchSimulator: React.FC = () => {
     } catch {}
   };
 
-  const currentSection = getActiveSection();
+  const currentSection = activeVoiceSection ?? getActiveSection();
   const progressPercent = Math.min((currentTime / 30) * 100, 100);
 
   const totalWords = useMemo(() => {
@@ -1280,43 +1366,61 @@ export const PitchSimulator: React.FC = () => {
         {/* Progress Bar */}
         <div className="relative w-full h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
           <div 
-            className="h-full bg-amber-400 rounded-full transition-all duration-100 ease-linear shadow-[0_0_8px_rgba(251,191,36,0.5)]"
+            className="h-full bg-amber-400 rounded-full shadow-[0_0_8px_rgba(251,191,36,0.5)] will-change-[width]"
             style={{ width: `${progressPercent}%` }}
           />
           <div className="absolute top-0 bottom-0 left-[16.6%] w-0.5 bg-zinc-300 dark:bg-zinc-700" />
           <div className="absolute top-0 bottom-0 left-[66.6%] w-0.5 bg-zinc-300 dark:bg-zinc-700" />
         </div>
 
-        {voiceNotice && (
-          <p className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
-            {voiceNotice}
-          </p>
-        )}
-
-        {blockedAudioUrl && (
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                const el = blockedAudioElemRef.current;
-                if (el) {
-                  el.playbackRate = playbackSpeed;
-                  el.play().catch(() => {});
-                }
-              }}
-              className="h-9 px-3.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-zinc-950 text-xs font-bold cursor-pointer flex items-center gap-1.5 shrink-0"
+        <AnimatePresence>
+          {voiceNotice && (
+            <motion.p
+              key="voice-notice"
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.2 }}
+              className="text-[11px] font-medium text-amber-600 dark:text-amber-400"
             >
-              <Volume2 className="w-3.5 h-3.5" />
-              <span>Play Audio</span>
-            </button>
-            <audio
-              ref={blockedAudioElemRef}
-              controls
-              src={blockedAudioUrl}
-              className="flex-1 min-w-[200px] h-9 rounded-xl"
-            />
-          </div>
-        )}
+              {voiceNotice}
+            </motion.p>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {blockedAudioUrl && (
+            <motion.div
+              key="blocked-audio"
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.2 }}
+              className="flex flex-wrap items-center gap-2"
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  const el = blockedAudioElemRef.current;
+                  if (el) {
+                    el.playbackRate = playbackSpeed;
+                    el.play().catch(() => {});
+                  }
+                }}
+                className="h-9 px-3.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-zinc-950 text-xs font-bold cursor-pointer flex items-center gap-1.5 shrink-0"
+              >
+                <Volume2 className="w-3.5 h-3.5" />
+                <span>Play Audio</span>
+              </button>
+              <audio
+                ref={blockedAudioElemRef}
+                controls
+                src={blockedAudioUrl}
+                className="flex-1 min-w-[200px] h-9 rounded-xl"
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Teleprompter Script Area */}
@@ -1329,75 +1433,105 @@ export const PitchSimulator: React.FC = () => {
           />
         )}
 
-        {isEditing ? (
-          <div className="w-full space-y-3 relative z-10 overflow-y-auto max-h-[240px] pr-1">
-            <div>
-              <span className="text-[10px] uppercase font-bold text-amber-500 block mb-1">
-                Phase 1: Hook (0-5s)
-              </span>
-              <textarea
-                value={hookText}
-                onChange={(e) => setHookText(e.target.value)}
-                rows={2}
-                className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-2.5 text-xs text-zinc-950 dark:text-white outline-none focus:border-amber-400 resize-none font-sans"
-              />
-            </div>
-            <div>
-              <span className="text-[10px] uppercase font-bold text-amber-500 block mb-1">
-                Phase 2: Solution (5-20s)
-              </span>
-              <textarea
-                value={solutionText}
-                onChange={(e) => setSolutionText(e.target.value)}
-                rows={2}
-                className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-2.5 text-xs text-zinc-950 dark:text-white outline-none focus:border-amber-400 resize-none font-sans"
-              />
-            </div>
-            <div>
-              <span className="text-[10px] uppercase font-bold text-amber-500 block mb-1">
-                Phase 3: The Ask (20-30s)
-              </span>
-              <textarea
-                value={askText}
-                onChange={(e) => setAskText(e.target.value)}
-                rows={2}
-                className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-2.5 text-xs text-zinc-950 dark:text-white outline-none focus:border-amber-400 resize-none font-sans"
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-2.5 relative z-10 w-full transition-all duration-300">
-            <div className={cn(
-              "p-3 rounded-xl transition-all duration-300 border-l-2",
-              currentSection === 'hook' ? "bg-white dark:bg-zinc-900/90 border-amber-400 shadow-2xs" : "border-transparent opacity-40"
-            )}>
-              <span className="text-[9px] uppercase font-bold text-amber-500 font-mono block mb-0.5">1. Hook</span>
-              <p className={cn("text-sm sm:text-base font-medium leading-relaxed", currentSection === 'hook' ? "text-zinc-950 dark:text-white font-semibold" : "text-zinc-500 dark:text-zinc-400")}>
-                {hookText}
-              </p>
-            </div>
-
-            <div className={cn(
-              "p-3 rounded-xl transition-all duration-300 border-l-2",
-              currentSection === 'solution' ? "bg-white dark:bg-zinc-900/90 border-amber-400 shadow-2xs" : "border-transparent opacity-40"
-            )}>
-              <span className="text-[9px] uppercase font-bold text-amber-500 font-mono block mb-0.5">2. Solution</span>
-              <p className={cn("text-sm sm:text-base font-medium leading-relaxed", currentSection === 'solution' ? "text-zinc-950 dark:text-white font-semibold" : "text-zinc-500 dark:text-zinc-400")}>
-                {solutionText}
-              </p>
-            </div>
-
-            <div className={cn(
-              "p-3 rounded-xl transition-all duration-300 border-l-2",
-              currentSection === 'ask' ? "bg-white dark:bg-zinc-900/90 border-amber-400 shadow-2xs" : "border-transparent opacity-40"
-            )}>
-              <span className="text-[9px] uppercase font-bold text-amber-500 font-mono block mb-0.5">3. The Ask</span>
-              <p className={cn("text-sm sm:text-base font-medium leading-relaxed", currentSection === 'ask' ? "text-zinc-950 dark:text-white font-semibold" : "text-zinc-500 dark:text-zinc-400")}>
-                {askText}
-              </p>
-            </div>
-          </div>
-        )}
+        <AnimatePresence mode="wait">
+          {isEditing ? (
+            <motion.div
+              key="pitch-editor"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="w-full space-y-3 relative z-10 overflow-y-auto max-h-[240px] pr-1"
+            >
+              <div>
+                <span className="text-[10px] uppercase font-bold text-amber-500 block mb-1">
+                  Phase 1: Hook (0-5s)
+                </span>
+                <textarea
+                  value={hookText}
+                  onChange={(e) => setHookText(e.target.value)}
+                  rows={2}
+                  className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-2.5 text-xs text-zinc-950 dark:text-white outline-none focus:border-amber-400 resize-none font-sans transition-colors"
+                />
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-amber-500 block mb-1">
+                  Phase 2: Solution (5-20s)
+                </span>
+                <textarea
+                  value={solutionText}
+                  onChange={(e) => setSolutionText(e.target.value)}
+                  rows={2}
+                  className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-2.5 text-xs text-zinc-950 dark:text-white outline-none focus:border-amber-400 resize-none font-sans transition-colors"
+                />
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-amber-500 block mb-1">
+                  Phase 3: The Ask (20-30s)
+                </span>
+                <textarea
+                  value={askText}
+                  onChange={(e) => setAskText(e.target.value)}
+                  rows={2}
+                  className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-2.5 text-xs text-zinc-950 dark:text-white outline-none focus:border-amber-400 resize-none font-sans transition-colors"
+                />
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key={`teleprompter-${selectedLangCode}`}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.22, ease: 'easeOut' }}
+              className="space-y-2.5 relative z-10 w-full"
+            >
+              {(
+                [
+                  { key: 'hook' as const, label: '1. Hook', text: hookText },
+                  { key: 'solution' as const, label: '2. Solution', text: solutionText },
+                  { key: 'ask' as const, label: '3. The Ask', text: askText },
+                ]
+              ).map((item) => {
+                const isActive = currentSection === item.key;
+                return (
+                  <motion.div
+                    key={item.key}
+                    animate={{
+                      opacity: isActive ? 1 : 0.45,
+                      scale: isActive ? 1 : 0.99,
+                    }}
+                    transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                    className="relative p-3 rounded-xl"
+                  >
+                    {isActive && (
+                      <motion.div
+                        layoutId="pitch-active-card"
+                        transition={{ type: 'spring', stiffness: 360, damping: 32, mass: 0.85 }}
+                        className="absolute inset-0 rounded-xl bg-white dark:bg-zinc-900/95 border-l-2 border-amber-400 shadow-xs pointer-events-none"
+                      />
+                    )}
+                    <div className="relative z-10">
+                      <span className="text-[9px] uppercase font-bold text-amber-500 font-mono block mb-0.5">
+                        {item.label}
+                      </span>
+                      <p
+                        className={cn(
+                          'text-sm sm:text-base leading-relaxed transition-colors duration-300',
+                          isActive
+                            ? 'text-zinc-950 dark:text-white font-semibold'
+                            : 'text-zinc-500 dark:text-zinc-400 font-medium'
+                        )}
+                      >
+                        {item.text}
+                      </p>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Controls & Pacing Stats Bar */}

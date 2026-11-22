@@ -17,8 +17,8 @@ export const LandingHome = ({ onNavigate, onLoginClick, showVideo }: HomeViewPro
   useEffect(() => {
     const ctx = gsap.context(() => {
       gsap.fromTo(homeRef.current,
-        { opacity: 0, y: 25 },
-        { opacity: 1, y: 0, duration: 1.1, ease: "power3.out" }
+        { opacity: 0 },
+        { opacity: 1, duration: 0.65, ease: "power2.out", clearProps: "opacity" }
       );
     }, homeRef);
 

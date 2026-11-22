@@ -368,9 +368,6 @@ export const CommunityTownHall: React.FC<CommunityTownHallProps> = ({ userProfil
             <h3 className="font-serif font-bold text-lg text-zinc-950 dark:text-white">
               Town Hall Question Board
             </h3>
-            <p className="text-xs text-zinc-400">
-              Vote on pressing dilemmas or submit questions for guest speakers to dissect live on stage.
-            </p>
           </div>
 
           <button

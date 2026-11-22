@@ -214,11 +214,6 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({
               >
                 Sign In to Account
               </button>
-
-              <div className="flex items-center justify-between text-[11px] text-zinc-500 pt-2 px-1 font-medium">
-                <span>Direct: hello@connectupng.com</span>
-                <span>Seed to Series A</span>
-              </div>
             </div>
           </motion.div>
         )}

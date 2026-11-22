@@ -8,7 +8,7 @@ import {
   Image as ImageIcon, Plus, Check, RotateCcw,
   Settings, BarChart2, Smile, Share2, Repeat2,
   Shield, Globe, Target, Quote, Hash,
-  Award, HeartHandshake, Radio, Users,
+  HeartHandshake, Radio, Users,
   ArrowRight, ShieldCheck, Zap, Compass, Filter, Building2, Briefcase,
   Pencil, Camera, Palette, Maximize2, ExternalLink, ZoomIn
 } from 'lucide-react';
@@ -736,21 +736,6 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({
               >
                 <Radio className="w-3.5 h-3.5" />
                 <span>Town Hall Boards</span>
-              </button>
-
-              <button
-                onClick={() => setCommunityMode('milestones')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
-                  communityMode === 'milestones'
-                    ? 'text-white shadow-xs font-bold'
-                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white'
-                }`}
-                style={communityMode === 'milestones' ? {
-                  background: `linear-gradient(135deg, ${currentTheme.primaryHex}, ${currentTheme.secondaryHex})`
-                } : undefined}
-              >
-                <Award className="w-3.5 h-3.5" />
-                <span>Wins & Milestones</span>
               </button>
 
             </div>

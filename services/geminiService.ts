@@ -54,19 +54,23 @@ export const performMarketResearch = async (query: string): Promise<{ text: stri
   }
 };
 
+export type PitchVoiceName = 'Zephyr' | 'Puck' | 'Charon' | 'Kore' | 'Fenrir';
+export type PitchVoiceTone = 'conversational' | 'warm' | 'confident';
+
 export const synthesizePitchSpeech = async (
   text: string,
-  voiceName: 'Kore' | 'Zephyr' | 'Puck' | 'Charon' | 'Fenrir' = 'Kore'
+  voiceName: PitchVoiceName = 'Zephyr',
+  tone: PitchVoiceTone = 'conversational'
 ): Promise<{ audioBase64: string; mimeType: string }> => {
   const headers = await getAuthHeaders();
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 12000);
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
 
   try {
     const response = await fetch('/api/gemini/tts', {
       method: 'POST',
       headers,
-      body: JSON.stringify({ text, voiceName }),
+      body: JSON.stringify({ text, voiceName, tone }),
       signal: controller.signal,
     });
 

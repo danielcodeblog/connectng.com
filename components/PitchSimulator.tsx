@@ -10,7 +10,15 @@ import {
 } from 'lucide-react';
 import { IconWrapper } from './IconWrapper';
 import { cn } from '../lib/utils';
-import { synthesizePitchSpeech } from '../services/geminiService';
+import { synthesizePitchSpeech, PitchVoiceName } from '../services/geminiService';
+
+const VOICE_PERSONAS: { id: PitchVoiceName; label: string; tone: 'conversational' | 'warm' | 'confident' }[] = [
+  { id: 'Zephyr', label: 'Natural Warm', tone: 'conversational' },
+  { id: 'Puck', label: 'Casual & Lively', tone: 'conversational' },
+  { id: 'Charon', label: 'Calm & Grounded', tone: 'warm' },
+  { id: 'Kore', label: 'Clear & Steady', tone: 'confident' },
+  { id: 'Fenrir', label: 'Deep & Assured', tone: 'confident' },
+];
 
 export interface PitchScript {
   hook: string;
@@ -393,6 +401,7 @@ export const PitchSimulator: React.FC = () => {
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoiceURI, setSelectedVoiceURI] = useState<string>('');
   const [selectedLangCode, setSelectedLangCode] = useState<string>('en');
+  const [selectedPersona, setSelectedPersona] = useState<PitchVoiceName>('Zephyr');
   const [activeVoiceSection, setActiveVoiceSection] = useState<PitchSectionKey | null>(null);
 
   // Audio playback & SpeechSynthesis refs
@@ -431,11 +440,11 @@ export const PitchSimulator: React.FC = () => {
       name.includes('wavenet') ||
       name.includes('studio')
     ) {
-      score += 150;
+      score += 220;
     } else if (name.includes('enhanced') || name.includes('premium') || name.includes('siri')) {
-      score += 115;
+      score += 170;
     } else if (name.includes('google')) {
-      score += 100;
+      score += 90;
     }
 
     const warmHumanNames = [
@@ -443,7 +452,7 @@ export const PitchSimulator: React.FC = () => {
       'aria', 'jenny', 'guy', 'sonia', 'ryan', 'libby', 'serena', 'oliver', 'kate', 'clara'
     ];
     if (warmHumanNames.some((n) => name.includes(n))) {
-      score += 75;
+      score += 80;
     }
 
     if (v.localService) {
@@ -458,8 +467,11 @@ export const PitchSimulator: React.FC = () => {
       'microsoft david', 'microsoft zira', 'microsoft mark', 'microsoft hazel',
       'microsoft george', 'microsoft susan', 'microsoft heera', 'microsoft ravi'
     ];
-    if (roboticNames.some((n) => name.includes(n))) {
-      score -= 220;
+    if (
+      roboticNames.some((n) => name.includes(n)) ||
+      (name.includes('microsoft') && !name.includes('natural') && !name.includes('online'))
+    ) {
+      score -= 260;
     }
 
     return score;
@@ -795,8 +807,8 @@ export const PitchSimulator: React.FC = () => {
         } else {
           utterance.lang = fallbackLang;
         }
-        utterance.rate = playbackSpeed;
-        utterance.pitch = 1.0;
+        utterance.rate = Math.max(0.7, Number((playbackSpeed * 0.96).toFixed(2)));
+        utterance.pitch = 0.98;
         utterance.volume = 1.0;
 
         utterance.onstart = () => {
@@ -920,7 +932,20 @@ export const PitchSimulator: React.FC = () => {
     const cleanText = taggedSegments
       .map((s) => (/[.!?。！？]$/.test(s.text) ? s.text : `${s.text}.`))
       .join('  ');
-    const cacheKey = `${selectedLangCode}:${cleanText}`;
+
+    // Add organic human breath transitions between Hook, Solution, and Ask for gemini-3.8-flash-tts
+    const humanFormattedTtsText = taggedSegments
+      .map((s) => {
+        const normalized = s.text
+          .replace(/\s+\/\s+/g, ', ')
+          .replace(/\s+-\s+/g, ', ')
+          .trim();
+        return /[.!?。！？]$/.test(normalized) ? normalized : `${normalized}.`;
+      })
+      .join(' <breath> ');
+
+    const personaMeta = VOICE_PERSONAS.find((v) => v.id === selectedPersona) || VOICE_PERSONAS[0];
+    const cacheKey = `${selectedLangCode}:${selectedPersona}:${cleanText}`;
 
     const startAudioSectionSync = (
       getProgressRatio: () => number
@@ -1028,43 +1053,15 @@ export const PitchSimulator: React.FC = () => {
           source.buffer = decoded;
           source.playbackRate.value = playbackSpeed;
 
-          let lastNode: AudioNode = source;
-          if (typeof ctx.createBiquadFilter === 'function') {
-            const highpass = ctx.createBiquadFilter();
-            highpass.type = 'highpass';
-            highpass.frequency.value = 80;
-            highpass.Q.value = 0.7;
-
-            const presence = ctx.createBiquadFilter();
-            presence.type = 'peaking';
-            presence.frequency.value = 3000;
-            presence.Q.value = 0.9;
-            presence.gain.value = 2.0;
-
-            lastNode.connect(highpass);
-            highpass.connect(presence);
-            lastNode = presence;
-          }
-
-          if (typeof ctx.createDynamicsCompressor === 'function') {
-            const compressor = ctx.createDynamicsCompressor();
-            compressor.threshold.value = -10;
-            compressor.knee.value = 12;
-            compressor.ratio.value = 2.5;
-            compressor.attack.value = 0.004;
-            compressor.release.value = 0.14;
-            lastNode.connect(compressor);
-            lastNode = compressor;
-          }
-
+          // Play mastered 24kHz Gemini audio uncolored at unity gain so chest warmth and natural harmonics are preserved
           if (typeof ctx.createGain === 'function') {
-            const makeup = ctx.createGain();
-            makeup.gain.value = 1.15;
-            lastNode.connect(makeup);
-            lastNode = makeup;
+            const gain = ctx.createGain();
+            gain.gain.value = 1.0;
+            source.connect(gain);
+            gain.connect(ctx.destination);
+          } else {
+            source.connect(ctx.destination);
           }
-
-          lastNode.connect(ctx.destination);
 
           source.onended = () => {
             if (voiceRequestIdRef.current === reqId) {
@@ -1115,6 +1112,7 @@ export const PitchSimulator: React.FC = () => {
 
     // Only skip server TTS if the server explicitly returned 503 (missing GEMINI_API_KEY)
     if (ttsUnavailableRef.current) {
+      setVoiceNotice('Using device speech engine (studio AI voice is not enabled on this server).');
       speakWithBrowserFallback(taggedSegments, reqId);
       return;
     }
@@ -1145,7 +1143,11 @@ export const PitchSimulator: React.FC = () => {
 
     setIsLoadingVoice(true);
     try {
-      const { audioBase64, mimeType } = await synthesizePitchSpeech(cleanText, 'Kore');
+      const { audioBase64, mimeType } = await synthesizePitchSpeech(
+        humanFormattedTtsText,
+        selectedPersona,
+        personaMeta.tone
+      );
       if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId) return;
 
       const binaryString = atob(audioBase64);
@@ -1166,6 +1168,11 @@ export const PitchSimulator: React.FC = () => {
       if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId) return;
       if (err?.status === 503) {
         ttsUnavailableRef.current = true;
+        setVoiceNotice('Using device speech engine (studio AI voice is not enabled on this server).');
+      } else if (err?.status === 401) {
+        setVoiceNotice('Using device speech engine (sign in with an active session for natural studio voice).');
+      } else {
+        setVoiceNotice('Using device speech engine (studio voice temporarily unavailable).');
       }
       setIsLoadingVoice(false);
       speakWithBrowserFallback(taggedSegments, reqId);
@@ -1256,6 +1263,26 @@ export const PitchSimulator: React.FC = () => {
             {LANGUAGES.map(lang => (
               <option key={lang.code} value={lang.code}>
                 {lang.flag} {lang.nativeName} ({lang.name})
+              </option>
+            ))}
+          </select>
+
+          {/* Voice Persona Selector */}
+          <select
+            value={selectedPersona}
+            onChange={(e) => {
+              stopVoicing();
+              setVoiceNotice(null);
+              setBlockedAudioUrl(null);
+              setSelectedPersona(e.target.value as PitchVoiceName);
+            }}
+            disabled={isLoadingVoice}
+            className="h-8 px-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-semibold text-zinc-800 dark:text-zinc-200 focus:outline-none focus:border-amber-400 cursor-pointer disabled:opacity-50"
+            title="Select natural speaker voice style"
+          >
+            {VOICE_PERSONAS.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.label}
               </option>
             ))}
           </select>

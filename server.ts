@@ -1849,7 +1849,7 @@ async function startServer() {
 
   app.post('/api/gemini/tts', requireAuth, geminiLimiter, async (req, res) => {
     try {
-      const { text, voiceName } = req.body || {};
+      const { text, voiceName, tone } = req.body || {};
       if (!text || typeof text !== 'string' || !text.trim()) {
         return res.status(400).json({ error: 'text is required' });
       }
@@ -1866,7 +1866,18 @@ async function startServer() {
       const allowedVoices = new Set(['Puck', 'Charon', 'Kore', 'Fenrir', 'Zephyr']);
       const selectedVoice = typeof voiceName === 'string' && allowedVoices.has(voiceName)
         ? voiceName
-        : 'Kore';
+        : 'Zephyr';
+
+      const styleByTone: Record<string, string> = {
+        conversational:
+          'Authentic, unscripted human conversation — a relaxed, grounded startup founder explaining their idea face-to-face over coffee. Natural everyday cadence, warm chest resonance, subtle micro-pauses and organic breathing between thoughts, gentle human inflection without radio-announcer polish or over-enunciation.',
+        warm:
+          'Intimate, relaxed human storytelling — calm, approachable founder speaking naturally in a quiet room. Soft consonant transitions, unhurried conversational rhythm, genuine warmth and subtle everyday phrasing.',
+        confident:
+          'Composed, relatable human founder talking casually with an investor they already know. Assured yet understated, natural conversational pacing with real pauses for emphasis, never theatrical or synthetic.',
+      };
+      const selectedStyle =
+        typeof tone === 'string' && styleByTone[tone] ? styleByTone[tone] : styleByTone.conversational;
 
       const ai = new GoogleGenAI({
         apiKey,
@@ -1878,20 +1889,32 @@ async function startServer() {
         },
       });
 
-      const generateTtsWithModel = async (modelName: string) => {
+      const plainTextForLite = trimmedText
+        .replace(/<\s*(breath|laugh|gasp)\s*>/gi, ' ')
+        .replace(/\|[^|]{1,16}\|/g, ' ')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+
+      const generateTtsWithModel = async (
+        modelName: string,
+        inputText: string,
+        useSpeechMetadata = true
+      ) => {
+        const part: any = useSpeechMetadata
+          ? {
+              text: inputText,
+              speechMetadata: {
+                style: selectedStyle,
+              },
+            }
+          : { text: inputText };
+
         return ai.models.generateContent({
           model: modelName,
           contents: [
             {
               role: 'user',
-              parts: [
-                {
-                  text: trimmedText,
-                  speechMetadata: {
-                    style: 'Studio-quality close-mic recording: warm, articulate, confident startup founder speaking naturally with crisp enunciation, balanced inflection, and smooth pacing.',
-                  },
-                } as any,
-              ],
+              parts: [part],
             },
           ],
           config: {
@@ -1907,10 +1930,41 @@ async function startServer() {
 
       let response;
       try {
-        response = await generateTtsWithModel('gemini-3.8-flash-tts');
+        response = await generateTtsWithModel('gemini-3.8-flash-tts', trimmedText, true);
       } catch (primaryErr: any) {
-        console.warn('Primary TTS model fallback triggered:', primaryErr?.message || primaryErr);
-        response = await generateTtsWithModel('gemini-3.8-flash-lite-tts');
+        const primaryMsg = String(primaryErr?.message || '');
+        if (primaryMsg.includes('speechMetadata')) {
+          try {
+            response = await generateTtsWithModel('gemini-3.8-flash-tts', trimmedText, false);
+          } catch (retryErr: any) {
+            console.warn('Primary TTS model fallback triggered:', retryErr?.message || retryErr);
+            response = await generateTtsWithModel(
+              'gemini-3.8-flash-lite-tts',
+              plainTextForLite || trimmedText,
+              false
+            );
+          }
+        } else {
+          console.warn('Primary TTS model fallback triggered:', primaryMsg || primaryErr);
+          try {
+            response = await generateTtsWithModel(
+              'gemini-3.8-flash-lite-tts',
+              plainTextForLite || trimmedText,
+              true
+            );
+          } catch (liteErr: any) {
+            const msg = String(liteErr?.message || '');
+            if (msg.includes('speechMetadata')) {
+              response = await generateTtsWithModel(
+                'gemini-3.8-flash-lite-tts',
+                plainTextForLite || trimmedText,
+                false
+              );
+            } else {
+              throw liteErr;
+            }
+          }
+        }
       }
 
       const audioPart = response.candidates?.[0]?.content?.parts?.find(

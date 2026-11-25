@@ -409,201 +409,295 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 )}
               </div>
 
-              <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
-                {/* Free Card */}
-                <div 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
+                {/* Free Plan */}
+                <div
+                  role="button"
+                  tabIndex={0}
                   onClick={() => setBillingCycle('free')}
-                  className={`group relative p-8 rounded-[36px] border-2 transition-all cursor-pointer overflow-hidden flex flex-col justify-between ${
-                    billingCycle === 'free' 
-                      ? 'border-zinc-900 dark:border-white bg-white dark:bg-zinc-900 shadow-2xl' 
-                      : 'border-zinc-100 dark:border-zinc-800 bg-zinc-50/30 dark:bg-zinc-900/30 hover:border-zinc-300 dark:hover:border-zinc-600'
-                  }`}
-                >
-                  <div className="relative z-10 flex flex-col h-full justify-between">
-                    <div>
-                      <div className="flex justify-between items-start mb-6">
-                        <div>
-                          {userProfile?.plan !== 'pro' && (
-                            <span className="bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full mb-1 inline-block">
-                              CURRENT PLAN
-                            </span>
-                          )}
-                          <h4 className="text-xl font-black text-zinc-900 dark:text-white">Free Plan</h4>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-3xl font-black text-zinc-900 dark:text-white">$0</div>
-                          <div className="text-[10px] font-bold text-zinc-400 uppercase">forever</div>
-                        </div>
-                      </div>
-                      <div className="space-y-6 flex-1">
-                        <ul className="space-y-4 pt-2">
-                          {['1 Startup Pitch Listing', 'Standard Profile', 'Limited Community Access', 'No Verified Pro badge'].map((f, i) => (
-                            <li key={i} className="flex items-center gap-3 text-xs font-bold text-zinc-600 dark:text-zinc-400">
-                              <div className="w-5 h-5 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0">
-                                <Check size={12} className="text-zinc-500" />
-                              </div>
-                              {f}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Free Trial Card */}
-                <div 
-                  onClick={() => {
-                    if (!hasUsedTrial && !isPro) {
-                      onStartFreeTrial?.();
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setBillingCycle('free');
                     }
                   }}
-                  className={`group relative p-8 rounded-[36px] border-2 transition-all overflow-hidden flex flex-col justify-between ${
-                    userProfile?.billingCycle === 'trial' 
-                      ? 'border-amber-500 dark:border-amber-400 bg-white dark:bg-zinc-900 shadow-2xl' 
-                      : !isPro && !hasUsedTrial 
-                        ? 'border-zinc-100 hover:border-amber-500 dark:border-zinc-800 bg-zinc-50/30 dark:bg-zinc-900/30 cursor-pointer hover:shadow-lg' 
-                        : 'border-zinc-100 dark:border-zinc-800 bg-zinc-50/10 dark:bg-zinc-900/10 opacity-60'
+                  className={`group rounded-2xl p-6 border transition-all duration-200 cursor-pointer flex flex-col justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 ${
+                    billingCycle === 'free'
+                      ? 'border-zinc-950 dark:border-white bg-white dark:bg-zinc-900 shadow-sm ring-1 ring-zinc-950/10 dark:ring-white/15'
+                      : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40 hover:border-zinc-300 dark:hover:border-zinc-700'
                   }`}
                 >
-                  <div className="relative z-10 flex flex-col h-full justify-between w-full">
-                    <div>
-                      <div className="flex justify-between items-start mb-6">
-                        <div>
-                          <span className="bg-amber-400/20 text-amber-600 dark:text-amber-400 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full mb-1 inline-block">
-                            {userProfile?.billingCycle === 'trial' ? 'ACTIVE PLAN' : 'PRO TRIAL'}
-                          </span>
-                          <h4 className="text-xl font-black text-zinc-900 dark:text-white">Pro Trial</h4>
+                  <div>
+                    <div className="flex items-start justify-between gap-4 pb-5 border-b border-zinc-100 dark:border-zinc-800/80">
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                          {userProfile?.plan !== 'pro' ? 'Current plan · Standard' : 'Standard tier'}
+                        </p>
+                        <h4 className="text-lg font-bold text-zinc-950 dark:text-white mt-0.5 tracking-tight">
+                          Free Access
+                        </h4>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-2xl font-bold tabular-nums text-zinc-950 dark:text-white leading-none">
+                          $0
                         </div>
-                        <div className="text-right">
-                          <div className="text-3xl font-black text-zinc-900 dark:text-white">$0</div>
-                          <div className="text-[10px] font-bold text-zinc-400 uppercase">7 Days</div>
+                        <div className="text-[11px] font-medium text-zinc-400 mt-1">
+                          Forever
                         </div>
                       </div>
-                      
-                      <ul className="space-y-4 pt-2">
-                        {['7-Day Full Pro Access', '2 Startup Pitch Listings', 'Verified Pro badge', 'Direct Messaging'].map((f, i) => (
-                          <li key={i} className="flex items-center gap-3 text-xs font-bold text-zinc-600 dark:text-zinc-400">
-                            <div className="w-5 h-5 rounded-full bg-amber-400/20 flex items-center justify-center flex-shrink-0">
-                              <Check size={12} className="text-amber-600 dark:text-amber-400" />
-                            </div>
-                            {f}
-                          </li>
-                        ))}
-                      </ul>
                     </div>
 
-                    <div className="mt-8">
-                      {userProfile?.billingCycle === 'trial' ? (
-                        <div className="w-full py-3 bg-amber-500 text-zinc-950 text-center font-black rounded-xl shadow-md text-xs">
-                          Active Trial
-                        </div>
-                      ) : hasUsedTrial ? (
-                        <div className="w-full py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-450 text-center font-black rounded-xl text-xs border border-zinc-200/30 dark:border-zinc-700/50">
-                          Trial Already Used
-                        </div>
-                      ) : isPro ? (
-                        <div className="w-full py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-450 text-center font-black rounded-xl text-xs border border-zinc-200/30 dark:border-zinc-700/50">
-                          Pro Active
-                        </div>
-                      ) : (
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onStartFreeTrial?.();
-                          }}
-                          className="w-full py-3 bg-amber-400 hover:bg-amber-300 text-zinc-900 font-black rounded-xl transition-all shadow-md text-xs cursor-pointer"
-                        >
-                          Start Free Trial
-                        </button>
-                      )}
-                    </div>
+                    <ul className="space-y-2.5 pt-5">
+                      {[
+                        '1 pitch or startup listing',
+                        'Standard founder or investor profile',
+                        'Core community feed access',
+                        'Essential discovery matching',
+                      ].map((feature, i) => (
+                        <li key={i} className="flex items-start gap-2.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                          <Check size={15} className="text-zinc-400 dark:text-zinc-500 shrink-0 mt-0.5" />
+                          <span>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="pt-5 mt-6 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between text-xs font-semibold">
+                    <span className={billingCycle === 'free' ? 'text-zinc-950 dark:text-white' : 'text-zinc-500 dark:text-zinc-400'}>
+                      {userProfile?.plan !== 'pro'
+                        ? 'Active on account'
+                        : billingCycle === 'free'
+                          ? 'Selected to downgrade'
+                          : 'Switch to Free'}
+                    </span>
+                    <span className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${
+                      billingCycle === 'free'
+                        ? 'bg-zinc-950 dark:bg-white border-zinc-950 dark:border-white text-white dark:text-zinc-950'
+                        : 'border-zinc-300 dark:border-zinc-700'
+                    }`}>
+                      {billingCycle === 'free' && <Check size={10} strokeWidth={3} />}
+                    </span>
                   </div>
                 </div>
 
-                {/* Monthly Card */}
-                <div 
+                {/* Pro Trial */}
+                <div
+                  className={`group rounded-2xl p-6 border transition-all duration-200 flex flex-col justify-between ${
+                    userProfile?.billingCycle === 'trial'
+                      ? 'border-amber-400 bg-amber-50/40 dark:bg-zinc-900 shadow-sm ring-1 ring-amber-400/25'
+                      : !isPro && !hasUsedTrial
+                        ? 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 hover:border-amber-400/70'
+                        : 'border-zinc-200/80 dark:border-zinc-800/70 bg-zinc-50/40 dark:bg-zinc-900/30 opacity-70'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-4 pb-5 border-b border-zinc-100 dark:border-zinc-800/80">
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                          {userProfile?.billingCycle === 'trial'
+                            ? 'Active trial'
+                            : hasUsedTrial
+                              ? 'Trial completed'
+                              : '7-day preview'}
+                        </p>
+                        <h4 className="text-lg font-bold text-zinc-950 dark:text-white mt-0.5 tracking-tight">
+                          Pro Trial
+                        </h4>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-2xl font-bold tabular-nums text-zinc-950 dark:text-white leading-none">
+                          $0
+                        </div>
+                        <div className="text-[11px] font-medium text-zinc-400 mt-1">
+                          7 days
+                        </div>
+                      </div>
+                    </div>
+
+                    <ul className="space-y-2.5 pt-5">
+                      {[
+                        'Full Pro access for 7 days',
+                        'Up to 2 pitch listings',
+                        'Verified Pro profile badge',
+                        'Unlimited direct messaging',
+                      ].map((feature, i) => (
+                        <li key={i} className="flex items-start gap-2.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                          <Check size={15} className="text-amber-500 shrink-0 mt-0.5" />
+                          <span>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="pt-5 mt-6 border-t border-zinc-100 dark:border-zinc-800/80">
+                    {userProfile?.billingCycle === 'trial' ? (
+                      <div className="w-full py-2.5 px-4 rounded-xl bg-amber-400/20 text-amber-700 dark:text-amber-300 text-center text-xs font-bold">
+                        Trial currently active
+                      </div>
+                    ) : hasUsedTrial ? (
+                      <div className="w-full py-2.5 px-4 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 text-zinc-500 dark:text-zinc-400 text-center text-xs font-semibold">
+                        Trial already used
+                      </div>
+                    ) : isPro ? (
+                      <div className="w-full py-2.5 px-4 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 text-zinc-500 dark:text-zinc-400 text-center text-xs font-semibold">
+                        Pro plan active
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onStartFreeTrial?.();
+                        }}
+                        className="w-full py-2.5 px-4 rounded-xl bg-amber-400 hover:bg-amber-300 text-zinc-950 text-xs font-bold transition-colors cursor-pointer active:scale-[0.99]"
+                      >
+                        Start Free Trial
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Monthly Plan */}
+                <div
+                  role="button"
+                  tabIndex={0}
                   onClick={() => setBillingCycle('monthly')}
-                  className={`group relative p-8 rounded-[36px] border-2 transition-all cursor-pointer overflow-hidden flex flex-col justify-between ${
-                    billingCycle === 'monthly' 
-                      ? 'border-amber-400 dark:border-amber-400 bg-white dark:bg-zinc-900 shadow-2xl ring-2 ring-amber-400/20' 
-                      : 'border-zinc-100 dark:border-zinc-800 bg-zinc-50/30 dark:bg-zinc-900/30 hover:border-zinc-300 dark:hover:border-zinc-600'
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setBillingCycle('monthly');
+                    }
+                  }}
+                  className={`group rounded-2xl p-6 border transition-all duration-200 cursor-pointer flex flex-col justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 ${
+                    billingCycle === 'monthly'
+                      ? 'border-amber-400 bg-amber-50/35 dark:bg-zinc-900 shadow-sm ring-1 ring-amber-400/25'
+                      : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 hover:border-zinc-300 dark:hover:border-zinc-700'
                   }`}
                 >
-                  <div className="relative z-10 flex flex-col h-full justify-between">
-                    <div>
-                      <div className="flex justify-between items-start mb-6">
-                        <div>
-                          {userProfile?.plan === 'pro' && userProfile?.billingCycle === 'monthly' && (
-                            <span className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full mb-1 inline-block">
-                              YOUR ACTIVE PLAN
-                            </span>
-                          )}
-                          <h4 className="text-xl font-black text-zinc-900 dark:text-white">Monthly Plan</h4>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-3xl font-black text-zinc-900 dark:text-white">$5.00</div>
-                          <div className="text-[10px] font-bold text-zinc-400 uppercase">per month</div>
-                        </div>
+                  <div>
+                    <div className="flex items-start justify-between gap-4 pb-5 border-b border-zinc-100 dark:border-zinc-800/80">
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                          {userProfile?.plan === 'pro' && userProfile?.billingCycle === 'monthly'
+                            ? 'Active plan · Monthly'
+                            : 'Flexible billing'}
+                        </p>
+                        <h4 className="text-lg font-bold text-zinc-950 dark:text-white mt-0.5 tracking-tight">
+                          Pro Monthly
+                        </h4>
                       </div>
-                      <div className="space-y-6">
-                        <ul className="space-y-4 pt-2">
-                          {['2 Pitch / Startup Listings', 'Full Community Access', 'Direct Messaging', 'Verified Pro badge', 'Priority Matching'].map((f, i) => (
-                            <li key={i} className="flex items-center gap-3 text-xs font-bold text-zinc-600 dark:text-zinc-400">
-                              <div className="w-5 h-5 rounded-full bg-amber-400 flex items-center justify-center shadow-md flex-shrink-0">
-                                <Check size={12} className="text-black stroke-[3]" />
-                              </div>
-                              {f}
-                            </li>
-                          ))}
-                        </ul>
+                      <div className="text-right shrink-0">
+                        <div className="text-2xl font-bold tabular-nums text-zinc-950 dark:text-white leading-none">
+                          $5.00
+                        </div>
+                        <div className="text-[11px] font-medium text-zinc-400 mt-1">
+                          per month
+                        </div>
                       </div>
                     </div>
+
+                    <ul className="space-y-2.5 pt-5">
+                      {[
+                        'Up to 2 pitch or startup listings',
+                        'Full community & town hall access',
+                        'Unlimited direct messaging',
+                        'Verified Pro badge & priority matching',
+                      ].map((feature, i) => (
+                        <li key={i} className="flex items-start gap-2.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                          <Check size={15} className="text-amber-500 shrink-0 mt-0.5" />
+                          <span>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="pt-5 mt-6 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between text-xs font-semibold">
+                    <span className={billingCycle === 'monthly' ? 'text-zinc-950 dark:text-white' : 'text-zinc-500 dark:text-zinc-400'}>
+                      {userProfile?.plan === 'pro' && userProfile?.billingCycle === 'monthly'
+                        ? 'Current active plan'
+                        : billingCycle === 'monthly'
+                          ? 'Selected for checkout'
+                          : 'Select monthly'}
+                    </span>
+                    <span className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${
+                      billingCycle === 'monthly'
+                        ? 'bg-amber-400 border-amber-400 text-zinc-950'
+                        : 'border-zinc-300 dark:border-zinc-700'
+                    }`}>
+                      {billingCycle === 'monthly' && <Check size={10} strokeWidth={3} />}
+                    </span>
                   </div>
                 </div>
 
-                {/* Annual Card */}
-                <div 
+                {/* Annual Plan */}
+                <div
+                  role="button"
+                  tabIndex={0}
                   onClick={() => setBillingCycle('yearly')}
-                  className={`group relative p-8 rounded-[36px] border-2 transition-all cursor-pointer overflow-hidden flex flex-col justify-between ${
-                    billingCycle === 'yearly' 
-                      ? 'border-[#FFBF00] bg-white dark:bg-zinc-900 shadow-2xl ring-2 ring-amber-400/30' 
-                      : 'border-zinc-100 dark:border-zinc-800 bg-zinc-50/30 dark:bg-zinc-900/30 hover:border-zinc-300 dark:hover:border-zinc-600'
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setBillingCycle('yearly');
+                    }
+                  }}
+                  className={`group rounded-2xl p-6 border transition-all duration-200 cursor-pointer flex flex-col justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 ${
+                    billingCycle === 'yearly'
+                      ? 'border-amber-400 bg-amber-50/50 dark:bg-zinc-900 shadow-sm ring-1 ring-amber-400/35'
+                      : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 hover:border-amber-400/60'
                   }`}
                 >
-                  <div className="relative z-10 flex flex-col h-full justify-between">
-                    <div>
-                      <div className="flex justify-between items-start mb-6">
-                        <div>
-                          {userProfile?.plan === 'pro' && userProfile?.billingCycle === 'yearly' ? (
-                            <span className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full mb-1 inline-block">
-                              YOUR ACTIVE PLAN
-                            </span>
-                          ) : (
-                            <span className="bg-[#FFBF00] text-black text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full mb-1 inline-block">
-                              BEST VALUE (-50%)
-                            </span>
-                          )}
-                          <h4 className="text-xl font-black text-zinc-900 dark:text-white">Annual Plan</h4>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-3xl font-black text-zinc-900 dark:text-white">$29.00</div>
-                          <div className="text-[10px] font-bold text-zinc-400 uppercase">per year</div>
-                        </div>
+                  <div>
+                    <div className="flex items-start justify-between gap-4 pb-5 border-b border-zinc-100 dark:border-zinc-800/80">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-amber-600 dark:text-amber-400">
+                          {userProfile?.plan === 'pro' && userProfile?.billingCycle === 'yearly'
+                            ? 'Active plan · Annual'
+                            : 'Best value · Save 50%'}
+                        </p>
+                        <h4 className="text-lg font-bold text-zinc-950 dark:text-white mt-0.5 tracking-tight">
+                          Pro Annual
+                        </h4>
                       </div>
-                      <div className="space-y-6">
-                        <ul className="space-y-4 pt-2">
-                          {['2 Pitch / Startup Listings', 'Full Community Access', 'Direct Messaging', 'Verified Pro badge', 'Priority Matching', 'Save $31/year'].map((f, i) => (
-                            <li key={i} className="flex items-center gap-3 text-xs font-bold text-zinc-600 dark:text-zinc-400">
-                              <div className="w-5 h-5 rounded-full bg-[#FFBF00] flex items-center justify-center shadow-md flex-shrink-0">
-                                <Check size={12} className="text-black stroke-[3]" />
-                              </div>
-                              {f}
-                            </li>
-                          ))}
-                        </ul>
+                      <div className="text-right shrink-0">
+                        <div className="text-2xl font-bold tabular-nums text-zinc-950 dark:text-white leading-none">
+                          $29.00
+                        </div>
+                        <div className="text-[11px] font-medium text-zinc-400 mt-1">
+                          per year · $2.42/mo
+                        </div>
                       </div>
                     </div>
+
+                    <ul className="space-y-2.5 pt-5">
+                      {[
+                        'Everything in Pro Monthly',
+                        'Save $31 per year vs monthly billing',
+                        'Priority founder & investor matching',
+                        'Verified Pro badge for 12 full months',
+                      ].map((feature, i) => (
+                        <li key={i} className="flex items-start gap-2.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                          <Check size={15} className="text-amber-500 shrink-0 mt-0.5" />
+                          <span>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="pt-5 mt-6 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between text-xs font-semibold">
+                    <span className={billingCycle === 'yearly' ? 'text-zinc-950 dark:text-white' : 'text-zinc-500 dark:text-zinc-400'}>
+                      {userProfile?.plan === 'pro' && userProfile?.billingCycle === 'yearly'
+                        ? 'Current active plan'
+                        : billingCycle === 'yearly'
+                          ? 'Selected for checkout'
+                          : 'Select annual'}
+                    </span>
+                    <span className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${
+                      billingCycle === 'yearly'
+                        ? 'bg-amber-400 border-amber-400 text-zinc-950'
+                        : 'border-zinc-300 dark:border-zinc-700'
+                    }`}>
+                      {billingCycle === 'yearly' && <Check size={10} strokeWidth={3} />}
+                    </span>
                   </div>
                 </div>
               </div>

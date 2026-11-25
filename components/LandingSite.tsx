@@ -42,6 +42,22 @@ const reviews = [
     imageSrc: "https://fastly.restofworld.org/uploads/2022/05/Africa-IyinoluwaAboyejiCourtesy-EDITED.png?width=300&dpr=2&crop=1:1",
     thumbnailSrc: "https://fastly.restofworld.org/uploads/2022/05/Africa-IyinoluwaAboyejiCourtesy-EDITED.png?width=300&dpr=2&crop=1:1",
   },
+  {
+    id: 4,
+    name: "Naval Ravikant",
+    affiliation: "Co-Founder, AngelList",
+    quote: "Play long-term games with long-term people.",
+    imageSrc: "https://upload.wikimedia.org/wikipedia/commons/5/55/Naval_Ravikant_%28cropped%29.jpg",
+    thumbnailSrc: "https://upload.wikimedia.org/wikipedia/commons/5/55/Naval_Ravikant_%28cropped%29.jpg",
+  },
+  {
+    id: 5,
+    name: "Ron Conway",
+    affiliation: "Founder, SV Angel",
+    quote: "Invest in founders with deep conviction and a product people genuinely need.",
+    imageSrc: "https://upload.wikimedia.org/wikipedia/commons/5/5c/Ron_Conway_1_%28cropped%29.jpg",
+    thumbnailSrc: "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5c/Ron_Conway_1_%28cropped%29.jpg/330px-Ron_Conway_1_%28cropped%29.jpg",
+  },
 ];
 
 interface LandingSiteProps {

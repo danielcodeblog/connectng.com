@@ -158,20 +158,6 @@ const LANGUAGES: LanguageConfig[] = [
   }
 ];
 
-const LANG_LOCALES: Record<string, string> = {
-  en: 'en-US',
-  es: 'es-ES',
-  fr: 'fr-FR',
-  de: 'de-DE',
-  ja: 'ja-JP',
-  zh: 'zh-CN',
-  pt: 'pt-BR',
-  it: 'it-IT',
-  ko: 'ko-KR',
-  ar: 'ar-SA',
-  hi: 'hi-IN',
-};
-
 // Valid 46-byte silent WAV (24kHz mono 16-bit PCM) to unlock HTMLAudioElement synchronously on click
 const SILENT_WAV_DATA_URI =
   'data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAwF0AAIC7AAACABAAZGF0YQIAAAAAAA==';
@@ -357,58 +343,23 @@ const decodeWavToAudioBuffer = (ctx: AudioContext, wavBuffer: ArrayBuffer): Audi
 
 type PitchSectionKey = 'hook' | 'solution' | 'ask';
 
-interface TaggedSpeechChunk {
-  text: string;
-  section: PitchSectionKey;
-}
-
-const splitIntoSpeechChunks = (
-  sections: { text: string; section: PitchSectionKey }[]
-): TaggedSpeechChunk[] => {
-  const chunks: TaggedSpeechChunk[] = [];
-  for (const item of sections) {
-    const trimmed = item.text.trim();
-    if (!trimmed) continue;
-    const sentences = trimmed.split(/(?<=[.!?。！？])\s+/).filter(Boolean);
-    const parts = sentences.length === 0 ? [trimmed] : sentences;
-    for (const part of parts) {
-      if (part.length <= 220) {
-        chunks.push({ text: part, section: item.section });
-      } else {
-        const subParts = part.split(/(?<=[,;、，；])\s+/).filter(Boolean);
-        const finalParts = subParts.length > 0 ? subParts : [part];
-        for (const sub of finalParts) {
-          chunks.push({ text: sub, section: item.section });
-        }
-      }
-    }
-  }
-  return chunks;
-};
-
 export const PitchSimulator: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
   
-  // Voice & speed states (defaults to 1x)
+  // Pitch Studio Voice & speed states (defaults to 1x)
   const SPEED_OPTIONS = [1, 1.25, 1.5, 0.75] as const;
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [isVoicing, setIsVoicing] = useState(false);
   const [isLoadingVoice, setIsLoadingVoice] = useState(false);
   const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
   const [blockedAudioUrl, setBlockedAudioUrl] = useState<string | null>(null);
-  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [selectedVoiceURI, setSelectedVoiceURI] = useState<string>('');
   const [selectedLangCode, setSelectedLangCode] = useState<string>('en');
   const [selectedPersona, setSelectedPersona] = useState<PitchVoiceName>('Zephyr');
   const [activeVoiceSection, setActiveVoiceSection] = useState<PitchSectionKey | null>(null);
 
-  // Audio playback & SpeechSynthesis refs
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
-  const utteranceQueueRef = useRef<SpeechSynthesisUtterance[]>([]);
-  const speechTimeoutRef = useRef<any>(null);
-  const speechWatchdogRef = useRef<any>(null);
+  // Pitch Studio audio engine refs
   const voiceProgressRafRef = useRef<number | null>(null);
   const playbackSpeedRef = useRef<number>(playbackSpeed);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -416,66 +367,11 @@ export const PitchSimulator: React.FC = () => {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const audioUnlockedRef = useRef<boolean>(false);
-  const ttsUnavailableRef = useRef<boolean>(false);
   const voiceRequestIdRef = useRef<number>(0);
   const audioCacheRef = useRef<Map<string, string>>(new Map());
   const audioBufferCacheRef = useRef<Map<string, ArrayBuffer>>(new Map());
   const isVoicingRef = useRef<boolean>(false);
   const blockedAudioElemRef = useRef<HTMLAudioElement | null>(null);
-
-  const scoreNaturalVoice = (v: SpeechSynthesisVoice, langCode: string): number => {
-    const name = v.name.toLowerCase();
-    const lang = v.lang.toLowerCase();
-    let score = 0;
-
-    if (lang.startsWith(langCode.toLowerCase())) {
-      score += 200;
-      if (lang === 'en-us' || lang === 'en-gb') score += 15;
-    }
-
-    if (
-      name.includes('online (natural)') ||
-      name.includes('natural') ||
-      name.includes('neural') ||
-      name.includes('wavenet') ||
-      name.includes('studio')
-    ) {
-      score += 220;
-    } else if (name.includes('enhanced') || name.includes('premium') || name.includes('siri')) {
-      score += 170;
-    } else if (name.includes('google')) {
-      score += 90;
-    }
-
-    const warmHumanNames = [
-      'samantha', 'ava', 'allison', 'daniel', 'karen', 'moira', 'tessa',
-      'aria', 'jenny', 'guy', 'sonia', 'ryan', 'libby', 'serena', 'oliver', 'kate', 'clara'
-    ];
-    if (warmHumanNames.some((n) => name.includes(n))) {
-      score += 80;
-    }
-
-    if (v.localService) {
-      score += 10;
-    }
-
-    const roboticNames = [
-      'espeak', 'festival', 'speech-dispatcher', 'rhvoice', 'fred', 'albert', 'bad news',
-      'bahh', 'bells', 'boing', 'bubbles', 'cellos', 'deranged', 'good news', 'hysterical',
-      'jester', 'organ', 'trinoids', 'whisper', 'zarvox', 'junior', 'kathy', 'ralph', 'eddy',
-      'flo', 'grandma', 'grandpa', 'reed', 'rocko', 'sandy', 'shelley',
-      'microsoft david', 'microsoft zira', 'microsoft mark', 'microsoft hazel',
-      'microsoft george', 'microsoft susan', 'microsoft heera', 'microsoft ravi'
-    ];
-    if (
-      roboticNames.some((n) => name.includes(n)) ||
-      (name.includes('microsoft') && !name.includes('natural') && !name.includes('online'))
-    ) {
-      score -= 260;
-    }
-
-    return score;
-  };
 
   const getSavedScriptForLang = (langCode: string): PitchScript | null => {
     try {
@@ -508,44 +404,6 @@ export const PitchSimulator: React.FC = () => {
     }
   }, [isEditing, isPlaying, isVoicing, pitchScript]);
 
-  // Load and rank browser SpeechSynthesis voices prioritizing natural human voices
-  useEffect(() => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-
-    const populateVoices = () => {
-      const allVoices = window.speechSynthesis.getVoices();
-      if (allVoices && allVoices.length > 0) {
-        const sortedVoices = [...allVoices].sort(
-          (a, b) => scoreNaturalVoice(b, selectedLangCode) - scoreNaturalVoice(a, selectedLangCode)
-        );
-        setAvailableVoices(sortedVoices);
-
-        const bestVoice = sortedVoices[0];
-        if (bestVoice) {
-          setSelectedVoiceURI(bestVoice.voiceURI);
-        }
-      }
-    };
-
-    populateVoices();
-    const synth = window.speechSynthesis;
-    if (typeof synth.addEventListener === 'function') {
-      synth.addEventListener('voiceschanged', populateVoices);
-    } else {
-      synth.onvoiceschanged = populateVoices;
-    }
-
-    return () => {
-      if ('speechSynthesis' in window) {
-        if (typeof synth.removeEventListener === 'function') {
-          synth.removeEventListener('voiceschanged', populateVoices);
-        } else {
-          synth.onvoiceschanged = null;
-        }
-      }
-    };
-  }, [selectedLangCode]);
-
   const handleLanguageChange = (code: string) => {
     stopVoicing();
     setVoiceNotice(null);
@@ -558,14 +416,6 @@ export const PitchSimulator: React.FC = () => {
       setHookText(nextScript.hook);
       setSolutionText(nextScript.solution);
       setAskText(nextScript.ask);
-
-      // Automatically select highest-ranked natural voice for this language
-      const sortedForLang = [...availableVoices].sort(
-        (a, b) => scoreNaturalVoice(b, code) - scoreNaturalVoice(a, code)
-      );
-      if (sortedForLang[0]) {
-        setSelectedVoiceURI(sortedForLang[0].voiceURI);
-      }
     }
   };
 
@@ -587,8 +437,6 @@ export const PitchSimulator: React.FC = () => {
     return () => {
       isVoicingRef.current = false;
       voiceRequestIdRef.current += 1;
-      if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current);
-      if (speechWatchdogRef.current) clearTimeout(speechWatchdogRef.current);
       if (voiceProgressRafRef.current !== null) cancelAnimationFrame(voiceProgressRafRef.current);
       if (audioSourceRef.current) {
         audioSourceRef.current.onended = null;
@@ -609,9 +457,6 @@ export const PitchSimulator: React.FC = () => {
       });
       audioCacheRef.current.clear();
       audioBufferCacheRef.current.clear();
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
     };
   }, []);
 
@@ -678,14 +523,6 @@ export const PitchSimulator: React.FC = () => {
       cancelAnimationFrame(voiceProgressRafRef.current);
       voiceProgressRafRef.current = null;
     }
-    if (speechTimeoutRef.current) {
-      clearTimeout(speechTimeoutRef.current);
-      speechTimeoutRef.current = null;
-    }
-    if (speechWatchdogRef.current) {
-      clearTimeout(speechWatchdogRef.current);
-      speechWatchdogRef.current = null;
-    }
     if (audioSourceRef.current) {
       audioSourceRef.current.onended = null;
       try { audioSourceRef.current.stop(); } catch {}
@@ -700,173 +537,6 @@ export const PitchSimulator: React.FC = () => {
         audioRef.current.currentTime = 0;
       } catch {}
       audioRef.current = null;
-    }
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      try {
-        window.speechSynthesis.cancel();
-      } catch {}
-    }
-    utteranceRef.current = null;
-    utteranceQueueRef.current = [];
-  };
-
-  const speakWithBrowserFallback = (
-    taggedSegments: { text: string; section: PitchSectionKey }[],
-    reqId: number
-  ) => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      stopVoicing();
-      setVoiceNotice('Voice synthesis is not supported in this browser.');
-      return;
-    }
-
-    const cleanChunks = splitIntoSpeechChunks(taggedSegments);
-    if (cleanChunks.length === 0) {
-      stopVoicing();
-      return;
-    }
-
-    if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current);
-    if (speechWatchdogRef.current) clearTimeout(speechWatchdogRef.current);
-
-    const synth = window.speechSynthesis;
-    const allVoices = synth.getVoices();
-    const rankedVoices = [...(allVoices.length > 0 ? allVoices : availableVoices)].sort(
-      (a, b) => scoreNaturalVoice(b, selectedLangCode) - scoreNaturalVoice(a, selectedLangCode)
-    );
-    const primaryVoice =
-      rankedVoices.find((v) => v.voiceURI === selectedVoiceURI) || rankedVoices[0];
-    const localLangVoice = rankedVoices.find(
-      (v) => v.localService && v.lang.toLowerCase().startsWith(selectedLangCode.toLowerCase())
-    ) || rankedVoices.find((v) => v.localService);
-    const fallbackLang = LANG_LOCALES[selectedLangCode] || 'en-US';
-    const isChromium =
-      typeof navigator !== 'undefined' && /Chrome|Chromium|Edg/i.test(navigator.userAgent);
-
-    isVoicingRef.current = true;
-    setIsLoadingVoice(false);
-    setIsVoicing(true);
-
-    // voiceTier: 0 = ranked voice, 1 = local OS voice, 2 = system default (no explicit .voice)
-    // Queue all remaining chunks synchronously so Safari/iOS/Firefox never lose gesture activation between sentences.
-    const enqueueRemainingChunks = (startIdx: number, voiceTier: 0 | 1 | 2 = primaryVoice ? 0 : 2) => {
-      if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId || startIdx >= cleanChunks.length) {
-        if (voiceRequestIdRef.current === reqId) stopVoicing();
-        return;
-      }
-
-      const chosenVoice =
-        voiceTier === 0 ? primaryVoice : voiceTier === 1 ? localLangVoice : undefined;
-
-      utteranceQueueRef.current = [];
-      let hasStartedAny = false;
-
-      const retryFromChunk = (failedIdx: number) => {
-        if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId) return;
-        const nextTier: 1 | 2 | null =
-          voiceTier === 0 && localLangVoice && localLangVoice.voiceURI !== primaryVoice?.voiceURI
-            ? 1
-            : voiceTier < 2
-              ? 2
-              : null;
-
-        if (nextTier !== null) {
-          try {
-            synth.cancel();
-          } catch {}
-          if (isChromium) {
-            speechTimeoutRef.current = setTimeout(() => enqueueRemainingChunks(failedIdx, nextTier), 120);
-          } else {
-            enqueueRemainingChunks(failedIdx, nextTier);
-          }
-        } else {
-          stopVoicing();
-          setVoiceNotice('Browser blocked or has no available speech voice. Enable site audio or check browser voice settings.');
-        }
-      };
-
-      if (speechWatchdogRef.current) clearTimeout(speechWatchdogRef.current);
-      speechWatchdogRef.current = setTimeout(() => {
-        if (!hasStartedAny && isVoicingRef.current && voiceRequestIdRef.current === reqId) {
-          retryFromChunk(startIdx);
-        }
-      }, voiceTier < 2 ? 1800 : 2600);
-
-      for (let i = startIdx; i < cleanChunks.length; i++) {
-        const chunkIdx = i;
-        const chunkItem = cleanChunks[chunkIdx];
-        const utterance = new SpeechSynthesisUtterance(chunkItem.text);
-        if (chunkIdx === startIdx) {
-          utteranceRef.current = utterance;
-        }
-        utteranceQueueRef.current.push(utterance);
-
-        if (chosenVoice) {
-          utterance.voice = chosenVoice;
-          utterance.lang = chosenVoice.lang || fallbackLang;
-        } else {
-          utterance.lang = fallbackLang;
-        }
-        utterance.rate = Math.max(0.7, Number((playbackSpeed * 0.96).toFixed(2)));
-        utterance.pitch = 0.98;
-        utterance.volume = 1.0;
-
-        utterance.onstart = () => {
-          hasStartedAny = true;
-          utteranceRef.current = utterance;
-          setActiveVoiceSection(chunkItem.section);
-          if (speechWatchdogRef.current) {
-            clearTimeout(speechWatchdogRef.current);
-            speechWatchdogRef.current = null;
-          }
-        };
-
-        utterance.onend = () => {
-          if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId) return;
-          if (chunkIdx === cleanChunks.length - 1) {
-            stopVoicing();
-          } else {
-            if (speechWatchdogRef.current) clearTimeout(speechWatchdogRef.current);
-            speechWatchdogRef.current = setTimeout(() => {
-              if (isVoicingRef.current && voiceRequestIdRef.current === reqId) {
-                retryFromChunk(chunkIdx + 1);
-              }
-            }, 2500);
-          }
-        };
-
-        utterance.onerror = (event: SpeechSynthesisErrorEvent) => {
-          if (speechWatchdogRef.current) {
-            clearTimeout(speechWatchdogRef.current);
-            speechWatchdogRef.current = null;
-          }
-          if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId) return;
-          if (event?.error === 'interrupted' || event?.error === 'canceled') return;
-          retryFromChunk(chunkIdx);
-        };
-
-        try {
-          if (synth.paused) synth.resume();
-          synth.speak(utterance);
-        } catch {
-          retryFromChunk(chunkIdx);
-          return;
-        }
-      }
-    };
-
-    const needsCancel = synth.speaking || synth.pending;
-    if (needsCancel) {
-      try {
-        synth.cancel();
-      } catch {}
-      if (isChromium) {
-        speechTimeoutRef.current = setTimeout(() => enqueueRemainingChunks(0), 120);
-      } else {
-        enqueueRemainingChunks(0);
-      }
-    } else {
-      enqueueRemainingChunks(0);
     }
   };
 
@@ -893,22 +563,7 @@ export const PitchSimulator: React.FC = () => {
     }
   };
 
-  const primeSpeechSynthesisSynchronously = () => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-    try {
-      const synth = window.speechSynthesis;
-      synth.getVoices();
-      if (synth.paused) synth.resume();
-      const primer = new SpeechSynthesisUtterance(' ');
-      primer.volume = 0;
-      primer.rate = 10;
-      primer.lang = LANG_LOCALES[selectedLangCode] || 'en-US';
-      utteranceRef.current = primer;
-      synth.speak(primer);
-    } catch {}
-  };
-
-  // Natural AI Voice Read-Aloud (Gemini TTS primary via Web Audio + HTMLAudio, browser speechSynthesis fallback)
+  // Dedicated Pitch Studio Voice Engine (server-synthesized WAV played via Web Audio + studio audio player)
   const speakPitch = async () => {
     if (isVoicing || isLoadingVoice) {
       stopVoicing();
@@ -933,7 +588,7 @@ export const PitchSimulator: React.FC = () => {
       .map((s) => (/[.!?。！？]$/.test(s.text) ? s.text : `${s.text}.`))
       .join('  ');
 
-    // Add organic human breath transitions between Hook, Solution, and Ask for gemini-3.8-flash-tts
+    // Add organic breath transitions between Hook, Solution, and Ask for Pitch Studio Voice Engine
     const humanFormattedTtsText = taggedSegments
       .map((s) => {
         const normalized = s.text
@@ -993,7 +648,11 @@ export const PitchSimulator: React.FC = () => {
       audio.onerror = () => {
         if (isVoicingRef.current && voiceRequestIdRef.current === reqId) {
           setBlockedAudioUrl(objectUrl);
-          speakWithBrowserFallback(taggedSegments, reqId);
+          isVoicingRef.current = false;
+          setIsVoicing(false);
+          setIsLoadingVoice(false);
+          setActiveVoiceSection(null);
+          setVoiceNotice('Pitch Studio audio playback was paused by the browser. Click "Play Audio" below to listen.');
         }
       };
 
@@ -1045,15 +704,11 @@ export const PitchSimulator: React.FC = () => {
             try { audioSourceRef.current.disconnect(); } catch {}
           }
 
-          if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-            try { window.speechSynthesis.cancel(); } catch {}
-          }
-
           const source = ctx.createBufferSource();
           source.buffer = decoded;
           source.playbackRate.value = playbackSpeed;
 
-          // Play mastered 24kHz Gemini audio uncolored at unity gain so chest warmth and natural harmonics are preserved
+          // Play mastered 24kHz Pitch Studio audio uncolored at unity gain so chest warmth and natural harmonics are preserved
           if (typeof ctx.createGain === 'function') {
             const gain = ctx.createGain();
             gain.gain.value = 1.0;
@@ -1086,13 +741,10 @@ export const PitchSimulator: React.FC = () => {
           });
           return;
         } catch {
-          // Fall through to HTMLAudioElement playback
+          // Fall through to Pitch Studio HTMLAudioElement WAV playback
         }
       }
 
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        try { window.speechSynthesis.cancel(); } catch {}
-      }
       await playAudioUrl(objectUrl);
     };
 
@@ -1109,17 +761,6 @@ export const PitchSimulator: React.FC = () => {
       await playAudioUrl(cachedUrl);
       return;
     }
-
-    // Only skip server TTS if the server explicitly returned 503 (missing GEMINI_API_KEY)
-    if (ttsUnavailableRef.current) {
-      setVoiceNotice('Using device speech engine (studio AI voice is not enabled on this server).');
-      speakWithBrowserFallback(taggedSegments, reqId);
-      return;
-    }
-
-    // Synchronously prime speechSynthesis inside the click gesture so Safari/iOS/Firefox
-    // preserve activation if async server TTS falls back (e.g., 401/503/network error).
-    primeSpeechSynthesisSynchronously();
 
     // Only unlock an HTMLAudioElement fallback synchronously when Web Audio is unavailable,
     // preventing competing silent audio sessions in Safari/iOS WebKit.
@@ -1166,16 +807,19 @@ export const PitchSimulator: React.FC = () => {
       await playWavBuffer(audioBuffer, objectUrl);
     } catch (err: any) {
       if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId) return;
-      if (err?.status === 503) {
-        ttsUnavailableRef.current = true;
-        setVoiceNotice('Using device speech engine (studio AI voice is not enabled on this server).');
-      } else if (err?.status === 401) {
-        setVoiceNotice('Using device speech engine (sign in with an active session for natural studio voice).');
-      } else {
-        setVoiceNotice('Using device speech engine (studio voice temporarily unavailable).');
-      }
+      isVoicingRef.current = false;
+      setIsVoicing(false);
       setIsLoadingVoice(false);
-      speakWithBrowserFallback(taggedSegments, reqId);
+      setActiveVoiceSection(null);
+      if (err?.status === 401) {
+        setVoiceNotice('Sign in with an active session to use Pitch Studio voice.');
+      } else if (err?.status === 429) {
+        setVoiceNotice('Pitch Studio voice limit reached for now. Please wait a moment and try again.');
+      } else if (err?.status === 503) {
+        setVoiceNotice('Pitch Studio voice engine is temporarily unavailable.');
+      } else {
+        setVoiceNotice(err?.message || 'Pitch Studio voice could not be generated. Please try again.');
+      }
     }
   };
 
@@ -1246,7 +890,7 @@ export const PitchSimulator: React.FC = () => {
               </h3>
             </div>
             <p className="text-[11px] text-zinc-400 mt-0.5">
-              Translate your pitch and voice it aloud with high-level neural personas
+              Translate your pitch and rehearse aloud with Pitch Studio&apos;s built-in voice engine
             </p>
           </div>
         </div>

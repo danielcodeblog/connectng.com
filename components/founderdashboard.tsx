@@ -304,9 +304,6 @@ const FounderDashboard: React.FC<FounderDashboardProps> = React.memo(({
               <span className="font-display font-black text-lg sm:text-2xl tracking-tighter text-zinc-900 dark:text-white">
                 Connect<span className="text-amber-400">Up</span>
               </span>
-              <span className="text-zinc-400 dark:text-zinc-600 font-mono text-xs hidden sm:inline ml-1">
-                Founder Studio
-              </span>
             </div>
           </div>
         </div>

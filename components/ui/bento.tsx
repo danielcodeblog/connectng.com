@@ -21,46 +21,46 @@ export interface BentoCardItem {
 
 const DEFAULT_CARDS: BentoCardItem[] = [
   {
-    eyebrow: "01 · High-Signal Matching",
-    title: "Thesis-aligned deal flow",
+    eyebrow: "01 · Smart Matching",
+    title: "Matched by stage and sector",
     description:
-      "Smart filtering pairs founders directly with active VCs matching stage, sector, and check size—eliminating cold outreach noise.",
+      "Connect directly with active VCs, investors, and angels looking for what you build.",
     imageSrc: matchingBoardroomImg,
     imageAlt: "Executive boardroom overlooking twilight city skyline",
     className: "max-lg:rounded-t-4xl lg:col-span-3 lg:rounded-tl-4xl",
   },
   {
     eyebrow: "02 · Verified Dealrooms",
-    title: "Diligence built for conviction",
+    title: "Share everything in one room",
     description:
-      "Share audited ARR growth, clean cap tables, and live investor updates inside one encrypted, partner-ready data vault.",
+      "Keep your pitch, metrics, and updates organized for investors and angels.",
     imageSrc: verifiedVaultImg,
     imageAlt: "Illuminated archival vault drawers for audited venture records",
     className: "lg:col-span-3 lg:rounded-tr-4xl",
   },
   {
-    eyebrow: "03 · Velocity",
-    title: "Built for fast rounds",
+    eyebrow: "03 · Fast Intros",
+    title: "Go from intro to call fast",
     description:
-      "Move from first deck view to partner call in days with unified pitch rooms and instant calendar coordination.",
+      "Skip cold emails and book calls with venture partners and angel investors directly.",
     imageSrc: founderSprintImg,
     imageAlt: "Founders collaborating over pitch notes at golden hour",
     className: "lg:col-span-2 lg:rounded-bl-4xl",
   },
   {
-    eyebrow: "04 · Precision",
-    title: "Direct partner access",
+    eyebrow: "04 · Direct Access",
+    title: "Reach real decision makers",
     description:
-      "Connect straight with decision-making GPs and institutional angels actively deploying into your market.",
+      "Talk straight to venture partners and active angel investors backing new ideas.",
     imageSrc: partnerAtriumImg,
     imageAlt: "Venture partners meeting inside a modern stone and glass atrium",
     className: "lg:col-span-2",
   },
   {
-    eyebrow: "05 · Global Syndicates",
-    title: "Raise without borders",
+    eyebrow: "05 · Global Reach",
+    title: "Backers around the world",
     description:
-      "Syndicate capital across San Francisco, London, Lagos, and Singapore to scale your round internationally.",
+      "Meet investors and angel networks across San Francisco, London, Lagos, and Singapore.",
     imageSrc: globalSkylineImg,
     imageAlt: "Global financial skyline illuminated at twilight",
     className: "max-lg:rounded-b-4xl lg:col-span-2 lg:rounded-br-4xl",
@@ -76,8 +76,8 @@ export interface FUIBentoGridDarkProps {
 
 export default function FUIBentoGridDark({
   eyebrow = "Why Choose ConnectUp",
-  heading = "Connecting visionary founders with strategic venture capital.",
-  subheading = "Purpose-built infrastructure for high-signal discovery, verified diligence, and global investor syndicates.",
+  heading = "Connect with venture firms, investors, and angels.",
+  subheading = "One simple place to share your idea and meet the right backers.",
   cards = DEFAULT_CARDS,
 }: FUIBentoGridDarkProps) {
   return (

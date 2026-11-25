@@ -121,7 +121,7 @@ export default function FooterSection5({ onNavigate, onLegalView }: FooterSectio
                   </span>
                 </h2>
                 <p className="text-zinc-900/70 text-sm mt-3 font-medium leading-relaxed max-w-[280px] text-left">
-                  Empowering founders, syndicates, and modern builders with the premium tools to access, organize, and accelerate institutional-grade capital globally.
+                  Connecting ambitious individuals directly with venture capital firms, institutional investors, and active angel investors globally.
                 </p>
               </div>
             </div>

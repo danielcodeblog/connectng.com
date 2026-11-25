@@ -1,12 +1,28 @@
 import express from 'express';
-import { createServer as createViteServer } from 'vite';
+import type { ViteDevServer } from 'vite';
 import path from 'path';
 import dotenv from 'dotenv';
-import nodemailer from 'nodemailer';
 import { createClient } from '@supabase/supabase-js';
-import { GoogleGenAI } from '@google/genai';
 
 dotenv.config();
+
+let cachedGoogleGenAICtor: typeof import('@google/genai').GoogleGenAI | null = null;
+async function getGoogleGenAICtor() {
+  if (!cachedGoogleGenAICtor) {
+    const mod = await import('@google/genai');
+    cachedGoogleGenAICtor = mod.GoogleGenAI;
+  }
+  return cachedGoogleGenAICtor;
+}
+
+let cachedNodemailer: typeof import('nodemailer') | null = null;
+async function getNodemailer(): Promise<typeof import('nodemailer')> {
+  if (!cachedNodemailer) {
+    const mod = await import('nodemailer');
+    cachedNodemailer = ((mod as any).default || mod) as typeof import('nodemailer');
+  }
+  return cachedNodemailer;
+}
 
 // Rate limiter backend storage
 interface RateLimitRecord {
@@ -24,7 +40,7 @@ setInterval(() => {
       rateLimitStore.delete(key);
     }
   }
-}, 5 * 60 * 1000);
+}, 5 * 60 * 1000).unref();
 
 interface RateLimitRule {
   windowMs: number;
@@ -116,6 +132,12 @@ const geminiLimiter = limitRate('gemini', {
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 20,
   message: 'Too many AI analysis requests. Please try again later.'
+});
+
+const ttsLimiter = limitRate('gemini_tts', {
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 60,
+  message: 'Too many Pitch Studio voice requests. Please wait a moment and try again.'
 });
 
 const fileAndGifLimiter = limitRate('gifs', {
@@ -1672,6 +1694,7 @@ async function startServer() {
         return res.status(500).json({ error: 'SMTP configuration missing' });
       }
 
+      const nodemailer = await getNodemailer();
       const transporter = nodemailer.createTransport({
         host: smtpHost,
         port: smtpPort,
@@ -1772,6 +1795,7 @@ async function startServer() {
       if (!apiKey) {
         return res.status(503).json({ error: 'AI service is not configured on the server.' });
       }
+      const GoogleGenAI = await getGoogleGenAICtor();
       const ai = new GoogleGenAI({
         apiKey,
         apiVersion: 'v1beta',
@@ -1809,6 +1833,7 @@ async function startServer() {
       if (!apiKey) {
         return res.status(503).json({ error: 'AI service is not configured on the server.' });
       }
+      const GoogleGenAI = await getGoogleGenAICtor();
       const ai = new GoogleGenAI({
         apiKey,
         apiVersion: 'v1beta',
@@ -1847,7 +1872,7 @@ async function startServer() {
     }
   });
 
-  app.post('/api/gemini/tts', requireAuth, geminiLimiter, async (req, res) => {
+  app.post('/api/gemini/tts', requireAuth, ttsLimiter, async (req, res) => {
     try {
       const { text, voiceName, tone } = req.body || {};
       if (!text || typeof text !== 'string' || !text.trim()) {
@@ -1860,7 +1885,7 @@ async function startServer() {
 
       const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
       if (!apiKey) {
-        return res.status(503).json({ error: 'AI voice service is not configured on the server.' });
+        return res.status(503).json({ error: 'Pitch Studio voice engine is not configured on the server.' });
       }
 
       const allowedVoices = new Set(['Puck', 'Charon', 'Kore', 'Fenrir', 'Zephyr']);
@@ -1879,6 +1904,7 @@ async function startServer() {
       const selectedStyle =
         typeof tone === 'string' && styleByTone[tone] ? styleByTone[tone] : styleByTone.conversational;
 
+      const GoogleGenAI = await getGoogleGenAICtor();
       const ai = new GoogleGenAI({
         apiKey,
         apiVersion: 'v1beta',
@@ -1980,7 +2006,15 @@ async function startServer() {
       return res.json({ audioBase64: base64Audio, mimeType });
     } catch (error: any) {
       console.error('Gemini TTS error:', error);
-      return res.status(500).json({ error: safeErrorMessage(error, 'Error synthesizing natural voice.') });
+      const errMsg = String(error?.message || '');
+      const status = error?.status || (errMsg.includes('RESOURCE_EXHAUSTED') ? 429 : 500);
+      if (status === 429) {
+        return res.status(429).json({ error: 'Pitch Studio voice quota reached. Please wait a moment and retry.' });
+      }
+      if (status === 403 || errMsg.includes('API_KEY_INVALID')) {
+        return res.status(503).json({ error: 'Pitch Studio voice service is unavailable due to an upstream configuration error.' });
+      }
+      return res.status(500).json({ error: safeErrorMessage(error, 'Pitch Studio voice could not be generated right now.') });
     }
   });
 
@@ -1988,19 +2022,26 @@ async function startServer() {
     res.json({ status: 'ok' });
   });
 
-  // Vite middleware for development (initialize asynchronously so port 3000 binds immediately)
-  let viteInstance: Awaited<ReturnType<typeof createViteServer>> | null = null;
-  if (process.env.NODE_ENV !== 'production') {
-    let viteInitError: unknown = null;
+  // Vite middleware for development (lazy-loaded & initialized after port 3000 binds)
+  let viteInstance: ViteDevServer | null = null;
+  let viteInitError: unknown = null;
+  let viteReadyPromise: Promise<ViteDevServer | null> | null = null;
 
-    const viteReadyPromise = createViteServer({
-      server: {
-        middlewareMode: true,
-        hmr: false,
-        ws: false
-      },
-      appType: 'spa',
-    })
+  const ensureViteStarted = () => {
+    if (viteReadyPromise || process.env.NODE_ENV === 'production') {
+      return viteReadyPromise;
+    }
+    viteReadyPromise = import('vite')
+      .then(({ createServer: createViteServer }) =>
+        createViteServer({
+          server: {
+            middlewareMode: true,
+            hmr: false,
+            ws: false
+          },
+          appType: 'spa',
+        })
+      )
       .then((vite) => {
         viteInstance = vite;
         console.log("Vite development middleware mounted successfully");
@@ -2011,7 +2052,10 @@ async function startServer() {
         console.error("Failed to initialize Vite dev server:", viteError);
         return null;
       });
+    return viteReadyPromise;
+  };
 
+  if (process.env.NODE_ENV !== 'production') {
     app.use(async (req, res, next) => {
       if (req.path.startsWith('/api/')) {
         return next();
@@ -2020,7 +2064,7 @@ async function startServer() {
         return viteInstance.middlewares(req, res, next);
       }
       const vite = await Promise.race([
-        viteReadyPromise,
+        ensureViteStarted() || Promise.resolve(null),
         new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500)),
       ]);
       if (vite) {
@@ -2052,9 +2096,14 @@ async function startServer() {
     });
   }
 
-  // Bind and listen on port 3000 immediately
+  // Bind and listen on port 3000 immediately, then warm up Vite in background
   const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${PORT}`);
+    if (process.env.NODE_ENV !== 'production') {
+      setImmediate(() => {
+        ensureViteStarted();
+      });
+    }
   });
   server.on('error', (err) => {
     console.error("FATAL: HTTP server failed to bind port:", err);

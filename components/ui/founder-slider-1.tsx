@@ -63,10 +63,10 @@ export const FounderSlider = ({
     setCurrentIndex(index);
   };
 
-  // Get the next 3 founders for the thumbnails, excluding the current one
+  // Get up to 4 other founders/investors for the thumbnails, excluding the current one
   const thumbnailFounders = founders
     .filter((_, i) => i !== currentIndex)
-    .slice(0, 3);
+    .slice(0, 4);
 
   // Animation variants for the main image
   const imageVariants = {
@@ -117,7 +117,7 @@ export const FounderSlider = ({
           </div>
 
           {/* Thumbnail Navigation */}
-          <div className="flex space-x-3 mt-8 md:mt-0">
+          <div className="grid grid-cols-4 md:grid-cols-2 gap-2.5 mt-8 md:mt-0">
             {thumbnailFounders.map((founder) => {
               // Find the original index to navigate to
               const originalIndex = founders.findIndex(
@@ -127,13 +127,14 @@ export const FounderSlider = ({
                 <button
                   key={founder.id}
                   onClick={() => handleThumbnailClick(originalIndex)}
-                  className="overflow-hidden rounded-xl w-28 h-32 md:w-36 md:h-44 opacity-80 hover:opacity-100 transition-opacity duration-300 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2 focus:ring-offset-white border border-zinc-200 shadow-md"
+                  className="overflow-hidden rounded-xl w-full h-24 md:h-28 opacity-80 hover:opacity-100 transition-opacity duration-300 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2 focus:ring-offset-white border border-zinc-200 shadow-md cursor-pointer"
                   aria-label={`View comment from ${founder.name}`}
                 >
                   <img
                     src={founder.thumbnailSrc}
                     alt={founder.name}
-                    className="w-full h-full object-cover transition-all"
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover object-top transition-all"
                   />
                 </button>
               );
@@ -148,13 +149,14 @@ export const FounderSlider = ({
               key={currentIndex}
               src={activeFounder.imageSrc}
               alt={activeFounder.name}
+              referrerPolicy="no-referrer"
               custom={direction}
               variants={imageVariants}
               initial="enter"
               animate="center"
               exit="exit"
               transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }} // Cubic bezier for smooth ease
-              className="absolute inset-0 w-full h-full object-cover rounded-2xl transition-all border border-zinc-200 shadow-[0_12px_30px_rgba(0,0,0,0.1)]"
+              className="absolute inset-0 w-full h-full object-cover object-top rounded-2xl transition-all border border-zinc-200 shadow-[0_12px_30px_rgba(0,0,0,0.1)]"
             />
           </AnimatePresence>
         </div>

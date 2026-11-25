@@ -2014,7 +2014,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
               <div className="space-y-3.5 sm:space-y-4">
                 
                 {/* Executive KPI Cards */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
                   
                   {/* Metric 1: Total Users */}
                   <div className="p-3.5 sm:p-4 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
@@ -2044,22 +2044,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                       <span className="font-mono tabular-nums text-zinc-700 dark:text-zinc-300 font-medium">ARR ~${subMetrics.arr.toLocaleString()}</span>
                       <span>·</span>
                       <span className="font-mono tabular-nums text-amber-600 dark:text-amber-400 font-semibold">{proSubscribersCount} Pro</span>
-                    </div>
-                  </div>
-
-                  {/* Metric 3: Deal Engine Velocity */}
-                  <div className="p-3.5 sm:p-4 bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl shadow-xs">
-                    <div className="flex items-center justify-between text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 mb-1.5">
-                      <span className="truncate font-medium">Total Swipes</span>
-                      <VelocityKpiGlyph className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
-                    </div>
-                    <div className="text-lg sm:text-xl font-bold font-mono tabular-nums text-zinc-950 dark:text-white">
-                      {swipesCount}
-                    </div>
-                    <div className="mt-1 text-[10px] sm:text-[11px] text-zinc-500 dark:text-zinc-400 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                      <span className="font-mono tabular-nums text-zinc-700 dark:text-zinc-300 font-medium">{startupsCount} Startups</span>
-                      <span>·</span>
-                      <span className="font-mono tabular-nums">{pitchesCount} Pitches</span>
                     </div>
                   </div>
 

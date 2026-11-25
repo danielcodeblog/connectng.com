@@ -1909,6 +1909,10 @@ async function startServer() {
         apiKey,
         apiVersion: 'v1beta',
         httpOptions: {
+          timeout: 15000,
+          retryOptions: {
+            attempts: 2,
+          },
           headers: {
             'User-Agent': 'aistudio-build',
           },
@@ -1919,7 +1923,17 @@ async function startServer() {
         .replace(/<\s*(breath|laugh|gasp)\s*>/gi, ' ')
         .replace(/\|[^|]{1,16}\|/g, ' ')
         .replace(/\s{2,}/g, ' ')
-        .trim();
+        .trim() || trimmedText;
+
+      const extractAudioFromResponse = (resp: any) => {
+        const audioPart = resp?.candidates?.[0]?.content?.parts?.find(
+          (p: any) => p?.inlineData?.data
+        );
+        return {
+          base64Audio: audioPart?.inlineData?.data as string | undefined,
+          mimeType: (audioPart?.inlineData?.mimeType as string | undefined) || 'audio/wav',
+        };
+      };
 
       const generateTtsWithModel = async (
         modelName: string,
@@ -1935,7 +1949,7 @@ async function startServer() {
             }
           : { text: inputText };
 
-        return ai.models.generateContent({
+        const resp = await ai.models.generateContent({
           model: modelName,
           contents: [
             {
@@ -1952,60 +1966,33 @@ async function startServer() {
             },
           },
         });
+        const extracted = extractAudioFromResponse(resp);
+        if (!extracted.base64Audio) {
+          throw new Error(`Model ${modelName} returned empty audio payload`);
+        }
+        return extracted;
       };
 
-      let response;
+      let result: { base64Audio: string | undefined; mimeType: string };
       try {
-        response = await generateTtsWithModel('gemini-3.8-flash-tts', trimmedText, true);
+        result = await generateTtsWithModel('gemini-3.8-flash-tts', trimmedText, true);
       } catch (primaryErr: any) {
-        const primaryMsg = String(primaryErr?.message || '');
-        if (primaryMsg.includes('speechMetadata')) {
-          try {
-            response = await generateTtsWithModel('gemini-3.8-flash-tts', trimmedText, false);
-          } catch (retryErr: any) {
-            console.warn('Primary TTS model fallback triggered:', retryErr?.message || retryErr);
-            response = await generateTtsWithModel(
-              'gemini-3.8-flash-lite-tts',
-              plainTextForLite || trimmedText,
-              false
-            );
-          }
-        } else {
-          console.warn('Primary TTS model fallback triggered:', primaryMsg || primaryErr);
-          try {
-            response = await generateTtsWithModel(
-              'gemini-3.8-flash-lite-tts',
-              plainTextForLite || trimmedText,
-              true
-            );
-          } catch (liteErr: any) {
-            const msg = String(liteErr?.message || '');
-            if (msg.includes('speechMetadata')) {
-              response = await generateTtsWithModel(
-                'gemini-3.8-flash-lite-tts',
-                plainTextForLite || trimmedText,
-                false
-              );
-            } else {
-              throw liteErr;
-            }
-          }
+        console.warn('Primary TTS (gemini-3.8-flash-tts + speechMetadata) fallback:', primaryErr?.status || '', primaryErr?.message || primaryErr);
+        try {
+          result = await generateTtsWithModel('gemini-3.8-flash-tts', plainTextForLite, false);
+        } catch (secondaryErr: any) {
+          console.warn('Secondary TTS (gemini-3.8-flash-tts plain) fallback to lite:', secondaryErr?.status || '', secondaryErr?.message || secondaryErr);
+          result = await generateTtsWithModel('gemini-3.8-flash-lite-tts', plainTextForLite, false);
         }
       }
 
-      const audioPart = response.candidates?.[0]?.content?.parts?.find(
-        (p: any) => p?.inlineData?.data
-      );
-      const base64Audio = audioPart?.inlineData?.data;
-      const mimeType = audioPart?.inlineData?.mimeType || 'audio/wav';
-
-      if (!base64Audio) {
-        return res.status(502).json({ error: 'Voice synthesis returned empty audio.' });
+      if (!result.base64Audio) {
+        return res.status(502).json({ error: 'Pitch Studio voice returned empty audio.' });
       }
 
-      return res.json({ audioBase64: base64Audio, mimeType });
+      return res.json({ audioBase64: result.base64Audio, mimeType: result.mimeType });
     } catch (error: any) {
-      console.error('Gemini TTS error:', error);
+      console.error('Gemini TTS error:', error?.status || '', error?.message || error);
       const errMsg = String(error?.message || '');
       const status = error?.status || (errMsg.includes('RESOURCE_EXHAUSTED') ? 429 : 500);
       if (status === 429) {

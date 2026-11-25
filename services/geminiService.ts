@@ -82,7 +82,7 @@ export const synthesizePitchSpeech = async (
   tone: PitchVoiceTone = 'conversational'
 ): Promise<{ audioBase64: string; mimeType: string }> => {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  const timeoutId = setTimeout(() => controller.abort(), 45000);
 
   const requestSpeech = async (forceRefresh = false) => {
     const headers = await getAuthHeaders(forceRefresh);
@@ -123,6 +123,18 @@ export const synthesizePitchSpeech = async (
       audioBase64: data.audioBase64,
       mimeType: data.mimeType || 'audio/wav',
     };
+  } catch (err: any) {
+    if (err?.name === 'AbortError') {
+      const timeoutErr: any = new Error('Pitch Studio voice took too long to respond. Please try again.');
+      timeoutErr.status = 504;
+      throw timeoutErr;
+    }
+    if (err?.name === 'TypeError') {
+      const netErr: any = new Error('Unable to reach Pitch Studio voice server. Please check your connection.');
+      netErr.status = 503;
+      throw netErr;
+    }
+    throw err;
   } finally {
     clearTimeout(timeoutId);
   }

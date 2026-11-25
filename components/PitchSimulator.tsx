@@ -592,8 +592,10 @@ export const PitchSimulator: React.FC = () => {
     const humanFormattedTtsText = taggedSegments
       .map((s) => {
         const normalized = s.text
+          .replace(/[<>|]/g, ' ')
           .replace(/\s+\/\s+/g, ', ')
           .replace(/\s+-\s+/g, ', ')
+          .replace(/\s{2,}/g, ' ')
           .trim();
         return /[.!?。！？]$/.test(normalized) ? normalized : `${normalized}.`;
       })
@@ -791,7 +793,12 @@ export const PitchSimulator: React.FC = () => {
       );
       if (!isVoicingRef.current || voiceRequestIdRef.current !== reqId) return;
 
-      const binaryString = atob(audioBase64);
+      const normalizedB64 = audioBase64
+        .replace(/\s+/g, '')
+        .replace(/-/g, '+')
+        .replace(/_/g, '/');
+      const paddedB64 = normalizedB64.padEnd(normalizedB64.length + ((4 - (normalizedB64.length % 4)) % 4), '=');
+      const binaryString = atob(paddedB64);
       const rawBytes = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {
         rawBytes[i] = binaryString.charCodeAt(i);

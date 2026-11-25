@@ -588,7 +588,7 @@ export const PitchSimulator: React.FC = () => {
       .map((s) => (/[.!?。！？]$/.test(s.text) ? s.text : `${s.text}.`))
       .join('  ');
 
-    // Add organic breath transitions between Hook, Solution, and Ask for Pitch Studio Voice Engine
+    // Format clean conversational sentences with natural pauses between Hook, Solution, and Ask
     const humanFormattedTtsText = taggedSegments
       .map((s) => {
         const normalized = s.text
@@ -599,7 +599,7 @@ export const PitchSimulator: React.FC = () => {
           .trim();
         return /[.!?。！？]$/.test(normalized) ? normalized : `${normalized}.`;
       })
-      .join(' <breath> ');
+      .join('  ');
 
     const personaMeta = VOICE_PERSONAS.find((v) => v.id === selectedPersona) || VOICE_PERSONAS[0];
     const cacheKey = `${selectedLangCode}:${selectedPersona}:${cleanText}`;

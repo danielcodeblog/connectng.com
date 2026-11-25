@@ -97,20 +97,19 @@ export const synthesizePitchSpeech = async (
   try {
     let response = await requestSpeech(false);
     if (response.status === 401) {
-      const refreshedHeaders = await getAuthHeaders(true);
-      if (refreshedHeaders['Authorization']) {
-        response = await fetch('/api/gemini/tts', {
-          method: 'POST',
-          headers: refreshedHeaders,
-          body: JSON.stringify({ text, voiceName, tone }),
-          signal: controller.signal,
-        });
-      }
+      response = await requestSpeech(true);
+    } else if ([405, 502, 503, 504].includes(response.status)) {
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+      response = await requestSpeech(false);
     }
 
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
-      const err: any = new Error(errData.error || `Pitch Studio voice failed (${response.status})`);
+      const fallbackMsg =
+        response.status === 405
+          ? 'Pitch Studio voice endpoint was temporarily unreachable. Please try again.'
+          : `Pitch Studio voice failed (${response.status})`;
+      const err: any = new Error(errData.error || fallbackMsg);
       err.status = response.status;
       throw err;
     }

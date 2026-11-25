@@ -1793,7 +1793,7 @@ async function startServer() {
       }
       const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
       if (!apiKey) {
-        return res.status(503).json({ error: 'AI service is not configured on the server.' });
+        return res.status(500).json({ error: 'AI service is not configured on the server.' });
       }
       const GoogleGenAI = await getGoogleGenAICtor();
       const ai = new GoogleGenAI({
@@ -1831,7 +1831,7 @@ async function startServer() {
       }
       const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
       if (!apiKey) {
-        return res.status(503).json({ error: 'AI service is not configured on the server.' });
+        return res.status(500).json({ error: 'AI service is not configured on the server.' });
       }
       const GoogleGenAI = await getGoogleGenAICtor();
       const ai = new GoogleGenAI({
@@ -1885,7 +1885,7 @@ async function startServer() {
 
       const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
       if (!apiKey) {
-        return res.status(503).json({ error: 'Pitch Studio voice engine is not configured on the server.' });
+        return res.status(500).json({ error: 'Pitch Studio voice engine is not configured on the server.', code: 'TTS_UNAVAILABLE' });
       }
 
       const allowedVoices = new Set(['Puck', 'Charon', 'Kore', 'Fenrir', 'Zephyr']);
@@ -1909,17 +1909,14 @@ async function startServer() {
         apiKey,
         apiVersion: 'v1beta',
         httpOptions: {
-          timeout: 15000,
-          retryOptions: {
-            attempts: 2,
-          },
+          timeout: 20000,
           headers: {
             'User-Agent': 'aistudio-build',
           },
         },
       });
 
-      const plainTextForLite = trimmedText
+      const cleanSpeechText = trimmedText
         .replace(/<\s*(breath|laugh|gasp)\s*>/gi, ' ')
         .replace(/\|[^|]{1,16}\|/g, ' ')
         .replace(/\s{2,}/g, ' ')
@@ -1975,19 +1972,19 @@ async function startServer() {
 
       let result: { base64Audio: string | undefined; mimeType: string };
       try {
-        result = await generateTtsWithModel('gemini-3.8-flash-tts', trimmedText, true);
+        result = await generateTtsWithModel('gemini-3.8-flash-lite-tts', cleanSpeechText, true);
       } catch (primaryErr: any) {
-        console.warn('Primary TTS (gemini-3.8-flash-tts + speechMetadata) fallback:', primaryErr?.status || '', primaryErr?.message || primaryErr);
+        console.warn('Primary TTS (gemini-3.8-flash-lite-tts + speechMetadata) fallback:', primaryErr?.status || '', primaryErr?.message || primaryErr);
         try {
-          result = await generateTtsWithModel('gemini-3.8-flash-tts', plainTextForLite, false);
+          result = await generateTtsWithModel('gemini-3.8-flash-lite-tts', cleanSpeechText, false);
         } catch (secondaryErr: any) {
-          console.warn('Secondary TTS (gemini-3.8-flash-tts plain) fallback to lite:', secondaryErr?.status || '', secondaryErr?.message || secondaryErr);
-          result = await generateTtsWithModel('gemini-3.8-flash-lite-tts', plainTextForLite, false);
+          console.warn('Secondary TTS (gemini-3.8-flash-lite-tts plain) fallback to flash-tts:', secondaryErr?.status || '', secondaryErr?.message || secondaryErr);
+          result = await generateTtsWithModel('gemini-3.8-flash-tts', trimmedText, true);
         }
       }
 
       if (!result.base64Audio) {
-        return res.status(502).json({ error: 'Pitch Studio voice returned empty audio.' });
+        return res.status(500).json({ error: 'Pitch Studio voice returned empty audio.', code: 'TTS_EMPTY' });
       }
 
       return res.json({ audioBase64: result.base64Audio, mimeType: result.mimeType });
@@ -1999,7 +1996,7 @@ async function startServer() {
         return res.status(429).json({ error: 'Pitch Studio voice quota reached. Please wait a moment and retry.' });
       }
       if (status === 403 || errMsg.includes('API_KEY_INVALID')) {
-        return res.status(503).json({ error: 'Pitch Studio voice service is unavailable due to an upstream configuration error.' });
+        return res.status(500).json({ error: 'Pitch Studio voice service is unavailable due to an upstream configuration error.', code: 'TTS_UNAVAILABLE' });
       }
       return res.status(500).json({ error: safeErrorMessage(error, 'Pitch Studio voice could not be generated right now.') });
     }
@@ -2045,7 +2042,7 @@ async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
     app.use(async (req, res, next) => {
       if (req.path.startsWith('/api/')) {
-        return next();
+        return res.status(404).json({ error: 'Endpoint not found' });
       }
       if (viteInstance) {
         return viteInstance.middlewares(req, res, next);
@@ -2101,10 +2098,13 @@ async function startServer() {
     server.close(() => {
       process.exit(0);
     });
+    if (typeof (server as any).closeAllConnections === 'function') {
+      (server as any).closeAllConnections();
+    }
     if (viteInstance) {
       viteInstance.close().catch(() => {});
     }
-    setTimeout(() => process.exit(0), 1000).unref();
+    setTimeout(() => process.exit(0), 500).unref();
   };
   process.once('SIGTERM', shutdown);
   process.once('SIGINT', shutdown);

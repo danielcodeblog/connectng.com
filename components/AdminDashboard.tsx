@@ -1581,7 +1581,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
           
           <div className="flex flex-col">
             {/* Workspace Header */}
-            <div className="px-4 py-3.5 border-b border-zinc-200 dark:border-zinc-800">
+            <div className="px-4 py-3.5">
               <div className="flex flex-col">
                 <div className="flex items-center gap-2 select-none">
                   <ConnectUpIcon className="w-5 h-5" />
@@ -1670,7 +1670,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
           </div>
 
           {/* Sidebar Footer with Admin Profile & Return to App */}
-          <div className="p-2.5 border-t border-zinc-150 dark:border-zinc-800/60 space-y-1.5">
+          <div className="p-2.5 space-y-1.5">
             <div className="flex items-center justify-between p-1.5 rounded-lg bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/60 dark:border-zinc-800/50">
               <div className="flex items-center gap-2 min-w-0">
                 <img 

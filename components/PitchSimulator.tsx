@@ -24,6 +24,9 @@ export interface PitchScript {
   hook: string;
   solution: string;
   ask: string;
+  hookDuration?: number;
+  solutionDuration?: number;
+  askDuration?: number;
 }
 
 export interface LanguageConfig {
@@ -375,7 +378,7 @@ export const PitchSimulator: React.FC = () => {
 
   const getSavedScriptForLang = (langCode: string): PitchScript | null => {
     try {
-      const saved = localStorage.getItem(`connectup_pitch_script_v6_${langCode}`);
+      const saved = localStorage.getItem(`connectup_pitch_script_v7_${langCode}`) || localStorage.getItem(`connectup_pitch_script_v6_${langCode}`);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed.hook === 'string' && typeof parsed.solution === 'string' && typeof parsed.ask === 'string') {
@@ -395,12 +398,20 @@ export const PitchSimulator: React.FC = () => {
   const [hookText, setHookText] = useState(pitchScript.hook);
   const [solutionText, setSolutionText] = useState(pitchScript.solution);
   const [askText, setAskText] = useState(pitchScript.ask);
+  const [hookDuration, setHookDuration] = useState<number>(pitchScript.hookDuration ?? 5);
+  const [solutionDuration, setSolutionDuration] = useState<number>(pitchScript.solutionDuration ?? 15);
+  const [askDuration, setAskDuration] = useState<number>(pitchScript.askDuration ?? 10);
+
+  const totalDuration = hookDuration + solutionDuration + askDuration;
 
   useEffect(() => {
     if (!isEditing && !isPlaying && !isVoicing) {
       setHookText(pitchScript.hook);
       setSolutionText(pitchScript.solution);
       setAskText(pitchScript.ask);
+      setHookDuration(pitchScript.hookDuration ?? 5);
+      setSolutionDuration(pitchScript.solutionDuration ?? 15);
+      setAskDuration(pitchScript.askDuration ?? 10);
     }
   }, [isEditing, isPlaying, isVoicing, pitchScript]);
 
@@ -471,20 +482,20 @@ export const PitchSimulator: React.FC = () => {
       lastTimestamp = now;
       setCurrentTime((prev) => {
         const next = prev + deltaSec * playbackSpeedRef.current;
-        return next >= 30 ? 30 : next;
+        return next >= totalDuration ? totalDuration : next;
       });
       rafId = requestAnimationFrame(tick);
     };
 
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
-  }, [isPlaying]);
+  }, [isPlaying, totalDuration]);
 
   useEffect(() => {
-    if (isPlaying && currentTime >= 30) {
+    if (isPlaying && currentTime >= totalDuration) {
       handleCompleteSession();
     }
-  }, [isPlaying, currentTime]);
+  }, [isPlaying, currentTime, totalDuration]);
 
   const handleCompleteSession = () => {
     setIsPlaying(false);
@@ -831,8 +842,8 @@ export const PitchSimulator: React.FC = () => {
   };
 
   const getActiveSection = () => {
-    if (currentTime < 5) return 'hook';
-    if (currentTime < 20) return 'solution';
+    if (currentTime < hookDuration) return 'hook';
+    if (currentTime < hookDuration + solutionDuration) return 'solution';
     return 'ask';
   };
 
@@ -845,10 +856,13 @@ export const PitchSimulator: React.FC = () => {
         hook: hookText,
         solution: solutionText,
         ask: askText,
+        hookDuration,
+        solutionDuration,
+        askDuration,
       };
       setPitchScript(updatedScript);
       try {
-        localStorage.setItem(`connectup_pitch_script_v6_${selectedLangCode}`, JSON.stringify(updatedScript));
+        localStorage.setItem(`connectup_pitch_script_v7_${selectedLangCode}`, JSON.stringify(updatedScript));
       } catch (e) {
         console.error("Failed to save to localStorage", e);
       }
@@ -866,21 +880,25 @@ export const PitchSimulator: React.FC = () => {
     setHookText(defaultLang.script.hook);
     setSolutionText(defaultLang.script.solution);
     setAskText(defaultLang.script.ask);
+    setHookDuration(5);
+    setSolutionDuration(15);
+    setAskDuration(10);
     try {
+      localStorage.removeItem('connectup_pitch_script_v7_en');
       localStorage.removeItem('connectup_pitch_script_v6_en');
       localStorage.removeItem('connectup_pitch_script_v5');
     } catch {}
   };
 
   const currentSection = activeVoiceSection ?? getActiveSection();
-  const progressPercent = Math.min((currentTime / 30) * 100, 100);
+  const progressPercent = Math.min((currentTime / Math.max(1, totalDuration)) * 100, 100);
 
   const totalWords = useMemo(() => {
     const full = `${hookText} ${solutionText} ${askText}`;
     return full.trim().split(/\s+/).filter(Boolean).length;
   }, [hookText, solutionText, askText]);
 
-  const recommendedWpm = Math.round((totalWords / 30) * 60);
+  const recommendedWpm = Math.round((totalWords / Math.max(1, totalDuration)) * 60);
 
   return (
     <div className="bg-white dark:bg-zinc-900 rounded-3xl p-4 sm:p-6 shadow-xs border border-zinc-200/70 dark:border-zinc-800 flex flex-col h-full transition-colors duration-200">
@@ -893,97 +911,17 @@ export const PitchSimulator: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-base sm:text-lg font-bold text-zinc-950 dark:text-white leading-tight">
-                Pitch Studio
+                Teleprompter
               </h3>
             </div>
             <p className="text-[11px] text-zinc-400 mt-0.5">
-              Translate your pitch and rehearse aloud with Pitch Studio&apos;s built-in voice engine
+              Rehearse your pitch with live pacing and customizable phase timing
             </p>
           </div>
         </div>
 
         {/* Top Header Actions */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Language / Translation Selector */}
-          <select
-            value={selectedLangCode}
-            onChange={(e) => handleLanguageChange(e.target.value)}
-            className="h-8 px-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-semibold text-zinc-800 dark:text-zinc-200 focus:outline-none focus:border-amber-400 cursor-pointer"
-            title="Convert and voice in target language"
-          >
-            {LANGUAGES.map(lang => (
-              <option key={lang.code} value={lang.code}>
-                {lang.flag} {lang.nativeName} ({lang.name})
-              </option>
-            ))}
-          </select>
-
-          {/* Voice Persona Selector */}
-          <select
-            value={selectedPersona}
-            onChange={(e) => {
-              stopVoicing();
-              setVoiceNotice(null);
-              setBlockedAudioUrl(null);
-              setSelectedPersona(e.target.value as PitchVoiceName);
-            }}
-            disabled={isLoadingVoice}
-            className="h-8 px-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-semibold text-zinc-800 dark:text-zinc-200 focus:outline-none focus:border-amber-400 cursor-pointer disabled:opacity-50"
-            title="Select natural speaker voice style"
-          >
-            {VOICE_PERSONAS.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.label}
-              </option>
-            ))}
-          </select>
-
-          {/* Playback Speed Toggle (defaults to 1x) */}
-          <button
-            type="button"
-            onClick={() => {
-              const idx = SPEED_OPTIONS.indexOf(playbackSpeed as any);
-              const nextSpeed = SPEED_OPTIONS[(idx + 1) % SPEED_OPTIONS.length];
-              setPlaybackSpeed(nextSpeed);
-            }}
-            disabled={isLoadingVoice}
-            className="h-8 px-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-xl text-xs font-mono font-bold text-zinc-800 dark:text-zinc-200 transition-all cursor-pointer disabled:opacity-50 shadow-2xs"
-            title="Playback & voice speed (1x normal)"
-          >
-            {playbackSpeed}x
-          </button>
-
-          {/* Voice Read-Aloud Button */}
-          <button
-            type="button"
-            onClick={speakPitch}
-            disabled={isEditing}
-            className={cn(
-              "px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 border disabled:opacity-40 shadow-2xs active:scale-95",
-              isVoicing
-                ? "bg-amber-400 text-zinc-950 border-amber-400 animate-pulse font-extrabold"
-                : "bg-zinc-50 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/60 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-700"
-            )}
-            title={isVoicing ? "Stop voice narration" : "Listen to pitch voiced aloud"}
-          >
-            {isLoadingVoice ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 text-amber-500 animate-spin" />
-                <span>Preparing...</span>
-              </>
-            ) : isVoicing ? (
-              <>
-                <VolumeX className="w-3.5 h-3.5" />
-                <span>Stop Voice</span>
-              </>
-            ) : (
-              <>
-                <Volume2 className="w-3.5 h-3.5 text-amber-500" />
-                <span>Voice Pitch</span>
-              </>
-            )}
-          </button>
-
           {isEditing && (
             <button
               type="button"
@@ -1023,7 +961,7 @@ export const PitchSimulator: React.FC = () => {
             )}>
               {currentTime.toFixed(1)}s
             </span>
-            <span className="text-xs font-mono text-zinc-400">/ 30.0s</span>
+            <span className="text-xs font-mono text-zinc-400">/ {totalDuration.toFixed(1)}s</span>
 
             {/* Active Soundwave Visualizer */}
             {isVoicing && (
@@ -1047,8 +985,8 @@ export const PitchSimulator: React.FC = () => {
             className="h-full bg-amber-400 rounded-full shadow-[0_0_8px_rgba(251,191,36,0.5)] will-change-[width]"
             style={{ width: `${progressPercent}%` }}
           />
-          <div className="absolute top-0 bottom-0 left-[16.6%] w-0.5 bg-zinc-300 dark:bg-zinc-700" />
-          <div className="absolute top-0 bottom-0 left-[66.6%] w-0.5 bg-zinc-300 dark:bg-zinc-700" />
+          <div className="absolute top-0 bottom-0" style={{ left: `${(hookDuration / Math.max(1, totalDuration)) * 100}%`, width: '2px', backgroundColor: 'rgba(150,150,150,0.4)' }} />
+          <div className="absolute top-0 bottom-0" style={{ left: `${((hookDuration + solutionDuration) / Math.max(1, totalDuration)) * 100}%`, width: '2px', backgroundColor: 'rgba(150,150,150,0.4)' }} />
         </div>
 
         <AnimatePresence>
@@ -1122,9 +1060,22 @@ export const PitchSimulator: React.FC = () => {
               className="w-full space-y-3 relative z-10 overflow-y-auto max-h-[240px] pr-1"
             >
               <div>
-                <span className="text-[10px] uppercase font-bold text-amber-500 block mb-1">
-                  Phase 1: Hook (0-5s)
-                </span>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] uppercase font-bold text-amber-500">
+                    Phase 1: Hook
+                  </span>
+                  <div className="flex items-center gap-1.5 text-[10px] text-zinc-400 font-mono">
+                    <span>Duration (s):</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={120}
+                      value={hookDuration}
+                      onChange={(e) => setHookDuration(Math.max(1, Number(e.target.value) || 5))}
+                      className="w-14 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-1.5 py-0.5 text-xs text-zinc-950 dark:text-white text-center font-mono outline-none focus:border-amber-400"
+                    />
+                  </div>
+                </div>
                 <textarea
                   value={hookText}
                   onChange={(e) => setHookText(e.target.value)}
@@ -1133,9 +1084,22 @@ export const PitchSimulator: React.FC = () => {
                 />
               </div>
               <div>
-                <span className="text-[10px] uppercase font-bold text-amber-500 block mb-1">
-                  Phase 2: Solution (5-20s)
-                </span>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] uppercase font-bold text-amber-500">
+                    Phase 2: Solution
+                  </span>
+                  <div className="flex items-center gap-1.5 text-[10px] text-zinc-400 font-mono">
+                    <span>Duration (s):</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={120}
+                      value={solutionDuration}
+                      onChange={(e) => setSolutionDuration(Math.max(1, Number(e.target.value) || 15))}
+                      className="w-14 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-1.5 py-0.5 text-xs text-zinc-950 dark:text-white text-center font-mono outline-none focus:border-amber-400"
+                    />
+                  </div>
+                </div>
                 <textarea
                   value={solutionText}
                   onChange={(e) => setSolutionText(e.target.value)}
@@ -1144,9 +1108,22 @@ export const PitchSimulator: React.FC = () => {
                 />
               </div>
               <div>
-                <span className="text-[10px] uppercase font-bold text-amber-500 block mb-1">
-                  Phase 3: The Ask (20-30s)
-                </span>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] uppercase font-bold text-amber-500">
+                    Phase 3: The Ask
+                  </span>
+                  <div className="flex items-center gap-1.5 text-[10px] text-zinc-400 font-mono">
+                    <span>Duration (s):</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={120}
+                      value={askDuration}
+                      onChange={(e) => setAskDuration(Math.max(1, Number(e.target.value) || 10))}
+                      className="w-14 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-1.5 py-0.5 text-xs text-zinc-950 dark:text-white text-center font-mono outline-none focus:border-amber-400"
+                    />
+                  </div>
+                </div>
                 <textarea
                   value={askText}
                   onChange={(e) => setAskText(e.target.value)}

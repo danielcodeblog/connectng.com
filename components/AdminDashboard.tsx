@@ -38,6 +38,7 @@ export interface AdminUser {
   location?: string;
   age?: number;
   joinedDate: string;
+  joinedAt?: string;
   lastActive: string;
   assets?: string;
   followingCount?: number;
@@ -58,6 +59,7 @@ export interface AdminSubscription {
   reference?: string;
   status: 'completed' | 'pending' | 'cancelled' | 'refunded';
   createdAt: string;
+  createdAtRaw?: string;
 }
 
 export interface AdminReport {
@@ -305,6 +307,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
 
   // Chart configuration
   const [chartType, setChartType] = useState<'area' | 'bar'>('area');
+  const [chartRange, setChartRange] = useState<'months' | 'days'>('months');
+  const [selectedChartYear, setSelectedChartYear] = useState<number | 'all'>('all');
   const [visibleSeries, setVisibleSeries] = useState<{ activity: boolean; growth: boolean }>({
     activity: true,
     growth: true,
@@ -552,6 +556,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
           location: u.location || 'Remote',
           age: u.age !== undefined && u.age !== null && u.age !== '' ? Number(u.age) : undefined,
           joinedDate: (u.created_at || u.updated_at) ? new Date(u.created_at || u.updated_at).toLocaleDateString() : 'Recently',
+          joinedAt: u.created_at || u.updated_at || undefined,
           lastActive: u.last_seen ? new Date(u.last_seen).toLocaleDateString() : 'Just now'
         }));
         setUsers(mappedUsers);
@@ -599,6 +604,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
               billingCycle: u.billing_cycle || null,
               status: 'active',
               joinedDate: u.created_at ? new Date(u.created_at).toLocaleDateString() : 'Recently',
+              joinedAt: u.created_at || undefined,
               lastActive: u.last_seen ? new Date(u.last_seen).toLocaleDateString() : 'Just now'
             }));
           }
@@ -654,7 +660,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
             currency: 'USD',
             provider: s.provider || 'Paystack',
             status: (s.status || 'completed') as any,
-            createdAt: formattedDate
+            createdAt: formattedDate,
+            createdAtRaw: s.created_at || undefined
           };
         });
       }
@@ -1165,28 +1172,88 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
     };
   }, [subscriptions, proSubscribersCount]);
 
+  const parseRecordDate = (raw?: string, fallback?: string): Date | null => {
+    for (const candidate of [raw, fallback]) {
+      if (!candidate || candidate === 'Recently' || candidate === 'Just now') continue;
+      const parsed = new Date(candidate);
+      if (!Number.isNaN(parsed.getTime())) return parsed;
+    }
+    return null;
+  };
+
+  const availableChartYears = useMemo(() => {
+    const years = new Set<number>();
+    users.forEach((u) => {
+      const d = parseRecordDate(u.joinedAt, u.joinedDate);
+      if (d) years.add(d.getFullYear());
+    });
+    subscriptions.forEach((s) => {
+      const d = parseRecordDate(s.createdAtRaw, s.createdAt);
+      if (d) years.add(d.getFullYear());
+    });
+    return Array.from(years).sort((a, b) => b - a);
+  }, [users, subscriptions]);
+
   const activityStats = useMemo(() => {
-    const series: Record<string, { date: string, growth: number, volume: number, activity: number }> = {};
-    
-    users.forEach(u => {
-      if (u.joinedDate) {
-        const dateStr = u.joinedDate.includes('/') ? u.joinedDate : new Date(u.joinedDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-        if (!series[dateStr]) series[dateStr] = { date: dateStr, growth: 0, volume: 0, activity: 0 };
-        series[dateStr].growth += 1;
-        series[dateStr].activity += 2;
+    if (chartRange === 'months') {
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const monthly = monthNames.map((label) => ({
+        date: label,
+        growth: 0,
+        volume: 0,
+        activity: 0,
+      }));
+
+      users.forEach((u) => {
+        const d = parseRecordDate(u.joinedAt, u.joinedDate);
+        if (!d) return;
+        if (selectedChartYear !== 'all' && d.getFullYear() !== selectedChartYear) return;
+        const m = d.getMonth();
+        monthly[m].growth += 1;
+        monthly[m].activity += 2;
+      });
+
+      subscriptions.forEach((s) => {
+        const d = parseRecordDate(s.createdAtRaw, s.createdAt);
+        if (!d) return;
+        if (selectedChartYear !== 'all' && d.getFullYear() !== selectedChartYear) return;
+        const m = d.getMonth();
+        monthly[m].volume += s.amount;
+        monthly[m].activity += 3;
+      });
+
+      return monthly;
+    }
+
+    const series: Record<string, { date: string; ts: number; growth: number; volume: number; activity: number }> = {};
+
+    users.forEach((u) => {
+      const d = parseRecordDate(u.joinedAt, u.joinedDate);
+      const dateStr = d
+        ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+        : u.joinedDate;
+      if (!dateStr || dateStr === 'Recently') return;
+      if (!series[dateStr]) {
+        series[dateStr] = { date: dateStr, ts: d ? d.getTime() : 0, growth: 0, volume: 0, activity: 0 };
       }
+      series[dateStr].growth += 1;
+      series[dateStr].activity += 2;
     });
 
-    subscriptions.forEach(s => {
-      if (s.createdAt) {
-        const dateStr = s.createdAt.includes('/') ? s.createdAt : new Date(s.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-        if (!series[dateStr]) series[dateStr] = { date: dateStr, growth: 0, volume: 0, activity: 0 };
-        series[dateStr].volume += s.amount;
-        series[dateStr].activity += 3;
+    subscriptions.forEach((s) => {
+      const d = parseRecordDate(s.createdAtRaw, s.createdAt);
+      const dateStr = d
+        ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+        : s.createdAt;
+      if (!dateStr || dateStr === 'Recently') return;
+      if (!series[dateStr]) {
+        series[dateStr] = { date: dateStr, ts: d ? d.getTime() : 0, growth: 0, volume: 0, activity: 0 };
       }
+      series[dateStr].volume += s.amount;
+      series[dateStr].activity += 3;
     });
 
-    const values = Object.values(series);
+    const values = Object.values(series).sort((a, b) => a.ts - b.ts);
     if (values.length === 0) {
       const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       const last7Days = [];
@@ -1199,13 +1266,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
           date: dayName,
           growth: isToday ? users.length : 0,
           volume: isToday ? subMetrics.totalRevenue : 0,
-          activity: isToday ? (users.length + subscriptions.length) : 0
+          activity: isToday ? (users.length + subscriptions.length) : 0,
         });
       }
       return last7Days;
     }
-    return values.slice(-10);
-  }, [users, subscriptions, subMetrics]);
+    return values.slice(-14).map(({ date, growth, volume, activity }) => ({ date, growth, volume, activity }));
+  }, [users, subscriptions, subMetrics, chartRange, selectedChartYear]);
 
   const activitySummary = useMemo(() => {
     const totalActions = activityStats.reduce((sum, d) => sum + d.activity, 0);
@@ -2077,36 +2144,79 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                             Platform Activity
                           </h2>
                           <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
-                            Actions &amp; member velocity across recent periods
+                            {chartRange === 'months'
+                              ? 'Actions & member velocity across all 12 months'
+                              : 'Actions & member velocity across recent days'}
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1 bg-zinc-100/90 dark:bg-zinc-900 p-1 rounded-xl border border-zinc-200/70 dark:border-zinc-800">
-                        <button
-                          type="button"
-                          onClick={() => setChartType('area')}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all cursor-pointer ${
-                            chartType === 'area'
-                              ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs font-semibold'
-                              : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white'
-                          }`}
-                        >
-                          <AreaChartModeGlyph active={chartType === 'area'} />
-                          <span>Area</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setChartType('bar')}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all cursor-pointer ${
-                            chartType === 'bar'
-                              ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs font-semibold'
-                              : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white'
-                          }`}
-                        >
-                          <BarChartModeGlyph active={chartType === 'bar'} />
-                          <span>Bar</span>
-                        </button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {chartRange === 'months' && availableChartYears.length > 1 && (
+                          <select
+                            value={selectedChartYear}
+                            onChange={(e) => setSelectedChartYear(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                            className="h-8 px-2.5 text-xs font-medium bg-zinc-100/90 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 border border-zinc-200/70 dark:border-zinc-800 rounded-xl focus:outline-none cursor-pointer"
+                            aria-label="Filter months by year"
+                          >
+                            <option value="all">All Years</option>
+                            {availableChartYears.map((yr) => (
+                              <option key={yr} value={yr}>{yr}</option>
+                            ))}
+                          </select>
+                        )}
+
+                        <div className="flex items-center gap-1 bg-zinc-100/90 dark:bg-zinc-900 p-1 rounded-xl border border-zinc-200/70 dark:border-zinc-800">
+                          <button
+                            type="button"
+                            onClick={() => setChartRange('months')}
+                            className={`px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all cursor-pointer ${
+                              chartRange === 'months'
+                                ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs font-semibold'
+                                : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white'
+                            }`}
+                          >
+                            All Months
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setChartRange('days')}
+                            className={`px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all cursor-pointer ${
+                              chartRange === 'days'
+                                ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs font-semibold'
+                                : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white'
+                            }`}
+                          >
+                            Daily
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-1 bg-zinc-100/90 dark:bg-zinc-900 p-1 rounded-xl border border-zinc-200/70 dark:border-zinc-800">
+                          <button
+                            type="button"
+                            onClick={() => setChartType('area')}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all cursor-pointer ${
+                              chartType === 'area'
+                                ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs font-semibold'
+                                : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white'
+                            }`}
+                          >
+                            <AreaChartModeGlyph active={chartType === 'area'} />
+                            <span>Area</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setChartType('bar')}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all cursor-pointer ${
+                              chartType === 'bar'
+                                ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs font-semibold'
+                                : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white'
+                            }`}
+                          >
+                            <BarChartModeGlyph active={chartType === 'bar'} />
+                            <span>Bar</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
 
@@ -2134,7 +2244,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                             {activitySummary.totalNewUsers}
                           </span>
                           <span className="text-[10px] font-mono tabular-nums text-emerald-600 dark:text-emerald-400 hidden sm:inline">
-                            {activityStats.length} periods
+                            {chartRange === 'months' ? '12 months' : `${activityStats.length} days`}
                           </span>
                         </div>
                       </div>
@@ -2176,6 +2286,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                               dataKey="date"
                               axisLine={false}
                               tickLine={false}
+                              interval={chartRange === 'months' ? 0 : 'preserveEnd'}
                               tick={{ fontSize: 11, fill: '#71717a' }}
                               dy={8}
                             />
@@ -2266,6 +2377,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ userProfile, onN
                               dataKey="date"
                               axisLine={false}
                               tickLine={false}
+                              interval={chartRange === 'months' ? 0 : 'preserveEnd'}
                               tick={{ fontSize: 11, fill: '#71717a' }}
                               dy={8}
                             />
